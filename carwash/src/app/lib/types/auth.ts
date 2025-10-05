@@ -28,13 +28,24 @@ export type LoginResponse = {
   };
 };
 
-export type Session = {
+export interface Session {
   token: string;
-  user: User;
   expiresAt: number;
-};
+  user: User; // ✅ gunakan tipe User penuh dari backend
+}
 
 export type SessionContext = {
   session: Session | null;
   setSession: (session: Session | null) => void;
+};
+
+export type ApiProduct = {
+  id?: number;
+  product_code: string;
+  product_name: string;
+  product_type_id: number;
+  supplier_id: number;
+  unit_of_measure: string;
+  reorder_level: number;
+  max_stock_level: number;
 };

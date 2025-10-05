@@ -6,18 +6,13 @@ import {
   HeartCrack as ChartBarStacked,
   Tag,
   Tags,
-  Hammer as Hamburger,
-  GlassWater,
-  Car,
-  KeySquare,
-  CarFront,
   CreditCard,
   Loader,
   LoaderCircle,
   Boxes,
 } from 'lucide-react';
 import { productData, type ProductItem, type ProductCategory } from './dummy';
-import { ordersData, type Order, type OrderStatus } from './dummy';
+import { ordersData, type OrderStatus, type Order } from './dummy';
 import {
   Dialog,
   DialogContent,
@@ -31,16 +26,17 @@ import { useNotification } from './notification-context';
 import { usePreferences } from '@/app/providers/preferences-context';
 import { useSession } from '../lib/context/session';
 import { fetchInventoryProducts } from '../lib/utils/inventory-api';
+import Image from 'next/image';
+import { type ApiProduct } from '../lib/types/auth'; // ✅ gunakan tipe dari auth.ts
+
+// ============================ //
+// ===== Helper Type/Utils ===== //
+// ============================ //
 
 type PillButtonProps = {
   icon: ReactNode;
   label: string;
   onClick?: () => void;
-};
-
-type TileButtonProps = {
-  icon: ReactNode;
-  label: string;
 };
 
 type ProductCardProps = {
@@ -52,6 +48,17 @@ type ProductCardProps = {
   description?: string;
   onAdd?: () => void;
 };
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size)
+    result.push(arr.slice(i, i + size));
+  return result;
+}
+
+// ============================ //
+// ===== Component Pills ===== //
+// ============================ //
 
 function PillButton({ icon, label, onClick }: PillButtonProps) {
   const {
@@ -75,7 +82,7 @@ function PillButton({ icon, label, onClick }: PillButtonProps) {
           color.text,
         ].join(' ')}
       >
-        <div className='grid h-10 w-10 place-items-center rounded-md  border-dashed text-current'>
+        <div className='grid h-10 w-10 place-items-center rounded-md border-dashed text-current'>
           {icon}
         </div>
         <span className='text-sm'>{shownLabel}</span>
@@ -85,7 +92,9 @@ function PillButton({ icon, label, onClick }: PillButtonProps) {
           <input
             className='w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1'
             defaultValue={shownLabel}
-            onBlur={(e) => setButtonPref(key, { label: e.currentTarget.value })}
+            onBlur={(ev) =>
+              setButtonPref(key, { label: ev.currentTarget.value })
+            }
           />
           <div className='flex flex-col gap-1'>
             {chunkArray(colorOptions, 5).map((row, idx) => (
@@ -109,6 +118,10 @@ function PillButton({ icon, label, onClick }: PillButtonProps) {
   );
 }
 
+// ============================ //
+// ===== Search Component ===== //
+// ============================ //
+
 function SearchPill({
   query,
   setQuery,
@@ -122,8 +135,8 @@ function SearchPill({
 }) {
   return (
     <form
-      onSubmit={(e) => {
-        e.preventDefault();
+      onSubmit={(ev) => {
+        ev.preventDefault();
         onSubmit();
       }}
       className='flex items-center gap-3 rounded-lg border border-border bg-secondary px-3 py-2'
@@ -134,7 +147,7 @@ function SearchPill({
       <input
         type='text'
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(ev) => setQuery(ev.target.value)}
         placeholder={placeholder}
         className='flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground'
       />
@@ -142,74 +155,9 @@ function SearchPill({
   );
 }
 
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const result = [];
-  for (let i = 0; i < arr.length; i += size) {
-    result.push(arr.slice(i, i + size));
-  }
-  return result;
-}
-
-function TileButton({
-  icon,
-  label,
-  active,
-  highlighted,
-  onClick,
-}: TileButtonProps & {
-  active?: boolean;
-  highlighted?: boolean;
-  onClick?: () => void;
-}) {
-  const {
-    isCustomize,
-    getButtonColorClasses,
-    getButtonLabel,
-    setButtonPref,
-    colorOptions,
-  } = usePreferences();
-  const key = `center:tile:${label.toLowerCase().replace(/\s+/g, '-')}`;
-  const shownLabel = getButtonLabel(key, label);
-  const color = getButtonColorClasses(key);
-  return (
-    <div className='rounded-lg border border-border p-2'>
-      <button
-        type='button'
-        onClick={onClick}
-        className={[
-          'rounded-lg border p-4 text-center transition w-full',
-          color.bg,
-          color.text,
-          active ? 'ring-2' : '',
-          !active && highlighted ? 'ring-1' : '',
-        ].join(' ')}
-      >
-        <div className='mx-auto mb-2 grid h-10 w-10 place-items-center rounded-md border-2 border-dashed text-current'>
-          {icon}
-        </div>
-        <div className='text-xs font-rubik font-medium'>{shownLabel}</div>
-      </button>
-      {isCustomize && (
-        <div className='mt-2 space-y-2'>
-          <input
-            className='w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1'
-            defaultValue={shownLabel}
-            onBlur={(e) => setButtonPref(key, { label: e.currentTarget.value })}
-          />
-          <div className='flex flex-wrap gap-1'>
-            {colorOptions.map((opt) => (
-              <button
-                key={opt.key}
-                onClick={() => setButtonPref(key, { color: opt.key })}
-                className={['h-5 w-5 rounded', opt.classes.bg].join(' ')}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// ============================ //
+// ===== Product Component ==== //
+// ============================ //
 
 function ProductCard({
   id,
@@ -232,16 +180,18 @@ function ProductCard({
         className='w-full'
       >
         <div className='grid place-items-center rounded-lg border border-border bg-secondary'>
-          <img
+          <Image
             src={
               finalImage ||
               '/placeholder.svg?height=140&width=240&query=gambar-produk'
             }
             alt={name}
+            height={140}
+            width={240}
             className='h-[140px] w-full rounded-lg object-cover'
           />
         </div>
-        <div className='mt-3 font-bold  font-rubik text-foreground'>{name}</div>
+        <div className='mt-3 font-bold font-rubik text-foreground'>{name}</div>
         <div className='text-xs text-muted-foreground'>
           {type === 'service' ? 'Service' : 'Product'} • Rp
           {price.toLocaleString('id-ID')}
@@ -251,10 +201,10 @@ function ProductCard({
       {isCustomize && id && (
         <div className='mt-2 flex gap-2'>
           <input
-            className='flex-1 rounded-md border w-4 border-border bg-card text-foreground text-xs px-2 py-1'
+            className='flex-1 rounded-md border border-border bg-card text-foreground text-xs px-2 py-1'
             placeholder='URL gambar produk...'
             defaultValue={finalImage}
-            onBlur={(e) => setProductImage(id, e.currentTarget.value)}
+            onBlur={(ev) => setProductImage(id, ev.currentTarget.value)}
           />
           <button
             type='button'
@@ -275,18 +225,14 @@ function ProductCard({
   );
 }
 
+// ============================ //
+// ====== Main Component ===== //
+// ============================ //
+
 const pillButtonsData: PillButtonProps[] = [
   { icon: <Loader className='w-6 h-6' />, label: 'In Queue' },
   { icon: <LoaderCircle className='w-6 h-6' />, label: 'In Process' },
   { icon: <CreditCard className='w-6 h-6' />, label: 'Waiting Payment' },
-];
-
-const tileButtonData: TileButtonProps[] = [
-  { icon: <Hamburger className='w-6 h-6' />, label: 'Food' },
-  { icon: <GlassWater className='w-6 h-6' />, label: 'Drinks' },
-  { icon: <Car className='w-6 h-6' />, label: 'Car Care' },
-  { icon: <KeySquare className='w-6 h-6' />, label: 'Cleaning' },
-  { icon: <CarFront className='w-6 h-6' />, label: 'Accessories' },
 ];
 
 export default function CenterMock() {
@@ -301,9 +247,7 @@ export default function CenterMock() {
   const [detailMode, setDetailMode] = useState<
     null | 'services' | 'non-services'
   >(null);
-  const [selectedTiles, setSelectedTiles] = useState<Set<ProductCategory>>(
-    new Set()
-  );
+  const [selectedTiles] = useState<Set<ProductCategory>>(new Set());
   const [searchType, setSearchType] = useState<
     'barcode' | 'category' | 'name' | 'itemId'
   >('name');
@@ -311,85 +255,67 @@ export default function CenterMock() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStatus, setModalStatus] = useState<null | OrderStatus>(null);
-  const ordersForStatus = useMemo<Order[]>(() => {
-    return modalStatus
-      ? ordersData.filter((o) => o.status === modalStatus)
-      : [];
-  }, [modalStatus]);
 
-  // --- API INTEGRATION ---
+  const ordersForStatus: Order[] = useMemo(
+    () =>
+      modalStatus ? ordersData.filter((o) => o.status === modalStatus) : [],
+    [modalStatus]
+  );
+
   const { session } = useSession();
-  const token = session?.token;
+  const token = session?.token ?? '';
+
   const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
   const [apiLoading, setApiLoading] = useState(false);
   const [showApi, setShowApi] = useState(false);
 
-  const loadProductsFromApi = async () => {
+  const loadProductsFromApi = async (): Promise<void> => {
     setApiLoading(true);
     try {
-      const result = await fetchInventoryProducts(token || '');
-      // Transform API result ke ProductItem agar layout tetap sama
-      // Sesuaikan mapping sesuai API yang didapat
-      const raw = Array.isArray(result.data) ? result.data : [];
-      const mapped = raw.map((p: any) => ({
-        id: String(p.id),
-        itemId: p.product_code,
-        name: p.product_name,
-        image: '/placeholder.svg', // tambahkan jika ada link
-        price: 0, // ganti dengan p.price kalau API ada
-        type: 'product',
-        category: 'Food', // ganti dengan p.product_type_id atau mapping lain
-        description: p.unit_of_measure,
-        qty: 1,
-      }));
+      const result = await fetchInventoryProducts(token);
+      const raw: ApiProduct[] = Array.isArray(result.data) ? result.data : [];
+
+      const mapped: ProductItem[] = raw.map(
+        (p): ProductItem => ({
+          id: String(p.id ?? p.product_code), // fallback id kalau tidak ada
+          itemId: p.product_code,
+          barcode: p.product_code || '', // gunakan kode produk sebagai fallback barcode
+          name: p.product_name,
+          image: '/placeholder.svg',
+          price: 0, // jika API belum punya harga
+          type: 'product',
+          category: 'Food', // bisa diubah jika ada mapping kategori
+          description: p.unit_of_measure ?? '',
+        })
+      );
+
       setApiProducts(mapped);
       setShowApi(true);
-    } catch (e) {
+    } catch (error) {
+      console.error('Failed to load products from API:', error);
       alert('Failed to load products from API');
     } finally {
       setApiLoading(false);
     }
   };
-
-  const handleToggleTile = (label: string) => {
-    const cat = label as ProductCategory;
-    const next = new Set(selectedTiles);
-    if (next.has(cat)) next.delete(cat);
-    else next.add(cat);
-    setSelectedTiles(next);
-  };
-
-  const serviceCats: ProductCategory[] = ['Car Care', 'Cleaning'];
-  const nonServiceCats: ProductCategory[] = ['Food', 'Drinks', 'Accessories'];
-
-  // --- FILTER DUMMY PRODUCTS ---
   const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return productData.filter((p) => {
+    return productData.filter((p: ProductItem) => {
       const tileOk =
         selectedTiles.size === 0 ? true : selectedTiles.has(p.category);
       if (!q) return tileOk;
-      let hay = '';
-      switch (searchType) {
-        case 'barcode':
-          hay = p.barcode.toLowerCase();
-          break;
-        case 'category':
-          hay = p.category.toLowerCase();
-          break;
-        case 'itemId':
-          hay = p.itemId.toLowerCase();
-          break;
-        case 'name':
-        default:
-          hay = p.name.toLowerCase();
-      }
-      const searchOk = hay.includes(q);
-      return tileOk && searchOk;
+      const hay =
+        searchType === 'barcode'
+          ? p.barcode.toLowerCase()
+          : searchType === 'category'
+          ? p.category.toLowerCase()
+          : searchType === 'itemId'
+          ? p.itemId.toLowerCase()
+          : p.name.toLowerCase();
+      return tileOk && hay.includes(q);
     });
   }, [query, searchType, selectedTiles]);
 
-  // --- FILTER API PRODUCTS (optional, bisa filter sama kayak dummy kalau mau) ---
   const filteredApiProducts = useMemo(() => {
     if (!showApi) return [];
     const q = query.trim().toLowerCase();
@@ -397,40 +323,24 @@ export default function CenterMock() {
       const tileOk =
         selectedTiles.size === 0 ? true : selectedTiles.has(p.category);
       if (!q) return tileOk;
-      let hay = '';
-      switch (searchType) {
-        case 'barcode':
-          hay = p.itemId?.toLowerCase() ?? '';
-          break;
-        case 'category':
-          hay = p.category?.toLowerCase() ?? '';
-          break;
-        case 'itemId':
-          hay = p.itemId?.toLowerCase() ?? '';
-          break;
-        case 'name':
-        default:
-          hay = p.name?.toLowerCase() ?? '';
-      }
-      const searchOk = hay.includes(q);
-      return tileOk && searchOk;
+      const hay = p.name.toLowerCase();
+      return tileOk && hay.includes(q);
     });
-  }, [apiProducts, query, searchType, selectedTiles, showApi]);
+  }, [apiProducts, query, selectedTiles, showApi]);
 
   const { addItem } = useCart();
   const { notif, clearNotif } = useNotification();
-
   return (
     <div className='flex flex-col gap-4 relative'>
       <DynamicIsland
-        type={notif.type as any}
+        type={notif.type as 'success' | 'error' | null}
         message={notif.message}
         amount={notif.amount}
         method={notif.method}
         onClose={clearNotif}
       />
 
-      <div className='h-12 w-1/2 rounded-md flex items-left text-4xl text-foreground font-rubik font-bold tracking-wide '>
+      <div className='h-12 w-1/2 rounded-md flex items-left text-4xl text-foreground font-rubik font-bold tracking-wide'>
         Ongoing Order
       </div>
 
@@ -447,6 +357,7 @@ export default function CenterMock() {
           />
         ))}
       </div>
+
       {totalPages > 1 && (
         <div className='flex justify-center items-center gap-2'>
           <button
@@ -470,6 +381,7 @@ export default function CenterMock() {
       )}
 
       <hr className='border-t-4 border-border' />
+
       <div className='h-12 w-1/2 rounded-md flex items-left text-3xl text-foreground font-rubik font-bold tracking-wide'>
         Detailing
       </div>
@@ -509,66 +421,42 @@ export default function CenterMock() {
         Main menu
       </div>
 
+      {/* --- Search & Filter Section --- */}
       <div className='grid grid-cols-1 items-center gap-3 md:grid-cols-[repeat(4,90px)_1fr]'>
-        <button
-          type='button'
-          onClick={() => setSearchType('barcode')}
-          className={[
-            'flex flex-col items-center justify-center rounded-lg border p-2',
-            'bg-secondary border-border',
-            searchType === 'barcode' ? 'ring-2' : '',
-          ].join(' ')}
-        >
-          <div className='grid h-10 w-10 place-items-center rounded-md border-2 border-dashed text-muted-foreground'>
-            <Barcode className='h-5 w-5' />
-          </div>
-          <span className='mt-1 text-xs text-foreground'>Barcode</span>
-        </button>
-
-        <button
-          type='button'
-          onClick={() => setSearchType('category')}
-          className={[
-            'flex flex-col items-center justify-center rounded-lg border p-2',
-            'bg-secondary border-border',
-            searchType === 'category' ? 'ring-2' : '',
-          ].join(' ')}
-        >
-          <div className='grid h-10 w-10 place-items-center rounded-md border-2 border-dashed text-muted-foreground'>
-            <ChartBarStacked className='h-5 w-5' />
-          </div>
-          <span className='mt-1 text-xs text-foreground'>Category</span>
-        </button>
-
-        <button
-          type='button'
-          onClick={() => setSearchType('name')}
-          className={[
-            'flex flex-col items-center justify-center rounded-lg border p-2',
-            'bg-secondary border-border',
-            searchType === 'name' ? 'ring-2' : '',
-          ].join(' ')}
-        >
-          <div className='grid h-10 w-10 place-items-center rounded-md border-2 border-dashed text-muted-foreground'>
-            <Tag className='h-5 w-5' />
-          </div>
-          <span className='mt-1 text-xs text-foreground'>Name</span>
-        </button>
-
-        <button
-          type='button'
-          onClick={() => setSearchType('itemId')}
-          className={[
-            'flex flex-col items-center justify-center rounded-lg border p-2',
-            'bg-secondary border-border',
-            searchType === 'itemId' ? 'ring-2' : '',
-          ].join(' ')}
-        >
-          <div className='grid h-10 w-10 place-items-center rounded-md border-2 border-dashed text-muted-foreground'>
-            <Tags className='h-5 w-5' />
-          </div>
-          <span className='mt-1 text-xs text-foreground'>Item ID</span>
-        </button>
+        {[
+          {
+            type: 'barcode',
+            icon: <Barcode className='h-5 w-5' />,
+            label: 'Barcode',
+          },
+          {
+            type: 'category',
+            icon: <ChartBarStacked className='h-5 w-5' />,
+            label: 'Category',
+          },
+          { type: 'name', icon: <Tag className='h-5 w-5' />, label: 'Name' },
+          {
+            type: 'itemId',
+            icon: <Tags className='h-5 w-5' />,
+            label: 'Item ID',
+          },
+        ].map((btn) => (
+          <button
+            key={btn.type}
+            type='button'
+            onClick={() => setSearchType(btn.type as typeof searchType)}
+            className={[
+              'flex flex-col items-center justify-center rounded-lg border p-2',
+              'bg-secondary border-border',
+              searchType === btn.type ? 'ring-2' : '',
+            ].join(' ')}
+          >
+            <div className='grid h-10 w-10 place-items-center rounded-md border-2 border-dashed text-muted-foreground'>
+              {btn.icon}
+            </div>
+            <span className='mt-1 text-xs text-foreground'>{btn.label}</span>
+          </button>
+        ))}
 
         <SearchPill
           query={query}
@@ -586,13 +474,11 @@ export default function CenterMock() {
         />
       </div>
 
-      {/* Button Load Products from API */}
+      {/* --- API Button --- */}
       <div className='mt-2'>
         <button
           onClick={loadProductsFromApi}
-          className={
-            'px-4 py-2 rounded bg-primary text-primary-foreground flex items-center gap-2'
-          }
+          className='px-4 py-2 rounded bg-primary text-primary-foreground flex items-center gap-2'
           disabled={apiLoading}
         >
           <Boxes className='w-5 h-5' />
@@ -608,37 +494,25 @@ export default function CenterMock() {
         )}
       </div>
 
+      {/* --- Product List --- */}
       <div className='overflow-auto max-h-[600px]'>
         <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
-          {/* Show API products if loaded & toggled, else dummy */}
-          {showApi
-            ? filteredApiProducts.map((p) => (
-                <ProductCard
-                  key={p.id}
-                  id={p.id}
-                  name={p.name}
-                  image={p.image}
-                  price={p.price}
-                  type={p.type}
-                  description={p.description}
-                  onAdd={() => addItem(p)}
-                />
-              ))
-            : filteredProducts.map((p: ProductItem) => (
-                <ProductCard
-                  key={p.id}
-                  id={p.id}
-                  name={p.name}
-                  image={p.image}
-                  price={p.price}
-                  type={p.type}
-                  description={p.description}
-                  onAdd={() => addItem(p)}
-                />
-              ))}
+          {(showApi ? filteredApiProducts : filteredProducts).map((p) => (
+            <ProductCard
+              key={p.id}
+              id={p.id}
+              name={p.name}
+              image={p.image}
+              price={p.price}
+              type={p.type}
+              description={p.description}
+              onAdd={() => addItem(p)}
+            />
+          ))}
         </div>
       </div>
 
+      {/* --- Modal Orders --- */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className='sm:max-w-xl'>
           <DialogHeader>

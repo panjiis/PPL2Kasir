@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession  } from '../lib/context/session';
+import { useSession } from '../lib/context/session';
 
 export interface Product {
   id: string;
@@ -16,9 +16,28 @@ export interface Product {
   stock?: number;
 }
 
+interface APIProduct {
+  id?: string;
+  product_id?: string;
+  item_id?: string;
+  code?: string;
+  name?: string;
+  product_name?: string;
+  description?: string;
+  price?: number;
+  image?: string;
+  image_url?: string;
+  category?: string;
+  product_type?: string;
+  barcode?: string;
+  type?: string;
+  stock?: number;
+  quantity?: number;
+}
+
 interface ProductsResponse {
   success: boolean;
-  data: Product[];
+  data: APIProduct[];
   message?: string;
 }
 
@@ -30,7 +49,7 @@ export function useProducts() {
   const [data, setData] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const token = useSession ();
+  const token = useSession();
 
   useEffect(() => {
     if (!token) {
@@ -54,22 +73,18 @@ export function useProducts() {
 
         const result: ProductsResponse = await response.json();
 
-        // Transform API data to match our Product interface
         const products: Product[] = result.data.map(
-          (item: any): Product => ({
-            id: item.id || item.product_id,
+          (item: APIProduct): Product => ({
+            id: item.id || item.product_id || '',
             itemId: item.item_id || item.code,
-            name: item.name || item.product_name,
+            name: item.name || item.product_name || 'Unnamed Product',
             description: item.description,
-            price: item.price || 0,
+            price: item.price ?? 0,
             image: item.image || item.image_url,
             category: item.category || item.product_type,
             barcode: item.barcode,
-            type:
-              item.type === 'service'
-                ? ('service' as const)
-                : ('product' as const),
-            stock: item.stock || item.quantity,
+            type: item.type === 'service' ? 'service' : 'product',
+            stock: item.stock ?? item.quantity ?? 0,
           })
         );
 

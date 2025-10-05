@@ -4,7 +4,7 @@ import type React from 'react';
 import { useState, useEffect } from 'react';
 import { Trash, Columns3, Lock, RefreshCcw, CircleSlash } from 'lucide-react';
 import { useCart } from './cart-content';
-import { employees } from './dummy';
+import { employees, Coupon } from './dummy'; // <-- import Coupon type!
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ interface SmallPillProps {
   defaultLabel: string;
   icon: React.ReactNode;
   onClick?: () => void;
-  forceColorFrom?: string; // Tambahan agar bisa override warna dari prefKey lain
+  forceColorFrom?: string;
 }
 
 function SmallPill({
@@ -39,7 +39,6 @@ function SmallPill({
     colorOptions,
   } = usePreferences();
   const label = getButtonLabel(prefKey, defaultLabel);
-  // forceColorFrom: jika ada, gunakan warna dari prefKey lain
   const color = getButtonColorClasses(forceColorFrom ?? prefKey);
 
   return (
@@ -97,9 +96,7 @@ function SmallPill({
 }
 
 function LineItem({
-  id,
   name,
-  image,
   price,
   qty,
   selected,
@@ -108,9 +105,7 @@ function LineItem({
   extraRight,
   onSetQty,
 }: {
-  id: string;
   name: string;
-  image: string;
   price: number;
   qty: number;
   selected: boolean;
@@ -203,9 +198,7 @@ function ProductSection() {
           products.map((it) => (
             <LineItem
               key={it.id}
-              id={it.id}
               name={it.name}
-              image={it.image}
               price={it.price}
               qty={it.qty}
               selected={selectedItemId === it.id}
@@ -252,9 +245,7 @@ function ServicesSection() {
           services.map((it) => (
             <LineItem
               key={it.id}
-              id={it.id}
               name={it.name}
-              image={it.image}
               price={it.price}
               qty={it.qty}
               selected={selectedItemId === it.id}
@@ -303,51 +294,60 @@ function CouponPanel() {
   const { appliedCoupon, applyCoupon, clearCoupon } = useCart();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'product' | 'service'>('all');
-  const [search, setSearch] = useState('');
   const [codeInput, setCodeInput] = useState('');
 
-  const coupons = [
+  // Use correct Coupon shape and fields!
+  const coupons: Coupon[] = [
     {
-      id: 'C10',
-      code: 'DISC10',
-      name: 'Diskon Semua 10%',
-      type: 'percent',
+      id: 'c-all-10',
+      code: 'ALL10',
+      label: 'Diskon 10% Semua Item',
+      scope: 'all',
+      discountType: 'percent',
       value: 10,
-      appliesTo: 'all',
-    },
-    {
-      id: 'P25',
-      code: 'PROD25K',
-      name: 'Potongan Rp25k Produk',
-      type: 'flat',
-      value: 25000,
-      appliesTo: 'product',
-    },
-    {
-      id: 'S15',
-      code: 'SERV15',
-      name: 'Service 15% (max 50k)',
-      type: 'percent',
-      value: 15,
-      appliesTo: 'service',
       maxDiscount: 50000,
     },
-  ] as const;
+    {
+      id: 'c-prod-20k',
+      code: 'PROD20K',
+      label: 'Potongan Rp20.000 untuk Produk',
+      scope: 'product',
+      discountType: 'amount',
+      value: 20000,
+    },
+    {
+      id: 'c-serv-15',
+      code: 'SERV15',
+      label: 'Diskon 15% untuk Service',
+      scope: 'service',
+      discountType: 'percent',
+      value: 15,
+      maxDiscount: 40000,
+    },
+    {
+      id: 'c-all-30k',
+      code: 'ALL30K',
+      label: 'Potongan Rp30.000 Semua Item',
+      scope: 'all',
+      discountType: 'amount',
+      value: 30000,
+    },
+  ];
 
   const filtered = coupons.filter((c) => {
-    const okType = filter === 'all' ? true : c.appliesTo === filter;
-    const q = search.trim().toLowerCase();
-    const hay = `${c.code} ${c.name}`.toLowerCase();
+    const okType = filter === 'all' ? true : c.scope === filter;
+    const q = codeInput.trim().toLowerCase();
+    const hay = `${c.code} ${c.label}`.toLowerCase();
     const okSearch = q ? hay.includes(q) : true;
     return okType && okSearch;
   });
 
   const handleApplyByCode = () => {
     const c = coupons.find(
-      (c) => c.code.toLowerCase() === codeInput.toLowerCase()
+      (coupon) => coupon.code.toLowerCase() === codeInput.toLowerCase()
     );
     if (!c) return;
-    applyCoupon(c as any);
+    applyCoupon(c);
     setOpen(false);
   };
 
@@ -421,17 +421,17 @@ function CouponPanel() {
             <button
               key={c.id}
               type='button'
-              onClick={() => applyCoupon(c as any)}
+              onClick={() => applyCoupon(c)}
               className='w-full rounded border border-border/40 bg-card px-2 py-2 text-left hover:bg-secondary transition'
             >
               <div className='text-xs font-rubik font-semibold text-foreground'>
                 {c.code}
               </div>
               <div className='text-[11px] text-muted-foreground'>
-                {c.name} •{' '}
-                {c.appliesTo === 'all'
+                {c.label} •{' '}
+                {c.scope === 'all'
                   ? 'Semua'
-                  : c.appliesTo === 'product'
+                  : c.scope === 'product'
                   ? 'Produk'
                   : 'Service'}
               </div>
@@ -572,8 +572,6 @@ export default function AsideMock() {
   const {
     deleteSelected,
     toggleAdjust,
-    items,
-    selectedItemId,
     adjustMode,
     subtotal,
     tax,
@@ -582,27 +580,20 @@ export default function AsideMock() {
     formatIDR,
     paymentSheetOpen,
     setPaymentSheetOpen,
-    billOption,
-    setBillOption,
-    setEmployee,
-    selectItem,
-    products,
-    services,
-    addItem,
     setAdjustMode,
     setSelectedItemId,
     setItems,
+
     locked,
   } = useCart();
 
   const { showNotif } = useNotification();
-  const { isCustomize } = usePreferences();
 
   function clearAll() {
     setItems([]);
     setSelectedItemId(null);
     setAdjustMode(false);
-    setBillOption(null);
+
     setPaymentSheetOpen(false);
   }
 

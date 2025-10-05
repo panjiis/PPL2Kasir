@@ -175,6 +175,7 @@ export type Coupon = {
   discountType: CouponDiscountType // persen atau nominal
   value: number // jika percent: 0-100, jika amount: nominal rupiah
   maxDiscount?: number // opsional: batas maksimum potongan
+  
   // bisa dikembangkan: productIds, categories, minimalBelanja, dsb.
 }
 

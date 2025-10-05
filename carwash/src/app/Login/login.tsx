@@ -12,8 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { SquareAsterisk, UserIcon } from 'lucide-react';
-
+import Image from 'next/image';
 import { login } from '../lib/utils/api';
 import { useSession } from '../lib/context/session';
 
@@ -31,13 +30,18 @@ export default function LoginPage() {
     setError(null);
     try {
       const response = await login(username, password);
-      const expiresAt = response.data.expires_at!.seconds * 1000;
+
+      const expiresAt = response.data.expires_at
+        ? response.data.expires_at.seconds * 1000
+        : Date.now() + 3600 * 1000; // fallback 1 jam jika tidak ada
+
       setSession({
         token: response.data.token || '',
-        user: response.data.user,
+        user: response.data.user, // ✅ sekarang tipe User penuh
         expiresAt,
       });
-      router.replace('/Kasir'); // Redirect setelah login sukses
+
+      router.replace('/Kasir');
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -86,6 +90,9 @@ export default function LoginPage() {
               Logout
             </Button>
           </CardFooter>
+          {error && (
+            <p className='text-red-500 text-sm text-center mt-2'>{error}</p>
+          )}
         </Card>
       </main>
     );
@@ -93,9 +100,11 @@ export default function LoginPage() {
 
   return (
     <main className='flex flex-col items-center justify-center min-h-screen transition-colors duration-300 bg-[hsl(var(--background))] text-[hsl(var(--foreground))]'>
-      <img
-        src='https://placehold.co/256x256'
-        alt=''
+      <Image
+        src='/logo.png'
+        alt='Logo'
+        width={800} // ukuran asli kira-kira
+        height={533} // 3:2 aspect ratio
         className='w-full aspect-[3/2] object-cover -mb-4 md:hidden'
       />
       <Card className='w-full min-h-screen md:min-h-auto md:max-w-sm rounded-b-none rounded-t-2xl md:rounded-b-2xl'>
@@ -107,10 +116,12 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <div className='grid w-full items-center gap-4'>
-            <img
-              src='https://placehold.co/256x256'
-              alt=''
-              className='justify-self-center rounded hidden md:block'
+            <Image
+              src='/logo.png'
+              alt='Logo'
+              width={800} // ukuran asli kira-kira
+              height={533} // 3:2 aspect ratio
+              className='w-full aspect-[3/2] object-cover -mb-4 md:hidden'
             />
 
             <div className='grid gap-2'>

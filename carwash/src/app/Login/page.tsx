@@ -2,7 +2,7 @@
 
 import React from 'react';
 import LoginPage from './login';
-import Failed from './failed';
+
 
 
 export default function Home() {

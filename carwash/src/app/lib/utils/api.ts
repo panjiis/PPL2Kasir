@@ -1,4 +1,7 @@
-export async function login(username: string, password: string) {
+import { LoginResponse } from "../types/auth";
+
+
+export async function login(username: string, password: string): Promise<LoginResponse> {
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`, {
     method: "POST",
     headers: {

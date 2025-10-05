@@ -1,7 +1,7 @@
 'use client'
-import { Circle as XCircleIcon, XIcon, SearchCheck  } from "lucide-react";
+import { Circle as XCircleIcon,  SearchCheck  } from "lucide-react";
 import React from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 export const Success: React.FC = () => {
