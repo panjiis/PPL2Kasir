@@ -6,6 +6,7 @@ import { CartProvider } from "./cart-content"
 import { NotificationProvider } from "./notification-context"
 import { AuthProvider } from "@/app/providers/auth-context"
 import { PreferencesProvider } from "@/app/providers/preferences-context"
+import { CustomizationPanel } from "./customize-panel"
 
 export default function KasirPage() {
   return (
@@ -31,7 +32,12 @@ export default function KasirPage() {
                 </div>
                 <footer className="mt-2 rounded-lg bg-primary px-4 py-3 text-primary-foreground">
                   <div className="mx-auto flex max-w-[1400px] items-center justify-between">
-                    <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-sm">Logo</span>
+                    {/* ganti span dengan img */}
+                    <img
+                      src="./logo.png"
+                      alt="Logo"
+                      className="h-8 w-8 rounded-md object-cover bg-muted"
+                    />
                     <p className="text-sm opacity-90">Copyright 2025 Ngumpul Pas Deadline</p>
                   </div>
                 </footer>

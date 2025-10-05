@@ -1,119 +1,150 @@
-"use client"
-import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { User, Lock } from "lucide-react"
-import { useAuth } from "@/app/providers/auth-context"
+'use client';
+import * as React from 'react';
+import { useRouter } from 'next/navigation'; // Tambahkan ini
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { SquareAsterisk, UserIcon } from 'lucide-react';
 
-function Banner({ kind, message }: { kind: "error" | "success"; message: string }) {
-  return (
-    <div
-      className={[
-        "rounded-md px-3 py-2 text-sm",
-        kind === "error" ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground",
-      ].join(" ")}
-    >
-      {message}
-    </div>
-  )
-}
+import { login } from '../lib/utils/api';
+import { useSession } from '../lib/context/session';
 
 export default function LoginPage() {
-  const { login, users } = useAuth()
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [status, setStatus] = useState<null | { kind: "error" | "success"; msg: string }>(null)
-  const router = useRouter()
+  const [username, setUsername] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setStatus(null)
-    const ok = await login(username, password)
-    if (ok) {
-      setStatus({ kind: "success", msg: "Login success..." })
-      setTimeout(() => router.push("/Kasir"), 800)
-    } else {
-      setStatus({ kind: "error", msg: "Username / password salah" })
+  const { session, setSession } = useSession();
+  const router = useRouter(); // Tambahkan ini
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await login(username, password);
+      const expiresAt = response.data.expires_at!.seconds * 1000;
+      setSession({
+        token: response.data.token || '',
+        user: response.data.user,
+        expiresAt,
+      });
+      router.replace('/Kasir'); // Redirect setelah login sukses
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  const quickLogin = async (u: string) => {
-    const ok = await login(u, "123456")
-    if (ok) router.push("/Kasir")
-    else setStatus({ kind: "error", msg: "Gagal login" })
+  const handleLogout = () => setSession(null);
+
+  if (session) {
+    return (
+      <main className='flex flex-col items-center justify-center min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]'>
+        <Card className='w-full max-w-sm rounded-2xl p-4'>
+          <CardHeader>
+            <CardTitle>
+              Welcome, {session.user.username || session.user.firstname}
+            </CardTitle>
+            <CardDescription>
+              You are logged in as {session.user.role?.role_name}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>
+              <strong>Email:</strong> {session.user.email}
+            </p>
+            <p>
+              <strong>Active:</strong> {session.user.is_active ? 'Yes' : 'No'}
+            </p>
+            <p>
+              <strong>Last login:</strong>{' '}
+              {session.user.last_login
+                ? new Date(
+                    session.user.last_login.seconds * 1000
+                  ).toLocaleString()
+                : 'N/A'}
+            </p>
+            <p>
+              <strong>Session expires at:</strong>{' '}
+              {new Date(session.expiresAt).toLocaleString()}
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Button variant='destructive' onClick={handleLogout}>
+              Logout
+            </Button>
+          </CardFooter>
+        </Card>
+      </main>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-3xl grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="bg-card p-6 rounded-3xl border border-border">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold  font-rubik text-foreground mb-1">SYNTRA</h1>
-            <p className="text-sm text-muted-foreground">Login Portal</p>
-          </div>
-          {status && (
-            <div className="mb-3">
-              <Banner kind={status.kind} message={status.msg} />
-            </div>
-          )}
-          <form className="space-y-4" onSubmit={handleSubmit} autoComplete="off">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-foreground text-sm font-semibold font-rubik flex items-center gap-2">
-                <User className="w-4 h-4" /> Username
-              </Label>
+    <main className='flex flex-col items-center justify-center min-h-screen transition-colors duration-300 bg-[hsl(var(--background))] text-[hsl(var(--foreground))]'>
+      <img
+        src='https://placehold.co/256x256'
+        alt=''
+        className='w-full aspect-[3/2] object-cover -mb-4 md:hidden'
+      />
+      <Card className='w-full min-h-screen md:min-h-auto md:max-w-sm rounded-b-none rounded-t-2xl md:rounded-b-2xl'>
+        <CardHeader>
+          <CardTitle>SYNTRA Login Portal</CardTitle>
+          <CardDescription>
+            Enter your credentials to access SYNTRA.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className='grid w-full items-center gap-4'>
+            <img
+              src='https://placehold.co/256x256'
+              alt=''
+              className='justify-self-center rounded hidden md:block'
+            />
+
+            <div className='grid gap-2'>
+              <Label htmlFor='username'>Username</Label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Enter username"
+                id='username'
+                type='text'
+                placeholder='Enter username'
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground text-sm font-semibold font-rubik flex items-center gap-2">
-                <Lock className="w-4 h-4" /> Password
-              </Label>
+
+            <div className='grid gap-2'>
+              <Label htmlFor='password'>Password</Label>
               <Input
-                id="password"
-                type="password"
-                placeholder="Enter password"
+                id='password'
+                type='password'
+                placeholder='Enter password'
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground placeholder:text-muted-foreground"
               />
             </div>
-            <Button type="submit" className="w-full bg-primary text-primary-foreground font-semibold font-rubik py-3 rounded-xl">
-              Login
-            </Button>
-          </form>
-        </Card>
-
-        <Card className="bg-card p-6 rounded-3xl border border-border">
-          <div className="text-sm text-muted-foreground mb-2">Dummy Users (klik untuk cepat login)</div>
-          <div className="grid gap-2">
-            {users.map((u) => (
-              <button
-                key={u.username}
-                className="rounded-md border border-border bg-secondary px-3 py-2 text-left hover:opacity-90"
-                onClick={() => quickLogin(u.username)}
-              >
-                <div className="text-foreground  font-rubik font-medium">{u.displayName}</div>
-                <div className="text-xs text-muted-foreground">username: {u.username} • password: 123456</div>
-              </button>
-            ))}
           </div>
-          <div className="mt-6">
-            <div className="rounded-xl overflow-hidden">
-              <img src="/image.jpg" alt="Sports car in showroom" className="w-full h-40 object-cover" />
-            </div>
-          </div>
-        </Card>
-      </div>
-    </div>
-  )
+        </CardContent>
+        <CardFooter className='flex justify-between w-full gap-2'>
+          <Button variant='link' className='p-0 h-auto'>
+            Forgot password?
+          </Button>
+          <Button onClick={handleLogin} disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </Button>
+        </CardFooter>
+      </Card>
+    </main>
+  );
 }

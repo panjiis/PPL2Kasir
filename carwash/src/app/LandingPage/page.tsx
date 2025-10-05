@@ -1,19 +1,20 @@
-"use client"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import LoginPage from '../Login/login';
 
 export default function Home() {
-  const router = useRouter()
+  const router = useRouter();
 
-  useEffect(() => {
-    const raw = localStorage.getItem("currentUser")
-    if (raw) {
-      router.replace("/Kasir")
-    } else {
-      router.replace("/Login")
-    }
-  }, [router])
-
-  // sementara loading kosong
-  return null
+  return (
+    <main className='min-h-screen flex items-center justify-center bg-background text-foreground'>
+      <div className='flex flex-col items-center gap-6 text-center'>
+        {/* Login Page */}
+        <div className='w-full max-w-sm'>
+          <LoginPage />
+        </div>
+      </div>
+    </main>
+  );
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useToken } from "../lib/context/session"
+import { useSession  } from "@/app/lib/context/session"
 
 export interface Employee {
   id: string
@@ -23,7 +23,7 @@ export function useEmployees() {
   const [data, setData] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const token = useToken()
+  const token = useSession ()
 
   useEffect(() => {
     if (!token) {

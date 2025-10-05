@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useToken } from "../lib/context/session"
+import { useSession  } from "../lib/context/session"
 
 export interface User {
   id: string
@@ -23,7 +23,7 @@ export function useUsers() {
   const [data, setData] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const token = useToken()
+  const token = useSession ()
 
   const fetchUsers = async () => {
     if (!token) {

@@ -1,33 +1,40 @@
-// Types untuk authentication dan user data
-export interface User {
-  id: string
-  username: string
-  email?: string
-  role?: string
-  name?: string
-}
+export type User = {
+  id: number;
+  username: string;
+  email: string;
+  firstname: string;
+  lastname: string;
+  role_id: number;
+  is_active: boolean;
+  last_login?: { seconds: number; nanos: number };
+  created_at?: { seconds: number; nanos: number };
+  updated_at?: { seconds: number; nanos: number };
+  role?: {
+    id: number;
+    role_name: string;
+    access_level: number;
+    created_at?: { seconds: number; nanos: number };
+    updated_at?: { seconds: number; nanos: number };
+  };
+};
 
-export interface LoginResponse {
-  success: boolean
+export type LoginResponse = {
+  success: boolean;
+  message: string;
   data: {
-    token: string
-    user: User
-    expires_at?: {
-      seconds: number
-      nanos?: number
-    }
-  }
-  message?: string
-}
+    expires_at?: { seconds: number; nanos: number };
+    token?: string;
+    user: User;
+  };
+};
 
-export interface Session {
-  token: string
-  user: User
-  expiresAt: number
-}
+export type Session = {
+  token: string;
+  user: User;
+  expiresAt: number;
+};
 
-export interface ApiError {
-  message: string
-  status?: number
-  code?: string
-}
+export type SessionContext = {
+  session: Session | null;
+  setSession: (session: Session | null) => void;
+};
