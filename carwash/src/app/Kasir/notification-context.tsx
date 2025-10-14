@@ -1,7 +1,7 @@
 'use client';
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-type NotificationType = 'success' | 'error' | null;
+type NotificationType = 'success' | 'error' |  'info' | null;
 type NotificationValue = {
   type: NotificationType;
   message: string;

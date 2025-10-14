@@ -1,310 +1,328 @@
 'use client';
-import React, { useState } from 'react';
+
+import type React from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
-  EllipsisVertical,
-  ListOrdered,
+  Plus,
   LayoutDashboard,
   Boxes,
   Users,
   Warehouse,
   Tag,
+  MoreVertical,
 } from 'lucide-react';
 import { useCart } from './cart-content';
-import { usePreferences } from '@/app/providers/preferences-context';
+import { usePreferences } from '../providers/preferences-context';
 import { useSession } from '../lib/context/session';
-import {
-  fetchInventoryProducts,
-  fetchInventorySuppliers,
-  fetchInventoryWarehouses,
-  fetchProductTypes,
-} from '../lib/utils/inventory-api';
+// import type {
+//   PosProduct,
+//   ProductGroup,
+//   PaymentType,
+//   PosOrder,
+// } from '../lib/types/pos';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 
-// ===== TYPE DEFINITIONS =====
-interface InventoryItem {
-  id?: number;
-  product_code: string;
-  product_name: string;
-  product_type_id: number;
-  supplier_id: number;
-  unit_of_measure: string;
-  reorder_level: number;
-  max_stock_level: number;
-  created_at?: { seconds: number; nanos: number };
-  updated_at?: { seconds: number; nanos: number };
+// ---- TYPE DEFINITIONS ----
+
+
+interface NavItem {
+  key: string;
+  label: string;
+  icon: typeof Boxes;
 }
 
-interface Supplier {
-  id?: number;
-  supplier_code: string;
-  supplier_name: string;
-  contact_person: string;
-  phone: string;
-  email: string;
-  address: string;
-}
-
-interface WarehouseItem {
-  id?: number;
-  warehouse_code: string;
-  warehouse_name: string;
-  location: string;
-  manager_id: number;
-}
-
-interface ProductTypeItem {
-  id?: number;
-  product_types: string;
-  desc: string;
-}
-
-type ApiResult<T> = {
-  data: T[];
-  message?: string;
-};
-
-// ===== STATIC DATA =====
-const baseUser = {
-  name: 'WaziTUYA',
-  role: 'Admin',
-  photo: '/logo.png',
-};
-
-const navItems = [
-  { key: 'inventory', label: 'Inventory', icon: Boxes, api: fetchInventoryProducts },
-  { key: 'suppliers', label: 'Suppliers', icon: Users, api: fetchInventorySuppliers },
-  { key: 'warehouses', label: 'Warehouses', icon: Warehouse, api: fetchInventoryWarehouses },
-  { key: 'productTypes', label: 'Product Types', icon: Tag, api: fetchProductTypes },
+// ---- ✅ NAV CONFIG (API property removed) ----
+const navItems: NavItem[] = [
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { key: 'products', label: 'Products', icon: Boxes },
+  { key: 'groups', label: 'Groups', icon: Tag },
+  { key: 'paymentTypes', label: 'Payment', icon: Warehouse },
+  { key: 'orders', label: 'Orders', icon: Users },
 ];
 
-// ===== UTILITY FUNCTION =====
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
-  return result;
-}
-
-// ===== TILE BUTTON COMPONENT =====
+// ---- TILE BUTTON ----
 function SidebarTileButton({
   icon: Icon,
   label,
   itemKey,
   onClick,
-  loading,
+  isActive, // <-- new prop to highlight active button
 }: {
   icon: typeof Boxes;
   label: string;
   itemKey: string;
   onClick: () => void;
-  loading?: boolean;
+  isActive: boolean;
 }) {
-  const { isCustomize, getButtonLabel, setButtonPref, getButtonColorClasses, colorOptions } =
+  const { isCustomize, getButtonLabel, setButtonPref, getButtonColorClasses } =
     usePreferences();
   const key = `sidebar:${itemKey}`;
   const shownLabel = getButtonLabel(key, label);
   const color = getButtonColorClasses(key);
 
   return (
-    <div className='rounded-lg border p-3 text-center transition group'>
+    <div className='p-3 text-center transition group'>
       <button
         type='button'
         className={[
-          'block rounded-md p-2 w-full',
-          color?.bg,
-          color?.text,
-          color?.border ?? 'border-border',
+          'block rounded-md p-2 w-full transition',
+          color.bg,
+          color.text,
+          color.border ?? 'border-border',
           'hover:ring-2',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        onClick={onClick}
-        disabled={loading}
+          isActive ? 'ring-2 ring-primary ring-offset-2' : '', // <-- highlight style
+        ].join(' ')}
+        onClick={!isCustomize ? onClick : undefined}
       >
         <div className='mx-auto mb-2 grid h-10 w-10 place-items-center text-current'>
           <Icon className='h-5 w-5' />
         </div>
-        <div className='text-xs'>{shownLabel}</div>
-      </button>
-
-      {isCustomize && (
-        <div className='mt-2 space-y-2'>
+        {isCustomize ? (
           <input
-            className='w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1'
             defaultValue={shownLabel}
             onBlur={(e) => setButtonPref(key, { label: e.currentTarget.value })}
-            placeholder='Button name'
+            className='text-xs text-center w-full rounded-md border border-border bg-card text-foreground px-1 py-0.5'
           />
-          <div className='flex flex-col gap-1'>
-            {chunkArray(colorOptions, 3).map((row, idx) => (
-              <div key={idx} className='flex gap-3'>
-                {row.map((opt) => (
-                  <button
-                    key={opt.key}
-                    onClick={() => setButtonPref(key, { color: opt.key })}
-                    className={['h-5 w-5 rounded border border-black', opt.classes.bg].join(' ')}
-                    type='button'
-                    aria-label={opt.key}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        ) : (
+          <div className='text-xs'>{shownLabel}</div>
+        )}
+      </button>
     </div>
   );
 }
 
-// ===== MAIN COMPONENT =====
-export default function SidebarMock() {
+// ---- MAIN COMPONENT ----
+export default function SidebarMock({
+  activeView,
+  onNavigate,
+}: {
+  activeView: string;
+  onNavigate: (view: string) => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [popupContent, setPopupContent] = useState<React.ReactNode | null>(null);
-  const [loading, setLoading] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
   const { setPaymentSheetOpen, billOption } = useCart();
-  const { isCustomize, toggleCustomize } = usePreferences();
-  const { session, clearSession } = useSession();
-  const token = session?.token;
-  const router = useRouter();
+  const {
+    isCustomize,
+    toggleCustomize,
+    colorOptions,
+    globalBackgroundColor,
+    setGlobalBackgroundColor,
+    globalButtonColor,
+    setGlobalButtonColor,
+    getGlobalButtonClasses,
+    getGlobalBackgroundClasses,
+    getUserProfile,
+  } = usePreferences();
 
-  const handleLogout = () => {
-    clearSession?.();
-    router.push('/Login');
-  };
+  const globalBtn = getGlobalButtonClasses();
+  const globalBg = getGlobalBackgroundClasses();
+  const userProfile = getUserProfile();
 
-  // ===== RENDER INVENTORY LIST =====
-  const renderInventoryList = (data: InventoryItem[]) => (
-    <div>
-      <h2 className='font-bold mb-3'>Inventory Data</h2>
-      <div className='grid gap-3'>
-        {data.map((row) => (
-          <div key={row.product_code} className='border rounded-lg p-3 bg-gray-50 shadow'>
-            <div className='mb-2 text-base font-bold'>{row.product_name}</div>
-            <div className='text-xs text-gray-700 space-y-1'>
-              <div><span className='font-medium'>Product Code:</span> {row.product_code}</div>
-              <div><span className='font-medium'>Product Type:</span> {row.product_type_id}</div>
-              <div><span className='font-medium'>Supplier:</span> {row.supplier_id}</div>
-              <div><span className='font-medium'>Unit:</span> {row.unit_of_measure}</div>
-              <div><span className='font-medium'>Reorder level:</span> {row.reorder_level}</div>
-              <div><span className='font-medium'>Max stock:</span> {row.max_stock_level}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className='mt-2 text-right text-xs text-muted-foreground'>Total Data: {data.length}</div>
-    </div>
-  );
+  const [company, setCompany] = useState({
+    name: 'Ezel Carwash Cilodong',
+    logo: '/logo.png',
+  });
 
-  // ===== HANDLE NAVIGATION =====
-  async function handleNavClick(item: (typeof navItems)[number]) {
-    if (!token)
-      return setPopupContent(<div>Session expired, please login again.</div>);
-    setLoading(true);
-
-    try {
-      const result: ApiResult<
-        InventoryItem | Supplier | WarehouseItem | ProductTypeItem
-      > = await item.api(token);
-
-      let content: React.ReactNode;
-
-      if (item.key === 'inventory') {
-        content = Array.isArray(result?.data) && result.data.length > 0
-          ? renderInventoryList(result.data as InventoryItem[])
-          : <div className='p-4 text-sm text-muted-foreground border rounded bg-gray-50'>Tidak ada data Inventory.</div>;
-      } else {
-        content = (
-          <pre className='text-xs bg-gray-100 rounded p-2'>
-            {JSON.stringify(result, null, 2)}
-          </pre>
-        );
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
       }
-
-      setPopupContent(<div style={{ maxHeight: 400, overflowY: 'auto' }}>{content}</div>);
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      setPopupContent(<div className='text-red-500'>{message}</div>);
-    } finally {
-      setLoading(false);
     }
-  }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const { clearSession } = useSession();
 
   return (
-    <div className='flex h-full flex-col gap-3'>
-      {/* Top row */}
-      <div className='flex items-center gap-1'>
-        <Image src='/logo.png' alt='Logo' width={32} height={32} className='h-8 w-8 rounded-md bg-primary object-cover' />
-        <div className='h-8 flex-1 rounded-md bg-primary flex items-center justify-center font-bold text-primary-foreground text-base'>
-          Ezel Carwash Cilodong
+    <div
+      className={[
+        'flex h-full flex-col gap-3 p-3 overflow-y-auto',
+        globalBg.bg,
+      ].join(' ')}
+    >
+      {/* HEADER */}
+      <div className='flex items-center gap-2 px-1 mb-2'>
+        <div className='h-12 w-12 rounded-md overflow-hidden'>
+          <Image
+            src={
+              company.logo?.startsWith('http')
+                ? company.logo
+                : company.logo || '/logo.png'
+            }
+            alt='Logo'
+            width={48}
+            height={48}
+            className='h-12 w-12 object-cover'
+            unoptimized
+          />
         </div>
+        {isCustomize ? (
+          <input
+            defaultValue={company.name}
+            onBlur={(e) =>
+              setCompany({ ...company, name: e.currentTarget.value })
+            }
+            className='h-10 flex-1 rounded-md text-black text-center font-bold text-base'
+          />
+        ) : (
+          <div className='h-10 flex-1 rounded-md text-black flex items-center justify-center font-bold text-base px-2'>
+            {company.name}
+          </div>
+        )}
       </div>
 
-      {/* Buttons */}
-      <div className='flex gap-2'>
+      {/* POWERED BY */}
+      <div className='flex items-center justify-center text-[12px] text-muted-foreground mt-[-15px] mb-2'>
+        <span>Powered by</span>
+        <span className='ml-1 font-semibold tracking-wide text-primary uppercase'>
+          SYNTRA
+        </span>
+      </div>
+
+      {/* NAVIGATION BUTTONS */}
+      <div className='grid grid-cols-2 gap-3 px-0'>
         <div
           className={[
-            'flex-1 rounded-lg border border-border bg-primary p-3 text-primary-foreground cursor-pointer',
+            'col-span-2 rounded-lg border p-3 cursor-pointer',
+            globalBtn.bg,
+            globalBtn.text,
             !billOption ? 'opacity-40 cursor-not-allowed' : '',
           ].join(' ')}
           onClick={() => billOption && setPaymentSheetOpen(true)}
         >
-          <div className='flex items-center gap-3 justify-center'>
-            <div className='grid h-7 w-7 place-items-center text-primary-foreground/80'>
-              <ListOrdered className='h-4 w-4' />
+          <div className='flex items-center gap-2 justify-center'>
+            <div className='grid h-7 w-7 place-items-center text-current/80'>
+              <Plus className='h-4 w-4' />
             </div>
-            <span className='text-sm'>Create order</span>
+            <span className='text-sm font-medium'>Create order</span>
           </div>
         </div>
+
+        {navItems.map((item) => (
+          <SidebarTileButton
+            key={item.key}
+            icon={item.icon}
+            label={item.label}
+            itemKey={item.key}
+            onClick={() => onNavigate(item.key)} // <-- Triggers navigation
+            isActive={activeView === item.key} // <-- Sets active state
+          />
+        ))}
+      </div>
+
+      {/* CUSTOMIZE THEME */}
+      {isCustomize && (
+        <div className='mt-4 px-1'>
+          <div className='rounded-lg border border-border bg-card p-3'>
+            <h3 className='font-semibold text-sm text-foreground mb-2'>
+              Customize Theme
+            </h3>
+            <div className='mb-3'>
+              <div className='text-xs text-muted-foreground mb-1'>
+                Global Background
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                {colorOptions.map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setGlobalBackgroundColor(opt.key)}
+                    className={[
+                      'h-8 w-8 rounded-md border-2 transition-transform',
+                      opt.classes.bg,
+                      globalBackgroundColor === opt.key
+                        ? 'ring-2 ring-offset-1 ring-primary'
+                        : 'border-border',
+                    ].join(' ')}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className='text-xs text-muted-foreground mb-1'>
+                Global Button Color
+              </div>
+              <div className='flex flex-wrap gap-2'>
+                {colorOptions.map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setGlobalButtonColor(opt.key)}
+                    className={[
+                      'h-8 w-8 rounded-md border-2 transition-transform',
+                      opt.classes.bg,
+                      globalButtonColor === opt.key
+                        ? 'ring-2 ring-offset-1 ring-primary'
+                        : 'border-border',
+                    ].join(' ')}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FOOTER / LOGOUT */}
+      <div className='mt-auto px-1 space-y-2'>
         <button
           onClick={toggleCustomize}
-          className='flex-1 rounded-lg border border-border bg-primary p-3 text-primary-foreground cursor-pointer flex items-center gap-3 justify-center hover:opacity-90 transition'
-          aria-pressed={isCustomize}
+          className={[
+            'w-full rounded-lg border border-border p-3 flex items-center gap-2 justify-center hover:opacity-90 transition',
+            globalBtn.bg,
+            globalBtn.text,
+          ].join(' ')}
         >
           <LayoutDashboard className='h-4 w-4' />
           <span className='text-sm'>{isCustomize ? 'Done' : 'Customize'}</span>
         </button>
-      </div>
 
-      {/* Nav grid */}
-      <div className='grid grid-cols-2 gap-3'>
-        {navItems.map((item) => (
-          <SidebarTileButton key={item.key} icon={item.icon} label={item.label} itemKey={item.key} onClick={() => handleNavClick(item)} loading={loading} />
-        ))}
-      </div>
-
-      {/* Footer */}
-      <div className='mt-auto rounded-lg border border-border bg-card p-3'>
-        <div className='flex items-center gap-3'>
-          <Image src={baseUser.photo} alt='Icon' width={32} height={32} className='h-8 w-8 rounded-md object-cover' />
-          <div className='flex flex-col flex-1'>
-            <span className='text-base font-medium text-foreground'>{baseUser.name}</span>
-            <span className='text-xs text-muted-foreground'>{baseUser.role}</span>
-          </div>
-          <div className='relative'>
-            <button onClick={() => setMenuOpen(!menuOpen)} className='h-8 w-8 flex items-center justify-center'>
-              <EllipsisVertical size={24} />
+        <div
+          className='rounded-lg border border-border bg-card p-3 relative'
+          ref={menuRef}
+        >
+          <div className='flex items-center gap-3'>
+            <div className='h-8 w-8 rounded-md overflow-hidden'>
+              <Image
+                src={userProfile.photo || '/logo.png'}
+                alt='User'
+                width={32}
+                height={32}
+                className='h-8 w-8 object-cover'
+              />
+            </div>
+            <div className='flex flex-col flex-1'>
+              <span className='text-base font-medium text-foreground'>
+                {userProfile.name}
+              </span>
+              <span className='text-xs text-muted-foreground'>
+                {userProfile.role}
+              </span>
+            </div>
+            <button
+              onClick={() => setMenuOpen((prev) => !prev)}
+              className='p-1 rounded hover:bg-accent transition'
+            >
+              <MoreVertical className='h-4 w-4 text-muted-foreground' />
             </button>
             {menuOpen && (
-              <div className='absolute right-0 mt-2 w-32 rounded bg-card shadow-lg border border-border z-10'>
-                <button className='block w-full px-4 py-2 text-left hover:bg-secondary' onClick={() => setMenuOpen(false)}>User Setting</button>
-                <button className='block w-full px-4 py-2 text-left hover:bg-secondary' onClick={handleLogout}>Logout</button>
+              <div className='absolute right-2 bottom-14 bg-card border border-border rounded-md shadow-md py-1 z-50 w-28'>
+                <button
+                  onClick={() => {
+                    clearSession();
+                    window.location.reload();
+                  }}
+                  className='w-full text-left text-sm px-3 py-2 hover:bg-accent hover:text-destructive transition'
+                >
+                  Logout
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
-
-      {/* Popup */}
-      {popupContent && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-          <div className='bg-white rounded-lg shadow-lg p-6 max-w-lg'>
-            {popupContent}
-            <button className='mt-4 px-4 py-2 bg-primary text-primary-foreground rounded' onClick={() => setPopupContent(null)}>
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,104 +1,105 @@
-'use client';
+"use client"
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
 type ColorOption = {
-  key: string;
+  key: string
   classes: {
-    bg: string;
-    text: string;
-    border?: string;
-  };
-};
+    bg: string
+    text: string
+    border?: string
+  }
+}
 
 const colorOptions: ColorOption[] = [
   {
-    key: 'primary',
-    classes: { bg: 'bg-primary', text: 'text-primary-foreground' },
+    key: "primary",
+    classes: { bg: "bg-primary", text: "text-primary-foreground" },
   },
   {
-    key: 'secondary',
-    classes: { bg: 'bg-secondary', text: 'text-secondary-foreground' },
+    key: "secondary",
+    classes: { bg: "bg-secondary", text: "text-secondary-foreground" },
   },
-
   {
-    key: 'destructive',
-    classes: { bg: 'bg-destructive', text: 'text-destructive-foreground' },
+    key: "destructive",
+    classes: { bg: "bg-destructive", text: "text-destructive-foreground" },
   },
-  { key: 'blue', classes: { bg: 'bg-blue-500', text: 'text-white' } },
-  { key: 'green', classes: { bg: 'bg-green-500', text: 'text-white' } },
-  { key: 'yellow', classes: { bg: 'bg-yellow-500', text: 'text-black' } },
-  { key: 'red', classes: { bg: 'bg-red-500', text: 'text-white' } },
-  { key: 'purple', classes: { bg: 'bg-purple-500', text: 'text-white' } },
-  { key: 'gray-dark', classes: { bg: 'bg-gray-700', text: 'text-white' } },
-];
+  { key: "blue", classes: { bg: "bg-blue-500", text: "text-white" } },
+  { key: "green", classes: { bg: "bg-green-500", text: "text-white" } },
+  { key: "yellow", classes: { bg: "bg-yellow-500", text: "text-black" } },
+  { key: "red", classes: { bg: "bg-red-500", text: "text-white" } },
+  { key: "purple", classes: { bg: "bg-purple-500", text: "text-white" } },
+  { key: "gray-dark", classes: { bg: "bg-gray-700", text: "text-white" } },
+]
 
 type ButtonPref = {
-  label?: string;
-  color?: string;
-};
+  label?: string
+  color?: string
+}
 
 type UserProfile = {
-  name: string;
-  role: string;
-  photo: string;
-};
+  name: string
+  role: string
+  photo: string
+}
 
 type PreferencesContextValue = {
-  isCustomize: boolean;
-  toggleCustomize: () => void;
-  buttonPrefs: Record<string, ButtonPref>;
-  setButtonPref: (key: string, pref: Partial<ButtonPref>) => void;
-  getButtonLabel: (key: string, defaultLabel: string) => string;
-  getButtonColorClasses: (key: string) => ColorOption['classes'];
-  colorOptions: ColorOption[];
-  productImages: Record<string, string>;
-  setProductImage: (productId: string, imageUrl: string) => void;
-  getProductImage: (productId: string, defaultImage: string) => string;
-  getUserProfile: () => UserProfile;
-  setUserProfile: (profile: UserProfile) => void;
-};
+  isCustomize: boolean
+  toggleCustomize: () => void
+  buttonPrefs: Record<string, ButtonPref>
+  setButtonPref: (key: string, pref: Partial<ButtonPref>) => void
+  getButtonLabel: (key: string, defaultLabel: string) => string
+  getButtonColorClasses: (key: string) => ColorOption["classes"]
+  colorOptions: ColorOption[]
+  productImages: Record<string, string>
+  setProductImage: (productId: string, imageUrl: string) => void
+  getProductImage: (productId: string, defaultImage: string) => string
+  getUserProfile: () => UserProfile
+  setUserProfile: (profile: UserProfile) => void
+  globalBackgroundColor: string
+  setGlobalBackgroundColor: (key: string) => void
+  globalButtonColor: string
+  setGlobalButtonColor: (key: string) => void
+  getGlobalBackgroundClasses: () => ColorOption["classes"]
+  getGlobalButtonClasses: () => ColorOption["classes"]
+}
 
-const PreferencesContext = createContext<PreferencesContextValue | null>(null);
+const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 
-const STORAGE_KEY = 'carwash-preferences';
+const STORAGE_KEY = "carwash-preferences"
 const DEFAULT_USER: UserProfile = {
-  name: 'WaziTUYA',
-  role: 'Admin',
-  photo: '/logo.jpg',
-};
+  name: "Carwash Cilodong",
+  role: "Admin",
+  photo: "/logo.jpg",
+}
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [isCustomize, setIsCustomize] = useState(false);
-  const [buttonPrefs, setButtonPrefs] = useState<Record<string, ButtonPref>>(
-    {}
-  );
-  const [productImages, setProductImages] = useState<Record<string, string>>(
-    {}
-  );
-  const [userProfile, setUserProfileState] =
-    useState<UserProfile>(DEFAULT_USER);
+  const [isCustomize, setIsCustomize] = useState(false)
+  const [buttonPrefs, setButtonPrefs] = useState<Record<string, ButtonPref>>({})
+  const [productImages, setProductImages] = useState<Record<string, string>>({})
+  const [userProfile, setUserProfileState] = useState<UserProfile>(DEFAULT_USER)
+
+  // Global theme states
+  const [globalBackgroundColor, setGlobalBackgroundColor] = useState<string>("secondary")
+  const [globalButtonColor, setGlobalButtonColor] = useState<string>("primary")
 
   // Load from localStorage on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
-        const parsed = JSON.parse(stored);
-        setButtonPrefs(parsed.buttonPrefs || {});
-        setProductImages(parsed.productImages || {});
-        setUserProfileState(parsed.userProfile || DEFAULT_USER);
+        const parsed = JSON.parse(stored)
+        setButtonPrefs(parsed.buttonPrefs || {})
+        setProductImages(parsed.productImages || {})
+        setUserProfileState(parsed.userProfile || DEFAULT_USER)
+        // Hydrate global theme
+        if (parsed.globalBackgroundColor) setGlobalBackgroundColor(parsed.globalBackgroundColor)
+        if (parsed.globalButtonColor) setGlobalButtonColor(parsed.globalButtonColor)
       }
     } catch (e) {
-      console.error('Failed to load preferences', e);
+      console.error("Failed to load preferences", e)
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
     try {
@@ -108,50 +109,66 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
           buttonPrefs,
           productImages,
           userProfile,
-        })
-      );
+          // Persist global theme
+          globalBackgroundColor,
+          globalButtonColor,
+        }),
+      )
     } catch (e) {
-      console.error('Failed to save preferences', e);
+      console.error("Failed to save preferences", e)
     }
-  }, [buttonPrefs, productImages, userProfile]);
+  }, [buttonPrefs, productImages, userProfile, globalBackgroundColor, globalButtonColor])
 
-  const toggleCustomize = () => setIsCustomize((s) => !s);
+  const toggleCustomize = () => setIsCustomize((s) => !s)
 
   const setButtonPref = (key: string, pref: Partial<ButtonPref>) => {
     setButtonPrefs((prev) => ({
       ...prev,
       [key]: { ...prev[key], ...pref },
-    }));
-  };
+    }))
+  }
 
   const getButtonLabel = (key: string, defaultLabel: string): string => {
-    return buttonPrefs[key]?.label || defaultLabel;
-  };
+    return buttonPrefs[key]?.label || defaultLabel
+  }
 
-  const getButtonColorClasses = (key: string): ColorOption['classes'] => {
-    const colorKey = buttonPrefs[key]?.color || 'primary';
-    const found = colorOptions.find((opt) => opt.key === colorKey);
-    return found?.classes || colorOptions[0].classes;
-  };
+  // Helper to resolve a color key to classes
+  const resolveColor = (key: string): ColorOption["classes"] => {
+    const found = colorOptions.find((opt) => opt.key === key)
+    return found?.classes || colorOptions[0].classes
+  }
+
+  // Global background classes (used for surfaces/panels)
+  const getGlobalBackgroundClasses = (): ColorOption["classes"] => {
+    return resolveColor(globalBackgroundColor)
+  }
+
+  // Global button classes (used for generic buttons)
+  const getGlobalButtonClasses = (): ColorOption["classes"] => {
+    return resolveColor(globalButtonColor)
+  }
+
+  // Override per-button colors when global is set (flat customization)
+  const getButtonColorClasses = (key: string): ColorOption["classes"] => {
+    // Always prioritize global button color (flat control)
+    if (globalButtonColor) return resolveColor(globalButtonColor)
+    const colorKey = buttonPrefs[key]?.color || "primary"
+    return resolveColor(colorKey)
+  }
 
   const setProductImage = (productId: string, imageUrl: string) => {
     setProductImages((prev) => ({
       ...prev,
       [productId]: imageUrl,
-    }));
-  };
+    }))
+  }
 
   const getProductImage = (productId: string, defaultImage: string): string => {
-    return productImages[productId] || defaultImage;
-  };
+    return productImages[productId] || defaultImage
+  }
 
-  const getUserProfile = (): UserProfile => {
-    return userProfile;
-  };
-
-  const setUserProfile = (profile: UserProfile) => {
-    setUserProfileState(profile);
-  };
+  const getUserProfile = (): UserProfile => userProfile
+  const setUserProfile = (profile: UserProfile) => setUserProfileState(profile)
 
   const value: PreferencesContextValue = {
     isCustomize,
@@ -166,18 +183,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     getProductImage,
     getUserProfile,
     setUserProfile,
-  };
+    // Expose global theme controls
+    globalBackgroundColor,
+    setGlobalBackgroundColor,
+    globalButtonColor,
+    setGlobalButtonColor,
+    getGlobalBackgroundClasses,
+    getGlobalButtonClasses,
+  }
 
-  return (
-    <PreferencesContext.Provider value={value}>
-      {children}
-    </PreferencesContext.Provider>
-  );
+  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>
 }
 
 export function usePreferences() {
-  const ctx = useContext(PreferencesContext);
-  if (!ctx)
-    throw new Error('usePreferences must be used within PreferencesProvider');
-  return ctx;
+  const ctx = useContext(PreferencesContext)
+  if (!ctx) throw new Error("usePreferences must be used within PreferencesProvider")
+  return ctx
 }

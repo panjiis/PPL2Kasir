@@ -1,43 +1,24 @@
 'use client';
-import { useState, type ReactNode, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Barcode,
   HeartCrack as ChartBarStacked,
   Tag,
   Tags,
-  CreditCard,
-  Loader,
-  LoaderCircle,
-  Boxes,
 } from 'lucide-react';
-import { productData, type ProductItem, type ProductCategory } from './dummy';
-import { ordersData, type OrderStatus, type Order } from './dummy';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { useCart } from './cart-content';
+import { useCart, type CartItem } from './cart-content';
 import DynamicIsland from './DynamicIsland';
 import { useNotification } from './notification-context';
-import { usePreferences } from '@/app/providers/preferences-context';
+import { usePreferences } from '../providers/preferences-context';
 import { useSession } from '../lib/context/session';
-import { fetchInventoryProducts } from '../lib/utils/inventory-api';
+import { fetchProducts } from '../lib/utils/pos-api';
+import type { PosProduct } from '../lib/types/pos';
 import Image from 'next/image';
-import { type ApiProduct } from '../lib/types/auth'; // ✅ gunakan tipe dari auth.ts
 
 // ============================ //
 // ===== Helper Type/Utils ===== //
 // ============================ //
-
-type PillButtonProps = {
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-};
 
 type ProductCardProps = {
   id?: string;
@@ -49,74 +30,19 @@ type ProductCardProps = {
   onAdd?: () => void;
 };
 
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < arr.length; i += size)
-    result.push(arr.slice(i, i + size));
-  return result;
-}
+type OrderStatus = 'In Queue' | 'In Process' | 'Waiting Payment' | 'Done';
 
-// ============================ //
-// ===== Component Pills ===== //
-// ============================ //
-
-function PillButton({ icon, label, onClick }: PillButtonProps) {
-  const {
-    isCustomize,
-    getButtonColorClasses,
-    getButtonLabel,
-    setButtonPref,
-    colorOptions,
-  } = usePreferences();
-  const key = `center:pill:${label.toLowerCase().replace(/\s+/g, '-')}`;
-  const shownLabel = getButtonLabel(key, label);
-  const color = getButtonColorClasses(key);
-  return (
-    <div className='rounded-lg border border-border bg-secondary p-2'>
-      <button
-        type='button'
-        onClick={onClick}
-        className={[
-          'flex items-center w-48 gap-3 rounded-lg px-3 py-2 transition',
-          color.bg,
-          color.text,
-        ].join(' ')}
-      >
-        <div className='grid h-10 w-10 place-items-center rounded-md border-dashed text-current'>
-          {icon}
-        </div>
-        <span className='text-sm'>{shownLabel}</span>
-      </button>
-      {isCustomize && (
-        <div className='mt-2 space-y-2'>
-          <input
-            className='w-full rounded-md border border-border bg-card text-foreground text-xs px-2 py-1'
-            defaultValue={shownLabel}
-            onBlur={(ev) =>
-              setButtonPref(key, { label: ev.currentTarget.value })
-            }
-          />
-          <div className='flex flex-col gap-1'>
-            {chunkArray(colorOptions, 5).map((row, idx) => (
-              <div key={idx} className='flex gap-5'>
-                {row.map((opt) => (
-                  <button
-                    key={opt.key}
-                    onClick={() => setButtonPref(key, { color: opt.key })}
-                    className={[
-                      'h-5 w-5 rounded border border-black',
-                      opt.classes.bg,
-                    ].join(' ')}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+type Order = {
+  id: string;
+  orderNo: string;
+  createdAt: string;
+  customer?: string;
+  items: CartItem[];
+  status: OrderStatus;
+  paymentType: 'cash' | 'credit' | 'qris';
+  paymentBank?: string;
+  total: number;
+};
 
 // ============================ //
 // ===== Search Component ===== //
@@ -139,17 +65,15 @@ function SearchPill({
         ev.preventDefault();
         onSubmit();
       }}
-      className='flex items-center gap-3 rounded-lg border border-border bg-secondary px-3 py-2'
+      className='flex-1 flex items-center rounded-lg border border-border bg-secondary h-12 px-3 min-w-[200px]'
     >
-      <div className='grid h-6 w-6 place-items-center rounded-md border-2 border-dashed text-muted-foreground'>
-        <Search className='h-4 w-4' />
-      </div>
+      <Search className='h-5 w-5 text-muted-foreground mr-2' />
       <input
         type='text'
         value={query}
         onChange={(ev) => setQuery(ev.target.value)}
         placeholder={placeholder}
-        className='flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground'
+        className='flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground h-full'
       />
     </form>
   );
@@ -172,53 +96,78 @@ function ProductCard({
   const finalImage = id ? getProductImage(id, image) : image;
 
   return (
-    <div className='text-left rounded-lg border border-border bg-card p-3 hover:shadow transition'>
+    <div className='text-left rounded-lg border border-border bg-card p-3 hover:shadow transition flex flex-col justify-between h-full'>
       <button
         type='button'
         onClick={onAdd}
         aria-label={`Tambah ${name} ke pesanan`}
-        className='w-full'
+        className='w-full flex flex-col flex-1'
       >
-        <div className='grid place-items-center rounded-lg border border-border bg-secondary'>
+        <div className='grid place-items-center rounded-lg border border-border bg-secondary overflow-hidden'>
           <Image
             src={
-              finalImage ||
-              '/placeholder.svg?height=140&width=240&query=gambar-produk'
+              finalImage?.startsWith('http')
+                ? finalImage
+                : finalImage || '/placeholder.svg'
             }
             alt={name}
-            height={140}
-            width={240}
-            className='h-[140px] w-full rounded-lg object-cover'
-          />
-        </div>
-        <div className='mt-3 font-bold font-rubik text-foreground'>{name}</div>
-        <div className='text-xs text-muted-foreground'>
-          {type === 'service' ? 'Service' : 'Product'} • Rp
-          {price.toLocaleString('id-ID')}
-        </div>
-        <div className='mt-1 text-xs text-muted-foreground'>{description}</div>
-      </button>
-      {isCustomize && id && (
-        <div className='mt-2 flex gap-2'>
-          <input
-            className='flex-1 rounded-md border border-border bg-card text-foreground text-xs px-2 py-1'
-            placeholder='URL gambar produk...'
-            defaultValue={finalImage}
-            onBlur={(ev) => setProductImage(id, ev.currentTarget.value)}
-          />
-          <button
-            type='button'
-            className='px-2 rounded-md bg-primary text-primary-foreground text-xs'
-            onClick={() => {
-              const url = prompt(
-                'Masukkan URL gambar untuk produk ini',
-                finalImage || ''
-              );
-              if (url !== null) setProductImage(id, url);
+            width={300}
+            height={100}
+            className='h-[100px] w-full object-cover rounded-md'
+            unoptimized
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = '/placeholder.svg';
             }}
-          >
-            Ubah
-          </button>
+          />
+        </div>
+
+        <div className='mt-2 flex flex-col justify-between flex-1'>
+          <div>
+            <div className='font-bold font-rubik text-foreground text-sm leading-tight'>
+              {name}
+            </div>
+            <div className='text-[11px] text-muted-foreground'>
+              {type === 'service' ? 'Service' : 'Product'} • Rp
+              {price.toLocaleString('id-ID')}
+            </div>
+          </div>
+          {description && (
+            <div className='mt-1 text-[11px] text-muted-foreground line-clamp-2'>
+              {description}
+            </div>
+          )}
+        </div>
+      </button>
+
+      {isCustomize && id && (
+        <div className='mt-3 flex flex-col gap-1.5'>
+          <label className='text-[11px] text-muted-foreground font-medium'>
+            Gambar produk:
+          </label>
+          <div className='flex gap-2 w-full overflow-hidden'>
+            <input
+              className='flex-1 min-w-0 rounded-md border border-border bg-card text-foreground text-xs px-2 py-1 
+                   focus:outline-none focus:ring-1 focus:ring-primary 
+                   overflow-hidden text-ellipsis break-all'
+              placeholder='URL gambar produk...'
+              defaultValue={finalImage}
+              onBlur={(ev) => setProductImage(id, ev.currentTarget.value)}
+            />
+            <button
+              type='button'
+              className='px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs hover:opacity-90 whitespace-nowrap'
+              onClick={() => {
+                const url = prompt(
+                  'Masukkan URL gambar untuk produk ini',
+                  finalImage || ''
+                );
+                if (url !== null) setProductImage(id, url);
+              }}
+            >
+              Ubah
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -226,112 +175,162 @@ function ProductCard({
 }
 
 // ============================ //
-// ====== Main Component ===== //
+// ===== Order Card List  ===== //
 // ============================ //
 
-const pillButtonsData: PillButtonProps[] = [
-  { icon: <Loader className='w-6 h-6' />, label: 'In Queue' },
-  { icon: <LoaderCircle className='w-6 h-6' />, label: 'In Process' },
-  { icon: <CreditCard className='w-6 h-6' />, label: 'Waiting Payment' },
-];
+function OrderStatusBadge({ status }: { status: OrderStatus }) {
+  let color = 'bg-gray-200 text-gray-600';
+  if (status === 'In Queue') color = 'bg-yellow-200 text-yellow-800';
+  if (status === 'In Process') color = 'bg-blue-200 text-blue-800';
+  if (status === 'Waiting Payment') color = 'bg-gray-300 text-gray-700';
+  if (status === 'Done') color = 'bg-green-200 text-green-800';
+  return (
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${color}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function getNextStatus(status: OrderStatus): OrderStatus | null {
+  switch (status) {
+    case 'Waiting Payment':
+      return 'In Queue';
+    case 'In Queue':
+      return 'In Process';
+    case 'In Process':
+      return 'Done';
+    default:
+      return null;
+  }
+}
+
+function OrderCard({
+  order,
+  onStatusChange,
+}: {
+  order: Order;
+  onStatusChange: (id: string, next: OrderStatus) => void;
+}) {
+  const next = getNextStatus(order.status);
+
+  return (
+    <div className='flex-shrink-0 w-[320px] rounded-lg border border-border bg-card p-4 flex flex-col gap-2 mr-3'>
+      <div className='flex items-center justify-between gap-2'>
+        <div className='font-bold font-rubik text-foreground'>
+          Order {order.orderNo}
+        </div>
+        <OrderStatusBadge status={order.status} />
+      </div>
+      <div className='text-xs text-muted-foreground'>{order.createdAt}</div>
+      <div className='text-xs text-muted-foreground'>
+        Metode: {order.paymentType}
+        {order.paymentBank ? ` (${order.paymentBank})` : ''}
+      </div>
+      <ul className='mt-2 text-xs text-foreground/90 grid gap-1'>
+        {order.items.map((it, idx) => (
+          <li key={idx} className='flex justify-between'>
+            <span>
+              {it.name} × {it.qty}
+            </span>
+            <span>Rp{(it.price * it.qty).toLocaleString('id-ID')}</span>
+          </li>
+        ))}
+      </ul>
+      <div className='mt-2 text-xs font-bold text-primary'>
+        Total: Rp{order.total.toLocaleString('id-ID')}
+      </div>
+
+      {next && (
+        <button
+          onClick={() => onStatusChange(order.id, next)}
+          className='mt-3 px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs hover:opacity-90 transition'
+        >
+          Ubah ke {next}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ============================ //
+// ====== Main Component ====== //
+// ============================ //
 
 export default function CenterMock() {
-  const [page, setPage] = useState(0);
-  const pillsPerPage = 3;
-  const totalPages = Math.ceil(pillButtonsData.length / pillsPerPage);
-  const visiblePills = pillButtonsData.slice(
-    page * pillsPerPage,
-    (page + 1) * pillsPerPage
-  );
-
   const [detailMode, setDetailMode] = useState<
     null | 'services' | 'non-services'
   >(null);
-  const [selectedTiles] = useState<Set<ProductCategory>>(new Set());
+  const [selectedTiles] = useState<Set<string>>(new Set());
   const [searchType, setSearchType] = useState<
     'barcode' | 'category' | 'name' | 'itemId'
   >('name');
   const [query, setQuery] = useState('');
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalStatus, setModalStatus] = useState<null | OrderStatus>(null);
-
-  const ordersForStatus: Order[] = useMemo(
-    () =>
-      modalStatus ? ordersData.filter((o) => o.status === modalStatus) : [],
-    [modalStatus]
-  );
+  const { orders, updateOrderStatus } = useCart();
+  const filteredOrders = orders.filter((o) => o.status !== 'Done');
 
   const { session } = useSession();
   const token = session?.token ?? '';
 
-  const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
-  const [apiLoading, setApiLoading] = useState(false);
-  const [showApi, setShowApi] = useState(false);
+  const [apiProducts, setApiProducts] = useState<CartItem[]>([]);
+  const [apiLoading, setApiLoading] = useState(true);
 
-  const loadProductsFromApi = async (): Promise<void> => {
-    setApiLoading(true);
-    try {
-      const result = await fetchInventoryProducts(token);
-      const raw: ApiProduct[] = Array.isArray(result.data) ? result.data : [];
+  // 🔹 Langsung fetch produk saat komponen dimount
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const result = await fetchProducts(token);
+        const raw: PosProduct[] = Array.isArray(result.data) ? result.data : [];
 
-      const mapped: ProductItem[] = raw.map(
-        (p): ProductItem => ({
-          id: String(p.id ?? p.product_code), // fallback id kalau tidak ada
+        const mapped: CartItem[] = raw.map((p) => ({
+          id: String(p.id ?? p.product_code),
           itemId: p.product_code,
-          barcode: p.product_code || '', // gunakan kode produk sebagai fallback barcode
+          barcode: p.product_code || '',
           name: p.product_name,
           image: '/placeholder.svg',
-          price: 0, // jika API belum punya harga
+          price: p.price ?? 0,
           type: 'product',
-          category: 'Food', // bisa diubah jika ada mapping kategori
+          category: '',
           description: p.unit_of_measure ?? '',
-        })
-      );
+          qty: 1,
+        }));
 
-      setApiProducts(mapped);
-      setShowApi(true);
-    } catch (error) {
-      console.error('Failed to load products from API:', error);
-      alert('Failed to load products from API');
-    } finally {
-      setApiLoading(false);
-    }
-  };
+        setApiProducts(mapped);
+      } catch (err) {
+        console.error('Failed to load products from API:', err);
+      } finally {
+        setApiLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [token]);
+
   const filteredProducts = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return productData.filter((p: ProductItem) => {
-      const tileOk =
-        selectedTiles.size === 0 ? true : selectedTiles.has(p.category);
-      if (!q) return tileOk;
-      const hay =
-        searchType === 'barcode'
-          ? p.barcode.toLowerCase()
-          : searchType === 'category'
-          ? p.category.toLowerCase()
-          : searchType === 'itemId'
-          ? p.itemId.toLowerCase()
-          : p.name.toLowerCase();
-      return tileOk && hay.includes(q);
-    });
-  }, [query, searchType, selectedTiles]);
-
-  const filteredApiProducts = useMemo(() => {
-    if (!showApi) return [];
     const q = query.trim().toLowerCase();
     return apiProducts.filter((p) => {
       const tileOk =
-        selectedTiles.size === 0 ? true : selectedTiles.has(p.category);
+        selectedTiles.size === 0 ? true : selectedTiles.has(p.category ?? '');
       if (!q) return tileOk;
-      const hay = p.name.toLowerCase();
+      const hay =
+        searchType === 'barcode'
+          ? p.barcode?.toLowerCase() || ''
+          : searchType === 'category'
+          ? p.category?.toLowerCase() || ''
+          : searchType === 'itemId'
+          ? p.itemId?.toLowerCase() || ''
+          : p.name.toLowerCase();
       return tileOk && hay.includes(q);
     });
-  }, [apiProducts, query, selectedTiles, showApi]);
+  }, [query, searchType, selectedTiles, apiProducts]);
 
   const { addItem } = useCart();
   const { notif, clearNotif } = useNotification();
+
   return (
-    <div className='flex flex-col gap-4 relative'>
+    <div className='flex flex-col gap-6 p-4 h-full overflow-y-auto'>
       <DynamicIsland
         type={notif.type as 'success' | 'error' | null}
         message={notif.message}
@@ -340,49 +339,33 @@ export default function CenterMock() {
         onClose={clearNotif}
       />
 
-      <div className='h-12 w-1/2 rounded-md flex items-left text-4xl text-foreground font-rubik font-bold tracking-wide'>
+      <div className='h-12 text-4xl font-bold font-rubik text-foreground tracking-wide'>
         Ongoing Order
       </div>
 
-      <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'>
-        {visiblePills.map((pill) => (
-          <PillButton
-            key={pill.label}
-            icon={pill.icon}
-            label={pill.label}
-            onClick={() => {
-              setModalStatus(pill.label as OrderStatus);
-              setModalOpen(true);
-            }}
-          />
-        ))}
+      <div
+        className='flex gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-gray-400'
+        style={{ maxHeight: 200 }}
+      >
+        {filteredOrders.length === 0 ? (
+          <div className='text-sm text-muted-foreground py-4'>
+            Belum ada order.
+          </div>
+        ) : (
+          filteredOrders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              onStatusChange={(id, next) => updateOrderStatus(id, next)}
+            />
+          ))
+        )}
       </div>
 
-      {totalPages > 1 && (
-        <div className='flex justify-center items-center gap-2'>
-          <button
-            className='px-2 py-1 rounded bg-secondary text-foreground border border-border disabled:opacity-40'
-            onClick={() => setPage(page - 1)}
-            disabled={page === 0}
-          >
-            ←
-          </button>
-          <span className='text-foreground text-sm'>
-            {page + 1} / {totalPages}
-          </span>
-          <button
-            className='px-2 py-1 rounded bg-secondary text-foreground border border-border disabled:opacity-40'
-            onClick={() => setPage(page + 1)}
-            disabled={page === totalPages - 1}
-          >
-            →
-          </button>
-        </div>
-      )}
+      <hr className="border-t border-border my-2" />
 
-      <hr className='border-t-4 border-border' />
 
-      <div className='h-12 w-1/2 rounded-md flex items-left text-3xl text-foreground font-rubik font-bold tracking-wide'>
+      <div className='h-12 text-3xl font-bold font-rubik text-foreground tracking-wide'>
         Detailing
       </div>
 
@@ -393,8 +376,7 @@ export default function CenterMock() {
             setDetailMode(detailMode === 'services' ? null : 'services')
           }
           className={[
-            'rounded-lg border px-4 py-3',
-            'bg-secondary border-border text-foreground',
+            'rounded-lg border px-4 py-3 bg-secondary border-border text-foreground',
             detailMode === 'services' ? 'ring-2' : '',
           ].join(' ')}
         >
@@ -406,8 +388,7 @@ export default function CenterMock() {
             setDetailMode(detailMode === 'non-services' ? null : 'non-services')
           }
           className={[
-            'rounded-lg border px-4 py-3',
-            'bg-secondary border-border text-foreground',
+            'rounded-lg border px-4 py-3 bg-secondary border-border text-foreground',
             detailMode === 'non-services' ? 'ring-2' : '',
           ].join(' ')}
         >
@@ -415,15 +396,17 @@ export default function CenterMock() {
         </button>
       </div>
 
-      <hr className='border-t-4 border-border' />
+      <hr className="border-t border-border my-2" />
 
-      <div className='h-12 w-1/2 rounded-md flex items-left text-3xl text-foreground font-rubik font-bold tracking-wide'>
-        Main menu
+
+      <div className='h-12 text-3xl font-bold font-rubik text-foreground tracking-wide'>
+        Main Menu
       </div>
 
-      {/* --- Search & Filter Section --- */}
-      <div className='grid grid-cols-1 items-center gap-3 md:grid-cols-[repeat(4,90px)_1fr]'>
+      {/* SEARCH & FILTER */}
+      <div className='flex items-center gap-2'>
         {[
+          // Search buttons
           {
             type: 'barcode',
             icon: <Barcode className='h-5 w-5' />,
@@ -446,12 +429,11 @@ export default function CenterMock() {
             type='button'
             onClick={() => setSearchType(btn.type as typeof searchType)}
             className={[
-              'flex flex-col items-center justify-center rounded-lg border p-2',
-              'bg-secondary border-border',
+              'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-24 ml-1 px-2',
               searchType === btn.type ? 'ring-2' : '',
             ].join(' ')}
           >
-            <div className='grid h-10 w-10 place-items-center rounded-md border-2 border-dashed text-muted-foreground'>
+            <div className='grid h-5 w-5 place-items-center text-muted-foreground'>
               {btn.icon}
             </div>
             <span className='mt-1 text-xs text-foreground'>{btn.label}</span>
@@ -474,94 +456,29 @@ export default function CenterMock() {
         />
       </div>
 
-      {/* --- API Button --- */}
-      <div className='mt-2'>
-        <button
-          onClick={loadProductsFromApi}
-          className='px-4 py-2 rounded bg-primary text-primary-foreground flex items-center gap-2'
-          disabled={apiLoading}
-        >
-          <Boxes className='w-5 h-5' />
-          {apiLoading ? 'Loading...' : 'Load Products from API'}
-        </button>
-        {showApi && (
-          <button
-            className='ml-2 px-3 py-2 rounded bg-secondary border text-xs'
-            onClick={() => setShowApi(false)}
-          >
-            Hide API Products
-          </button>
+      {/* PRODUCT LIST */}
+      <div className='flex-1 overflow-y-auto max-h-[50vh] pr-1'>
+        {apiLoading ? (
+          <div className='text-muted-foreground text-sm p-4'>
+            Loading products...
+          </div>
+        ) : (
+          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
+            {filteredProducts.map((p) => (
+              <ProductCard
+                key={p.id}
+                id={p.id}
+                name={p.name}
+                image={p.image}
+                price={p.price}
+                type={p.type}
+                description={p.description}
+                onAdd={() => addItem(p)}
+              />
+            ))}
+          </div>
         )}
       </div>
-
-      {/* --- Product List --- */}
-      <div className='overflow-auto max-h-[600px]'>
-        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
-          {(showApi ? filteredApiProducts : filteredProducts).map((p) => (
-            <ProductCard
-              key={p.id}
-              id={p.id}
-              name={p.name}
-              image={p.image}
-              price={p.price}
-              type={p.type}
-              description={p.description}
-              onAdd={() => addItem(p)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* --- Modal Orders --- */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className='sm:max-w-xl'>
-          <DialogHeader>
-            <DialogTitle>{modalStatus ?? 'Orders'}</DialogTitle>
-            <DialogDescription>
-              Daftar order untuk status ini.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className='max-h-96 overflow-auto grid gap-3'>
-            {ordersForStatus.length === 0 ? (
-              <div className='text-sm text-muted-foreground'>
-                Belum ada order.
-              </div>
-            ) : (
-              ordersForStatus.map((o) => (
-                <div
-                  key={o.id}
-                  className='rounded-lg border border-border bg-card p-3'
-                >
-                  <div className='flex items-center justify-between'>
-                    <div className='font-semibold font-rubik text-foreground'>
-                      Order {o.orderNo}
-                    </div>
-                    <div className='text-xs text-muted-foreground'>
-                      {o.createdAt}
-                    </div>
-                  </div>
-                  <div className='text-xs text-muted-foreground'>
-                    Customer: {o.customer || '-'}
-                  </div>
-                  <ul className='mt-2 text-xs text-foreground/90 grid gap-1'>
-                    {o.items.map((it, idx) => (
-                      <li key={idx} className='flex justify-between'>
-                        <span>
-                          {it.productName} × {it.qty}
-                        </span>
-                        <span>
-                          Rp{(it.price * it.qty).toLocaleString('id-ID')}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

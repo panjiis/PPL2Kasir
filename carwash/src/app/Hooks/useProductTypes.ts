@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { ProductTypeItem } from "../lib/types/inventory"
+import type { ProductTypeItem } from "../lib/types/pos"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.interphaselabs.com/api/v1"
 
 export function useProductTypes() {
   const [data, setData] = useState<ProductTypeItem[]>([])
@@ -11,10 +11,11 @@ export function useProductTypes() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    const token = localStorage.getItem("token")
     const fetchProductTypes = async () => {
       try {
-        const token = localStorage.getItem("token")
-        const response = await fetch(`${API_BASE}/api/v1/inventory/product-types`, {
+        // Update endpoint ke POS Service
+        const response = await fetch(`${API_BASE}/pos/product-groups`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -26,10 +27,8 @@ export function useProductTypes() {
         }
 
         const result = await response.json()
-        console.log("[v0] Product types API response:", result)
         setData(result.data || [])
       } catch (err) {
-        console.error("[v0] Error fetching product types:", err)
         setError(err instanceof Error ? err.message : "Unknown error")
       } finally {
         setLoading(false)

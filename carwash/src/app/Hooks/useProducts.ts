@@ -18,7 +18,7 @@ export interface Product {
 
 interface APIProduct {
   id?: string;
-  product_id?: string;
+  product_code?: string;
   item_id?: string;
   code?: string;
   name?: string;
@@ -60,7 +60,8 @@ export function useProducts() {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/inventory/products`, {
+        // Update endpoint ke POS Service
+        const response = await fetch(`${API_BASE_URL}/pos/products`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -75,8 +76,8 @@ export function useProducts() {
 
         const products: Product[] = result.data.map(
           (item: APIProduct): Product => ({
-            id: item.id || item.product_id || '',
-            itemId: item.item_id || item.code,
+            id: item.id || item.product_code || '',
+            itemId: item.item_id || item.code || item.product_code,
             name: item.name || item.product_name || 'Unnamed Product',
             description: item.description,
             price: item.price ?? 0,

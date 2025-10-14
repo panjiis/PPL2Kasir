@@ -61,7 +61,8 @@ export function useOrders() {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_BASE_URL}/orders`, {
+        // Update endpoint ke POS Service
+        const response = await fetch(`${API_BASE_URL}/pos/orders`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",

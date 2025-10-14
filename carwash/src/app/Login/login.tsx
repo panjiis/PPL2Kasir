@@ -1,8 +1,9 @@
 'use client';
+
 import * as React from 'react';
-import { useRouter } from 'next/navigation'; // Tambahkan ini
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -12,9 +13,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import Image from 'next/image';
+import { Label } from '@/components/ui/label';
 import { login } from '../lib/utils/api';
 import { useSession } from '../lib/context/session';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [username, setUsername] = React.useState('');
@@ -23,29 +25,33 @@ export default function LoginPage() {
   const [error, setError] = React.useState<string | null>(null);
 
   const { session, setSession } = useSession();
-  const router = useRouter(); // Tambahkan ini
+  const router = useRouter();
 
-  const handleLogin = async () => {
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!username || !password) {
+      setError('Username and password are required.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const response = await login(username, password);
-
       const expiresAt = response.data.expires_at
         ? response.data.expires_at.seconds * 1000
-        : Date.now() + 3600 * 1000; // fallback 1 jam jika tidak ada
+        : Date.now() + 3600 * 1000;
 
       setSession({
         token: response.data.token || '',
-        user: response.data.user, // ✅ sekarang tipe User penuh
+        user: response.data.user,
         expiresAt,
       });
 
       router.replace('/Kasir');
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      }
+      setError(
+        err instanceof Error ? err.message : 'An unexpected error occurred.'
+      );
     } finally {
       setLoading(false);
     }
@@ -53,106 +59,100 @@ export default function LoginPage() {
 
   const handleLogout = () => setSession(null);
 
+  // --- Logged-in View ---
   if (session) {
     return (
-      <main className='flex flex-col items-center justify-center min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]'>
-        <Card className='w-full max-w-sm rounded-2xl p-4'>
-          <CardHeader>
+      <main className='flex items-center justify-center min-h-screen bg-background'>
+        {/* Anda juga bisa melebarkan card ini jika perlu */}
+        <Card className='w-full max-w-sm'>
+          <CardHeader className='text-center'>
             <CardTitle>
               Welcome, {session.user.username || session.user.firstname}
             </CardTitle>
             <CardDescription>
-              You are logged in as {session.user.role?.role_name}
+              You are logged in as {session.user.role?.role_name || 'User'}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className='space-y-2 text-sm'>
             <p>
               <strong>Email:</strong> {session.user.email}
             </p>
             <p>
-              <strong>Active:</strong> {session.user.is_active ? 'Yes' : 'No'}
-            </p>
-            <p>
-              <strong>Last login:</strong>{' '}
-              {session.user.last_login
-                ? new Date(
-                    session.user.last_login.seconds * 1000
-                  ).toLocaleString()
-                : 'N/A'}
-            </p>
-            <p>
-              <strong>Session expires at:</strong>{' '}
-              {new Date(session.expiresAt).toLocaleString()}
+              <strong>Session expires:</strong>{' '}
+              {new Date(session.expiresAt).toLocaleString('id-ID')}
             </p>
           </CardContent>
           <CardFooter>
-            <Button variant='destructive' onClick={handleLogout}>
+            <Button variant='destructive' onClick={handleLogout} className='w-full'>
               Logout
             </Button>
           </CardFooter>
-          {error && (
-            <p className='text-red-500 text-sm text-center mt-2'>{error}</p>
-          )}
         </Card>
       </main>
     );
   }
 
+  // --- Login Form View ---
   return (
-    <main className='flex flex-col items-center justify-center min-h-screen transition-colors duration-300 bg-[hsl(var(--background))] text-[hsl(var(--foreground))]'>
-      <Image
-        src='/logo.png'
-        alt='Logo'
-        width={800} // ukuran asli kira-kira
-        height={533} // 3:2 aspect ratio
-        className='w-full aspect-[3/2] object-cover -mb-4 md:hidden'
-      />
-      <Card className='w-full min-h-screen md:min-h-auto md:max-w-sm rounded-b-none rounded-t-2xl md:rounded-b-2xl'>
-        <CardHeader>
+    <main className='flex items-center justify-center min-h-screen bg-muted/10 p-4'>
+      {/* PERUBAHAN DI SINI: dari max-w-sm menjadi max-w-md */}
+      <Card className='w-full max-w-md'>
+        <CardHeader className='text-center'>
           <CardTitle>SYNTRA Login Portal</CardTitle>
           <CardDescription>
-            Enter your credentials to access SYNTRA.
+            Enter your credentials to access the dashboard.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='grid w-full items-center gap-4'>
+          <div className='flex justify-center mb-6'>
             <Image
               src='/logo.png'
-              alt='Logo'
-              width={800} // ukuran asli kira-kira
-              height={533} // 3:2 aspect ratio
-              className='w-full aspect-[3/2] object-cover -mb-4 md:hidden'
+              alt='Company Logo'
+              width={100}
+              height={100}
+              priority
+              className='object-contain rounded-full'
             />
-
-            <div className='grid gap-2'>
-              <Label htmlFor='username'>Username</Label>
-              <Input
-                id='username'
-                type='text'
-                placeholder='Enter username'
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-
-            <div className='grid gap-2'>
-              <Label htmlFor='password'>Password</Label>
-              <Input
-                id='password'
-                type='password'
-                placeholder='Enter password'
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
           </div>
+          <form onSubmit={handleLogin}>
+            <div className='grid gap-4'>
+              <div className='grid gap-2'>
+                <Label htmlFor='username'>Username</Label>
+                <Input
+                  id='username'
+                  type='text'
+                  placeholder='your_username'
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              <div className='grid gap-2'>
+                <Label htmlFor='password'>Password</Label>
+                <Input
+                  id='password'
+                  type='password'
+                  placeholder='••••••••'
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              {error && (
+                <p className='text-sm font-medium text-destructive'>{error}</p>
+              )}
+              <Button type='submit' className='w-full' disabled={loading}>
+                {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                Login
+              </Button>
+            </div>
+          </form>
         </CardContent>
-        <CardFooter className='flex justify-between w-full gap-2'>
-          <Button variant='link' className='p-0 h-auto'>
-            Forgot password?
-          </Button>
-          <Button onClick={handleLogin} disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+        <CardFooter className='flex justify-center'>
+          <Button variant='link' className='text-sm text-muted-foreground'>
+            Forgot your password?
           </Button>
         </CardFooter>
       </Card>

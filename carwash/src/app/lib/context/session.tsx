@@ -1,6 +1,6 @@
-"use client";
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { Session } from "../types/auth";
+'use client';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Session } from '../types/auth';
 
 type SessionContextType = {
   session: Session | null;
@@ -10,30 +10,32 @@ type SessionContextType = {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [session, setSessionState] = useState<Session | null>(null);
 
   // load session on mount
   useEffect(() => {
-    const stored = localStorage.getItem("session");
+    const stored = localStorage.getItem('session');
     if (stored) {
       const sessionData: Session = JSON.parse(stored);
       if (sessionData.expiresAt > Date.now()) setSessionState(sessionData);
-      else localStorage.removeItem("session");
+      else localStorage.removeItem('session');
     }
   }, []);
 
   // setter
   const setSession = (newSession: Session | null) => {
     setSessionState(newSession);
-    if (newSession) localStorage.setItem("session", JSON.stringify(newSession));
-    else localStorage.removeItem("session");
+    if (newSession) localStorage.setItem('session', JSON.stringify(newSession));
+    else localStorage.removeItem('session');
   };
 
   // ✅ clearSession helper
   const clearSession = () => {
     setSessionState(null);
-    localStorage.removeItem("session");
+    localStorage.removeItem('session');
   };
 
   // auto-logout on expiration
@@ -57,6 +59,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
 export const useSession = () => {
   const ctx = useContext(SessionContext);
-  if (!ctx) throw new Error("useSession must be used within SessionProvider");
+  if (!ctx) throw new Error('useSession must be used within SessionProvider');
   return ctx;
 };
