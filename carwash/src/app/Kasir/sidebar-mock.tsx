@@ -14,24 +14,17 @@ import {
 import { useCart } from './cart-content';
 import { usePreferences } from '../providers/preferences-context';
 import { useSession } from '../lib/context/session';
-// import type {
-//   PosProduct,
-//   ProductGroup,
-//   PaymentType,
-//   PosOrder,
-// } from '../lib/types/pos';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 // ---- TYPE DEFINITIONS ----
-
-
 interface NavItem {
   key: string;
   label: string;
   icon: typeof Boxes;
 }
 
-// ---- ✅ NAV CONFIG (API property removed) ----
+// ---- NAV CONFIG ----
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'products', label: 'Products', icon: Boxes },
@@ -46,7 +39,7 @@ function SidebarTileButton({
   label,
   itemKey,
   onClick,
-  isActive, // <-- new prop to highlight active button
+  isActive,
 }: {
   icon: typeof Boxes;
   label: string;
@@ -70,7 +63,7 @@ function SidebarTileButton({
           color.text,
           color.border ?? 'border-border',
           'hover:ring-2',
-          isActive ? 'ring-2 ring-primary ring-offset-2' : '', // <-- highlight style
+          isActive ? 'ring-2 ring-primary ring-offset-2' : '',
         ].join(' ')}
         onClick={!isCustomize ? onClick : undefined}
       >
@@ -101,7 +94,6 @@ export default function SidebarMock({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-
   const { setPaymentSheetOpen, billOption } = useCart();
   const {
     isCustomize,
@@ -115,11 +107,12 @@ export default function SidebarMock({
     getGlobalBackgroundClasses,
     getUserProfile,
   } = usePreferences();
+  const { clearSession } = useSession();
 
+  const userProfile = getUserProfile();
   const globalBtn = getGlobalButtonClasses();
   const globalBg = getGlobalBackgroundClasses();
-  const userProfile = getUserProfile();
-
+  const router = useRouter();
   const [company, setCompany] = useState({
     name: 'Ezel Carwash Cilodong',
     logo: '/logo.png',
@@ -135,8 +128,6 @@ export default function SidebarMock({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const { clearSession } = useSession();
-
   return (
     <div
       className={[
@@ -145,46 +136,46 @@ export default function SidebarMock({
       ].join(' ')}
     >
       {/* HEADER */}
-      <div className='flex items-center gap-2 px-1 mb-2'>
-        <div className='h-12 w-12 rounded-md overflow-hidden'>
+      <div className='flex flex-col items-center mb-3'>
+        {/* ✅ Logo company lebih ke bawah dengan margin & posisi center */}
+        <div className='h-14 w-14 rounded-lg overflow-hidden mb-2 mt-2'>
           <Image
             src={
               company.logo?.startsWith('http')
                 ? company.logo
                 : company.logo || '/logo.png'
             }
-            alt='Logo'
-            width={48}
-            height={48}
-            className='h-12 w-12 object-cover'
+            alt='Company Logo'
+            width={56}
+            height={56}
+            className='object-cover h-full w-full'
             unoptimized
           />
         </div>
+
+        {/* Company name */}
         {isCustomize ? (
           <input
             defaultValue={company.name}
             onBlur={(e) =>
               setCompany({ ...company, name: e.currentTarget.value })
             }
-            className='h-10 flex-1 rounded-md text-black text-center font-bold text-base'
+            className='h-10 text-center rounded-md text-black font-bold text-base'
           />
         ) : (
-          <div className='h-10 flex-1 rounded-md text-black flex items-center justify-center font-bold text-base px-2'>
+          <div className='text-center font-bold text-base text-foreground'>
             {company.name}
           </div>
         )}
+
+        <div className='text-[12px] text-muted-foreground mt-1'>
+          Powered by{' '}
+          <span className='font-semibold text-primary uppercase'>SYNTRA</span>
+        </div>
       </div>
 
-      {/* POWERED BY */}
-      <div className='flex items-center justify-center text-[12px] text-muted-foreground mt-[-15px] mb-2'>
-        <span>Powered by</span>
-        <span className='ml-1 font-semibold tracking-wide text-primary uppercase'>
-          SYNTRA
-        </span>
-      </div>
-
-      {/* NAVIGATION BUTTONS */}
-      <div className='grid grid-cols-2 gap-3 px-0'>
+      {/* NAVIGATION */}
+      <div className='grid grid-cols-2 gap-3'>
         <div
           className={[
             'col-span-2 rounded-lg border p-3 cursor-pointer',
@@ -208,23 +199,20 @@ export default function SidebarMock({
             icon={item.icon}
             label={item.label}
             itemKey={item.key}
-            onClick={() => onNavigate(item.key)} // <-- Triggers navigation
-            isActive={activeView === item.key} // <-- Sets active state
+            onClick={() => onNavigate(item.key)}
+            isActive={activeView === item.key}
           />
         ))}
       </div>
 
-      {/* CUSTOMIZE THEME */}
+      {/* CUSTOMIZE SECTION */}
       {isCustomize && (
         <div className='mt-4 px-1'>
           <div className='rounded-lg border border-border bg-card p-3'>
-            <h3 className='font-semibold text-sm text-foreground mb-2'>
-              Customize Theme
-            </h3>
+            <h3 className='font-semibold text-sm mb-2'>Customize Theme</h3>
+            {/* Background options */}
             <div className='mb-3'>
-              <div className='text-xs text-muted-foreground mb-1'>
-                Global Background
-              </div>
+              <div className='text-xs mb-1'>Global Background</div>
               <div className='flex flex-wrap gap-2'>
                 {colorOptions.map((opt) => (
                   <button
@@ -241,10 +229,9 @@ export default function SidebarMock({
                 ))}
               </div>
             </div>
+            {/* Button options */}
             <div>
-              <div className='text-xs text-muted-foreground mb-1'>
-                Global Button Color
-              </div>
+              <div className='text-xs mb-1'>Global Button Color</div>
               <div className='flex flex-wrap gap-2'>
                 {colorOptions.map((opt) => (
                   <button
@@ -265,8 +252,8 @@ export default function SidebarMock({
         </div>
       )}
 
-      {/* FOOTER / LOGOUT */}
-      <div className='mt-auto px-1 space-y-2'>
+      {/* FOOTER */}
+      <div className='mt-auto space-y-2'>
         <button
           onClick={toggleCustomize}
           className={[
@@ -284,15 +271,21 @@ export default function SidebarMock({
           ref={menuRef}
         >
           <div className='flex items-center gap-3'>
-            <div className='h-8 w-8 rounded-md overflow-hidden'>
+            <div className='h-9 w-9 rounded-md overflow-hidden'>
               <Image
-                src={userProfile.photo || '/logo.png'}
-                alt='User'
-                width={32}
-                height={32}
-                className='h-8 w-8 object-cover'
+                src={
+                  company.logo?.startsWith('http')
+                    ? company.logo
+                    : company.logo || './Logo.png'
+                }
+                alt='User Profile'
+                width={48}
+                height={48}
+                className='h-full w-full object-cover'
+                unoptimized
               />
             </div>
+
             <div className='flex flex-col flex-1'>
               <span className='text-base font-medium text-foreground'>
                 {userProfile.name}
@@ -301,18 +294,20 @@ export default function SidebarMock({
                 {userProfile.role}
               </span>
             </div>
+
             <button
               onClick={() => setMenuOpen((prev) => !prev)}
               className='p-1 rounded hover:bg-accent transition'
             >
               <MoreVertical className='h-4 w-4 text-muted-foreground' />
             </button>
+
             {menuOpen && (
               <div className='absolute right-2 bottom-14 bg-card border border-border rounded-md shadow-md py-1 z-50 w-28'>
                 <button
                   onClick={() => {
-                    clearSession();
-                    window.location.reload();
+                    clearSession(); // hapus sesi
+                    router.replace('/Login'); // ⬅️ arahkan ke /Kasir
                   }}
                   className='w-full text-left text-sm px-3 py-2 hover:bg-accent hover:text-destructive transition'
                 >
