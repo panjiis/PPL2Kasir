@@ -1,105 +1,84 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useSession } from "../lib/context/session";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchOrders,
+  fetchOrderById,
+  createOrder,
+  createOrderFromCart,
+  voidOrder,
+  returnOrder,
+} from '@/app/lib/utils/pos-api';
+import type { PosOrder } from '@/app/lib/types/pos';
 
-export interface Order {
-  id: string;
-  orderNo: string;
-  customer?: string;
-  status: string;
-  createdAt: string;
-  items: {
-    productId: string;
-    productName: string;
-    qty: number;
-    price: number;
-  }[];
-  total: number;
+export function useOrders(token: string) {
+  return useQuery({
+    queryKey: ['orders'],
+    queryFn: () => fetchOrders(token),
+    select: (res) => res.data,
+  });
 }
 
-interface OrdersResponseItem {
-  id?: string;
-  order_id?: string;
-  order_no?: string;
-  order_number?: string;
-  customer_name?: string;
-  customer?: string;
-  status: string;
-  created_at?: string;
-  items?: {
-    productId: string;
-    productName: string;
-    qty: number;
-    price: number;
-  }[];
-  total?: number;
+export function useOrderById(id: string, token: string) {
+  return useQuery({
+    queryKey: ['order', id],
+    queryFn: () => fetchOrderById(id, token),
+    enabled: !!id,
+    select: (res) => res.data,
+  });
 }
 
-interface OrdersResponse {
-  success: boolean;
-  data: OrdersResponseItem[];
-  message?: string;
+export function useCreateOrder(token: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: PosOrder) => createOrder(body, token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
 }
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "https://api.interphaselabs.com/api/v1";
+export function useCreateOrderFromCart(token: string) {
+  const queryClient = useQueryClient();
 
-export function useOrders() {
-  const [data, setData] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const token = useSession();
+  return useMutation({
+    mutationFn: (body: {
+      cart_id: string;
+      document_number: string;
+      additional_info?: string;
+      notes?: string;
+    }) => createOrderFromCart(body, token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+}
 
-  useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+export function useVoidOrder(token: string) {
+  const queryClient = useQueryClient();
 
-    const fetchOrders = async () => {
-      try {
-        setLoading(true);
-        // Update endpoint ke POS Service
-        const response = await fetch(`${API_BASE_URL}/pos/orders`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+  return useMutation({
+    mutationFn: (body: { id: number; voided_by: number; reason: string }) =>
+      voidOrder(body, token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+}
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch orders");
-        }
+export function useReturnOrder(token: string) {
+  const queryClient = useQueryClient();
 
-        const result: OrdersResponse = await response.json();
-
-        const orders: Order[] = result.data.map((item) => ({
-          id: item.id || item.order_id || "",
-          orderNo:
-            item.order_no ||
-            item.order_number ||
-            (item.id ? `ORD-${item.id}` : "ORD-UNKNOWN"),
-          customer: item.customer_name || item.customer || "Unknown",
-          status: item.status || "Unknown",
-          createdAt: item.created_at || new Date().toISOString(),
-          items: item.items || [],
-          total: item.total ?? 0,
-        }));
-
-        setData(orders);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-        setData([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrders();
-  }, [token]);
-
-  return { data, loading, error };
+  return useMutation({
+    mutationFn: (body: {
+      original_order_id: number;
+      item_ids: number[];
+      processed_by: number;
+      reason: string;
+    }) => returnOrder(body, token),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
 }

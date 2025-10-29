@@ -1,36 +1,49 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useSession } from '@/app/lib/context/session';
-import { fetchProducts } from '@/app/lib/utils/pos-api';
+import { useSession } from '../lib/context/session';
 import type { PosProduct } from '@/app/lib/types/pos';
 import { AlertTriangle, Loader2, ArrowLeft } from 'lucide-react';
+// PERBAIKAN: Impor fungsi fetchProducts
+import { fetchProducts } from '@/app/lib/utils/pos-api';
+
+// const API_BASE_URL = ...; // Dihapus, tidak perlu lagi
 
 // Komponen untuk menampilkan item produk (tidak ada perubahan)
 const ProductItem = ({ product }: { product: PosProduct }) => (
   <div className='border rounded-lg p-3 bg-card shadow-sm'>
-    <h4 className='font-bold text-md text-foreground'>{product.product_name}</h4>
-    <p className='text-sm text-muted-foreground'>Kode: {product.product_code}</p>
+    <h4 className='font-bold text-md text-foreground'>
+      {product.product_name}
+    </h4>
+    <p className='text-sm text-muted-foreground'>
+      Kode: {product.product_code}
+    </p>
     <p className='text-sm font-semibold mt-1'>
       {new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR',
         minimumFractionDigits: 0,
-      }).format(Number(product.price || product.price || 0))}
+      }).format(Number(product.price ?? 0))}
     </p>
   </div>
 );
 
-// Komponen untuk menampilkan item grup (diperbarui untuk menerima nama grup)
-const GroupItem = ({ groupName, onClick }: { groupName: string; onClick: () => void }) => (
+// Komponen untuk menampilkan item grup (tidak ada perubahan)
+const GroupItem = ({
+  groupName,
+  onClick,
+}: {
+  groupName: string;
+  onClick: () => void;
+}) => (
   <div
     onClick={onClick}
     className='border rounded-lg p-4 bg-card shadow-sm cursor-pointer hover:bg-accent transition-colors'
   >
-    <h3 className='font-bold text-lg text-primary capitalize'>{groupName.toLowerCase()}</h3>
-    <p className='text-sm text-muted-foreground'>
-      Kategori Produk
-    </p>
+    <h3 className='font-bold text-lg text-primary capitalize'>
+      {groupName.toLowerCase()}
+    </h3>
+    <p className='text-sm text-muted-foreground'>Kategori Produk</p>
   </div>
 );
 
@@ -54,8 +67,27 @@ export default function GroupsView() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const result = await fetchProducts(session.token);
-        setAllProducts(Array.isArray(result.data) ? result.data : []);
+
+        // PERBAIKAN: Ganti fetch manual dengan fungsi yang sudah ada
+        const body = await fetchProducts(session.token);
+
+        // Kode di bawah ini sudah benar karena 'body' sekarang dijamin punya '.data'
+        const data = Array.isArray(body.data) ? body.data : [];
+
+        // Normalize
+        const mapped: PosProduct[] = data.map((p: unknown) => {
+          const raw = p as Partial<PosProduct> & {
+            product_price?: string | number;
+          };
+          return {
+            ...raw,
+            price: Number(raw.product_price ?? raw.price ?? 0),
+            product_name: raw.product_name ?? '',
+            product_code: raw.product_code ?? '',
+          };
+        });
+
+        setAllProducts(mapped);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'An unknown error occurred.'
@@ -71,9 +103,9 @@ export default function GroupsView() {
   // 2. Buat daftar grup secara dinamis dari daftar produk
   const groups = useMemo(() => {
     const groupSet = new Set<string>();
-    allProducts.forEach(product => {
+    allProducts.forEach((product) => {
       // Ambil bagian sebelum tanda hubung pertama, e.g., "FOOD" dari "FOOD-002"
-      const codePrefix = product.product_code.split('-')[0];
+      const codePrefix = (product.product_code || '').split('-')[0];
       if (codePrefix) {
         groupSet.add(codePrefix);
       }
@@ -84,9 +116,10 @@ export default function GroupsView() {
   // 3. Filter produk yang akan ditampilkan berdasarkan grup yang dipilih
   const filteredProducts = useMemo(() => {
     if (!selectedGroup) return [];
-    return allProducts.filter(p => p.product_code.startsWith(selectedGroup));
+    return allProducts.filter((p) =>
+      (p.product_code || '').startsWith(selectedGroup)
+    );
   }, [selectedGroup, allProducts]);
-
 
   // Handler untuk memilih grup dan kembali
   const handleSelectGroup = (groupName: string) => {
@@ -122,7 +155,10 @@ export default function GroupsView() {
     <div className='h-full flex flex-col p-1'>
       <header className='p-3 flex items-center'>
         {selectedGroup && (
-          <button onClick={handleGoBack} className='mr-4 p-2 rounded-md hover:bg-accent'>
+          <button
+            onClick={handleGoBack}
+            className='mr-4 p-2 rounded-md hover:bg-accent'
+          >
             <ArrowLeft className='h-5 w-5' />
           </button>
         )}
@@ -143,20 +179,26 @@ export default function GroupsView() {
             // Tampilan Folder Grup
             groups.length > 0 ? (
               groups.map((groupName) => (
-                <GroupItem key={groupName} groupName={groupName} onClick={() => handleSelectGroup(groupName)} />
+                <GroupItem
+                  key={groupName}
+                  groupName={groupName}
+                  onClick={() => handleSelectGroup(groupName)}
+                />
               ))
             ) : (
-              <div className='text-center text-muted-foreground mt-10'>No products found to create groups.</div>
+              <div className='text-center text-muted-foreground mt-10'>
+                No products found to create groups.
+              </div>
             )
+          ) : // Tampilan Daftar Produk di dalam Grup
+          filteredProducts.length > 0 ? (
+            filteredProducts.map((product) => (
+              <ProductItem key={product.product_code} product={product} />
+            ))
           ) : (
-            // Tampilan Daftar Produk di dalam Grup
-            filteredProducts.length > 0 ? (
-                filteredProducts.map(product => (
-                    <ProductItem key={product.id || product.product_code} product={product} />
-                ))
-            ) : (
-                 <div className='text-center text-muted-foreground mt-10'>No products found in this group.</div>
-            )
+            <div className='text-center text-muted-foreground mt-10'>
+              No products found in this group.
+            </div>
           )}
         </div>
       </div>

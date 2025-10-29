@@ -1,11 +1,13 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
-import { useSession } from '@/app/lib/context/session';
+import {  useState, useMemo } from 'react';
+import { useSession } from '../lib/context/session';
 import {
-  fetchOrders,
-  fetchProducts,
   returnOrder as returnOrderApi,
 } from '@/app/lib/utils/pos-api';
+
+import { useOrders } from '@/app/Hooks/useOrders'; // FIX: Menggunakan hook
+import { useProducts } from '@/app/Hooks/useProducts'; // FIX: Menggunakan hook
+
 import type { DetailedPosOrder, PosProduct } from '@/app/lib/types/pos';
 import { AlertTriangle, Loader2, Search } from 'lucide-react';
 import { useNotification } from './notification-context';
@@ -56,49 +58,40 @@ const ITEMS_PER_PAGE = 10;
 export default function OrdersView() {
   const { session } = useSession();
   const { showNotif } = useNotification();
-  const [orders, setOrders] = useState<DetailedPosOrder[]>([]);
-  const [products, setProducts] = useState<PosProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  // FIX: Menggunakan hook useOrders
+  const { 
+    data: orders = [], 
+    isLoading: loadingOrders, 
+    error: errorOrders, 
+    refetch: refetchOrders 
+  } = useOrders(session?.token ?? '');
+  
+  // FIX: Menggunakan hook useProducts
+  const { 
+    data: products = [], 
+    isLoading: loadingProducts, 
+    error: errorProducts 
+  } = useProducts(session?.token ?? '');
+  
+  // State lokal
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedOrder, setSelectedOrder] =
-    useState<DetailedPosOrder | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<DetailedPosOrder | null>(
+    null
+  );
   const [busy, setBusy] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
 
-  // Fetch Orders & Products
-  useEffect(() => {
-    if (!session?.token) {
-      setError('Session not found. Please login again.');
-      setLoading(false);
-      return;
-    }
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [ordersRes, productsRes] = await Promise.all([
-          fetchOrders(session.token),
-          fetchProducts(session.token),
-        ]);
-        setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
-        setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'An unknown error occurred.'
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [session]);
+  // Hapus block useEffect untuk loading data
+  // Logic load data kini ditangani oleh React Query Hooks
 
   const handleReturnOrder = async () => {
     if (!selectedOrder || !session?.token) {
-      showNotif({ type: 'error', message: 'Order details or token are missing.' });
+      showNotif({
+        type: 'error',
+        message: 'Order details or token are missing.',
+      });
       return;
     }
     setBusy(true);
@@ -118,6 +111,7 @@ export default function OrdersView() {
       });
       setIsReturnDialogOpen(false); // Close the dialog
       setSelectedOrder(null); // Close the details modal
+      refetchOrders(); // FIX: Refresh data order setelah return
     } catch (err) {
       console.error(err);
       showNotif({ type: 'error', message: 'Failed to create return.' });
@@ -145,6 +139,16 @@ export default function OrdersView() {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
+  // Ambil status loading dan error gabungan
+  const loading = loadingOrders || loadingProducts;
+  const error = errorOrders || errorProducts;
+  const errorMessage = error
+    ? error instanceof Error
+      ? error.message
+      : 'An unknown error occurred.'
+    : null;
+
+
   if (loading) {
     return (
       <div className='flex items-center justify-center h-full text-muted-foreground'>
@@ -154,12 +158,12 @@ export default function OrdersView() {
     );
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <div className='flex flex-col items-center justify-center h-full text-destructive'>
         <AlertTriangle className='h-10 w-10 mb-2' />
         <span className='font-semibold'>Failed to load data</span>
-        <p className='text-sm'>{error}</p>
+        <p className='text-sm'>{errorMessage}</p>
       </div>
     );
   }
@@ -274,7 +278,10 @@ export default function OrdersView() {
 
       {/* Modal Detail - Now uses Dialog for confirmation */}
       {selectedOrder && (
-        <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+        <Dialog
+          open={!!selectedOrder}
+          onOpenChange={(open) => !open && setSelectedOrder(null)}
+        >
           <DialogContent className='max-w-3xl max-h-[90vh] flex flex-col'>
             <DialogHeader>
               <DialogTitle>Order #{selectedOrder.document_number}</DialogTitle>
@@ -284,19 +291,48 @@ export default function OrdersView() {
               <div className='border rounded-lg p-4 bg-gray-50 shadow-sm mb-4'>
                 <table className='w-full text-xs'>
                   <tbody>
-                    <tr><td className='font-medium pr-2 py-1'>ID</td><td>{selectedOrder.id}</td></tr>
-                    <tr><td className='font-medium pr-2 py-1'>Tanggal</td><td>{formatDate(selectedOrder.orders_date?.seconds)}</td></tr>
-                    <tr><td className='font-medium pr-2 py-1'>Subtotal</td><td>{formatRupiah(selectedOrder.subtotal)}</td></tr>
-                    <tr><td className='font-medium pr-2 py-1'>Total</td><td>{formatRupiah(selectedOrder.total_amount)}</td></tr>
-                    <tr><td className='font-medium pr-2 py-1'>Metode Pembayaran</td><td>{selectedOrder.payment_type?.payment_name ?? '-'}</td></tr>
-                    {selectedOrder.notes && <tr><td className='font-medium pr-2 py-1'>Catatan</td><td>{selectedOrder.notes}</td></tr>}
-                    {selectedOrder.additional_info && <tr><td className='font-medium pr-2 py-1'>Info Tambahan</td><td>{selectedOrder.additional_info}</td></tr>}
+                    <tr>
+                      <td className='font-medium pr-2 py-1'>ID</td>
+                      <td>{selectedOrder.id}</td>
+                    </tr>
+                    <tr>
+                      <td className='font-medium pr-2 py-1'>Tanggal</td>
+                      <td>{formatDate(selectedOrder.orders_date?.seconds)}</td>
+                    </tr>
+                    <tr>
+                      <td className='font-medium pr-2 py-1'>Subtotal</td>
+                      <td>{formatRupiah(selectedOrder.subtotal)}</td>
+                    </tr>
+                    <tr>
+                      <td className='font-medium pr-2 py-1'>Total</td>
+                      <td>{formatRupiah(selectedOrder.total_amount)}</td>
+                    </tr>
+                    <tr>
+                      <td className='font-medium pr-2 py-1'>
+                        Metode Pembayaran
+                      </td>
+                      <td>{selectedOrder.payment_type?.payment_name ?? '-'}</td>
+                    </tr>
+                    {selectedOrder.notes && (
+                      <tr>
+                        <td className='font-medium pr-2 py-1'>Catatan</td>
+                        <td>{selectedOrder.notes}</td>
+                      </tr>
+                    )}
+                    {selectedOrder.additional_info && (
+                      <tr>
+                        <td className='font-medium pr-2 py-1'>Info Tambahan</td>
+                        <td>{selectedOrder.additional_info}</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
 
               <div className='border rounded-lg bg-white shadow-sm'>
-                <div className='font-semibold text-sm px-4 py-2 bg-gray-100 border-b'>Daftar Item</div>
+                <div className='font-semibold text-sm px-4 py-2 bg-gray-100 border-b'>
+                  Daftar Item
+                </div>
                 <table className='w-full text-xs'>
                   <thead>
                     <tr className='bg-gray-100'>
@@ -307,12 +343,23 @@ export default function OrdersView() {
                   </thead>
                   <tbody>
                     {selectedOrder.order_items.map((item, idx) => {
-                      const product = products.find((p) => p.id === item.product_id);
+                      // FIX: products sekarang adalah array dari hook useProducts
+                      const product = (products as PosProduct[]).find(
+                        (p) => p.product_code === item.product_code
+                      );
                       const productName = product?.product_name ?? 'Unknown';
                       const price = Number(product?.price ?? 0);
                       const total = (item.quantity ?? 0) * price;
                       return (
-                        <tr key={idx}><td className='border px-2 py-1'>{productName}</td><td className='border px-2 py-1 text-center'>{item.quantity}</td><td className='border px-2 py-1 text-right'>{formatRupiah(total)}</td></tr>
+                        <tr key={idx}>
+                          <td className='border px-2 py-1'>{productName}</td>
+                          <td className='border px-2 py-1 text-center'>
+                            {item.quantity}
+                          </td>
+                          <td className='border px-2 py-1 text-right'>
+                            {formatRupiah(total)}
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
@@ -321,7 +368,10 @@ export default function OrdersView() {
             </div>
 
             <DialogFooter className='mt-4 gap-2'>
-              <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
+              <Dialog
+                open={isReturnDialogOpen}
+                onOpenChange={setIsReturnDialogOpen}
+              >
                 <DialogTrigger asChild>
                   <Button variant='destructive' disabled={busy}>
                     {busy ? 'Processing...' : 'Return Order'}
@@ -331,7 +381,7 @@ export default function OrdersView() {
                   <DialogHeader>
                     <DialogTitle>Konfirmasi Pengembalian Pesanan</DialogTitle>
                     <DialogDescription className='py-4 text-base text-center'>
-                       Apakah Anda yakin ingin mengembalikan pesanan{' '}
+                      Apakah Anda yakin ingin mengembalikan pesanan{' '}
                       <span className='font-semibold'>
                         #{selectedOrder.document_number}
                       </span>
@@ -352,7 +402,9 @@ export default function OrdersView() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-              <Button variant='outline' onClick={() => setSelectedOrder(null)}>Close</Button>
+              <Button variant='outline' onClick={() => setSelectedOrder(null)}>
+                Close
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -285,14 +285,15 @@ export default function CenterMock() {
         const raw: PosProduct[] = Array.isArray(result.data) ? result.data : [];
 
         const mapped: CartItem[] = raw.map((p) => ({
-          id: String(p.id ?? p.product_code),
+          id: String(p.product_code),
           itemId: p.product_code,
           barcode: p.product_code || '',
           name: p.product_name,
           image: '/placeholder.svg',
-          price: p.price ?? 0,
+          price: Number(p.product_price) ?? 0,
           type: 'product',
-          category: '',
+          // FIX (Perbaikan 1 & 2): Ambil kategori dari prefix product_code
+          category: (p.product_code || '').split('-')[0] || '',
           description: p.unit_of_measure ?? '',
           qty: 1,
         }));
@@ -305,7 +306,14 @@ export default function CenterMock() {
       }
     };
 
-    loadProducts();
+    if (token) {
+      // Hanya jalankan jika token sudah ada
+      loadProducts();
+    } else {
+      // Jika token belum siap, pastikan list kosong dan tidak loading
+      setApiProducts([]);
+      setApiLoading(false);
+    }
   }, [token]);
 
   const filteredProducts = useMemo(() => {
@@ -362,8 +370,7 @@ export default function CenterMock() {
         )}
       </div>
 
-      <hr className="border-t border-border my-2" />
-
+      <hr className='border-t border-border my-2' />
 
       <div className='h-12 text-3xl font-bold font-rubik text-foreground tracking-wide'>
         Detailing
@@ -396,8 +403,7 @@ export default function CenterMock() {
         </button>
       </div>
 
-      <hr className="border-t border-border my-2" />
-
+      <hr className='border-t border-border my-2' />
 
       <div className='h-12 text-3xl font-bold font-rubik text-foreground tracking-wide'>
         Main Menu

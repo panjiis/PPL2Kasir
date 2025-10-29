@@ -1,9 +1,9 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
-import { useSession } from '@/app/lib/context/session';
-import { fetchProducts } from '@/app/lib/utils/pos-api';
+import { useState, useMemo } from 'react';
+import { useSession } from '../lib/context/session';
 import type { PosProduct } from '@/app/lib/types/pos';
 import { AlertTriangle, Loader2, Search } from 'lucide-react';
+import { useProducts } from '@/app/Hooks/useProducts';
 
 const formatRupiah = (amount?: number) => {
   if (amount === undefined || amount === null) return 'N/A';
@@ -19,71 +19,46 @@ const ITEMS_PER_PAGE = 10;
 
 export default function ProductsView() {
   const { session } = useSession();
-  const [products, setProducts] = useState<PosProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    if (!session?.token) {
-      setError('Session not found. Please login again.');
-      setLoading(false);
-      return;
-    }
+  // Menggunakan React Query hook untuk mengambil data, loading, dan error
+  const {
+    data: products = [], // Beri nilai default array kosong
+    isLoading: loading,
+    error,
+  } = useProducts(session?.token ?? '');
 
-    // const formatRupiah = (amount?: number) => {
-    //   if (amount == null || isNaN(amount)) return 'Rp 0';
-    //   return new Intl.NumberFormat('id-ID', {
-    //     style: 'currency',
-    //     currency: 'IDR',
-    //     minimumFractionDigits: 0,
-    //   }).format(amount);
-    // };
+  // --- TAMBAHAN CONSOLE LOG ---
+  // Cek status API di sini. Ini akan berjalan setiap kali komponen render ulang.
+  console.log('STATUS API PRODUCTS:', {
+    token: session?.token ? 'Token Ada' : 'Token KOSONG',
+    loading,
+    error,
+    productsData: products, // Cek apakah ini null, undefined, atau []
+  });
+  // ---------------------------
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const result = await fetchProducts(session.token);
+  // Normalisasi/Mapping data dari hook
+  const mappedProducts = useMemo(() => {
+    // FIX: Tambahkan (products || []) untuk mencegah crash jika products null
+    return (products || []).map(
+      (p): PosProduct => ({
+        ...p,
+        price: Number(p.product_price ?? p.price ?? 0),
+        product_name: p.product_name ?? '',
+        product_code: p.product_code ?? '',
+      })
+    );
+  }, [products]);
 
-      // ✅ Normalisasi data product agar product_price → price (number)
-      const mapped = (Array.isArray(result.data) ? result.data : []).map(
-        (p): PosProduct => {
-          const priceSource =
-            typeof p.price === 'number'
-              ? p.price
-              : Number(
-                  // ambil dari product_price kalau ada
-                  (p as Partial<PosProduct> & { product_price?: string | number })
-                    .product_price ?? 0
-                );
-
-          return {
-            ...p,
-            price: Number.isFinite(priceSource) ? priceSource : 0,
-          };
-        }
-      );
-
-      setProducts(mapped);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'An unknown error occurred.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  loadData();
-}, [session]);
   const filteredProducts = useMemo(() => {
-    return products.filter(
+    return mappedProducts.filter(
       (product) =>
         product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.product_code.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [products, searchTerm]);
+  }, [mappedProducts, searchTerm]);
 
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -96,24 +71,29 @@ export default function ProductsView() {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
-  if (loading) {
+  // Mengkonversi objek error dari React Query menjadi pesan string
+  const errorMessage = error
+    ? error instanceof Error
+      ? error.message
+      : 'An unknown error occurred.'
+    : null;
+
+  if (loading)
     return (
       <div className='flex items-center justify-center h-full text-muted-foreground'>
         <Loader2 className='h-8 w-8 animate-spin mr-2' />
         <span>Loading Products...</span>
       </div>
     );
-  }
 
-  if (error) {
+  if (errorMessage)
     return (
       <div className='flex flex-col items-center justify-center h-full text-destructive'>
         <AlertTriangle className='h-10 w-10 mb-2' />
         <span className='font-semibold'>Failed to load data</span>
-        <p className='text-sm'>{error}</p>
+        <p className='text-sm'>{errorMessage}</p>
       </div>
     );
-  }
 
   return (
     <div className='h-full flex flex-col p-1'>
@@ -156,15 +136,15 @@ export default function ProductsView() {
               {paginatedProducts.length > 0 ? (
                 paginatedProducts.map((item) => (
                   <tr
-                    key={item.id}
+                    key={item.product_code} // FIX: Menggunakan product_code sebagai key
                     className='border-t hover:bg-accent/30 transition-colors'
                   >
                     <td className='p-3 font-medium'>{item.product_name}</td>
-                    <td className='p-3 text-muted-foreground'>
+                    <td className='text-muted-foreground p-3'>
                       {item.product_code}
                     </td>
                     <td className='p-3 text-right font-semibold'>
-                      {formatRupiah(item.price)}
+                      {formatRupiah(Number(item.price))}
                     </td>
                   </tr>
                 ))

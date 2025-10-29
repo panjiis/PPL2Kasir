@@ -1,8 +1,9 @@
-'use client'
+'use client';
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, CreditCard, Banknote } from 'lucide-react';
 
-interface DynamicIslandProps {
+interface NotificationProps {
   type: 'success' | 'error' | null;
   message: string;
   amount?: number;
@@ -10,70 +11,81 @@ interface DynamicIslandProps {
   onClose: () => void;
 }
 
-export default function DynamicIsland({ type, message, amount, method, onClose }: DynamicIslandProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+export default function PremiumNotification({
+  type,
+  message,
+  amount,
+  method,
+  onClose,
+}: NotificationProps) {
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (type) {
-      setIsVisible(true);
-      setIsExpanded(true);
+      setVisible(true);
       const timer = setTimeout(() => {
-        setIsExpanded(false);
-        setTimeout(() => {
-          setIsVisible(false);
-          onClose();
-        }, 300);
+        setVisible(false);
+        setTimeout(onClose, 300);
       }, 4000);
       return () => clearTimeout(timer);
     }
   }, [type, onClose]);
 
-  if (!type || !isVisible) return null;
+  if (!type) return null;
 
   const formatIDR = (amount: number) => `Rp${amount.toLocaleString('id-ID')}`;
 
   const getIcon = () => {
-    if (type === 'success') {
-      return <CheckCircle className="h-5 w-5 text-white" />;
-    } else {
-      return <XCircle className="h-5 w-5 text-white" />;
-    }
+    const baseClass = 'w-7 h-7';
+    if (type === 'success') return <CheckCircle className={`${baseClass} text-emerald-400`} />;
+    return <XCircle className={`${baseClass} text-rose-400`} />;
   };
 
   const getMethodIcon = () => {
-    if (method === 'cash') {
-      return <Banknote className="h-4 w-4 text-white/80" />;
-    }
-    return <CreditCard className="h-4 w-4 text-white/80" />;
+    if (method === 'cash') return <Banknote className="w-4 h-4 text-white/70" />;
+    return <CreditCard className="w-4 h-4 text-white/70" />;
   };
 
   return (
-    <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-[60] pointer-events-none w-full flex justify-center">
-      <div
-        className={`
-          transition-all duration-500 ease-out shadow-2xl border-2 
-          ${isExpanded ? 'px-6 py-4 min-w-[320px]' : 'px-4 py-2 min-w-[200px]'}
-          rounded-full text-white flex items-center gap-3
-          ${type === 'success' ? 'bg-green-600/90 border-green-700' : 'bg-red-600/90 border-red-700'}
-        `}
-      >
-        {getIcon()}
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold  font-rubik text-sm truncate">
-            {message}
-          </div>
-          {isExpanded && amount !== undefined && (
-            <div className="flex items-center gap-2 mt-1">
-              {getMethodIcon()}
-              <span className="text-xs text-white/80">
-                {formatIDR(amount)} • {method?.toUpperCase()}
-              </span>
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="fixed top-8 left-1/2 -translate-x-1/2 z-[80] flex justify-center"
+        >
+          <div
+            className={`
+              backdrop-blur-xl border border-white/10 shadow-2xl 
+              rounded-2xl px-6 py-4 min-w-[320px] flex items-start gap-4
+              ${type === 'success'
+                ? 'bg-gradient-to-r from-emerald-700/80 to-emerald-600/70'
+                : 'bg-gradient-to-r from-rose-700/80 to-rose-600/70'}
+            `}
+          >
+            <div className="flex-shrink-0 mt-1">{getIcon()}</div>
+
+            <div className="flex flex-col flex-1 text-white">
+              <span className="font-medium text-base">{message}</span>
+
+              {amount !== undefined && (
+                <div className="flex items-center gap-2 text-sm text-white/80 mt-1">
+                  {getMethodIcon()}
+                  <span>{formatIDR(amount)} • {method?.toUpperCase()}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div className={`w-2 h-2 rounded-full animate-pulse ${type === 'success' ? 'bg-green-300' : 'bg-red-300'}`}></div>
-      </div>
-    </div>
+
+            <div
+              className={`w-3 h-3 mt-1 rounded-full animate-pulse ${
+                type === 'success' ? 'bg-emerald-300' : 'bg-rose-300'
+              }`}
+            />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -1,8 +1,11 @@
 'use client';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+// 1. Import QueryClient dan QueryClientProvider
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import SidebarMock from './sidebar-mock';
-import CenterMock from './center-mock'; // This can be removed if dashboard is the default
+import CenterMock from './center-mock';
 import AsideMock from './aside-mock';
 import { CartProvider, type CartItem } from './cart-content';
 import { NotificationProvider } from './notification-context';
@@ -15,23 +18,40 @@ import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { useCart } from './cart-content';
 import type { ProductItem } from './dummy';
 import { SessionProvider } from '../lib/context/session';
-
-// Import the view components
-// import DashboardView from './dashboard-view'; // <-- Add Dashboard
 import ProductsView from './products-view';
 import GroupsView from './groups-view';
 import PaymentTypesView from './payment-types-view';
 import OrdersView from './orders-view';
 
+// 2. Buat instance QueryClient (cukup sekali)
+const queryClient = new QueryClient();
+
 function KasirInnerPage() {
   const { addItem } = useCart();
-  const { getGlobalBackgroundClasses } = usePreferences();
-  const surface = getGlobalBackgroundClasses();
+  const { getBackgroundClass } = usePreferences();
+  const surface = getBackgroundClass();
+  console.log(surface);
 
-  // ---- Set 'dashboard' as the default view ----
   const [currentView, setCurrentView] = useState('dashboard');
 
+  useEffect(() => {
+    // ... (kode useEffect Anda tetap sama)
+    function handler(e: Event) {
+      const ev = e as CustomEvent;
+      if (ev?.detail?.view) {
+        setCurrentView(String(ev.detail.view));
+      }
+    }
+    window.addEventListener('navigate-kasir-view', handler as EventListener);
+    return () =>
+      window.removeEventListener(
+        'navigate-kasir-view',
+        handler as EventListener
+      );
+  }, []);
+
   function convertProductToCartItem(p: ProductItem): CartItem {
+    // ... (kode convertProductToCartItem Anda tetap sama)
     return {
       id: p.id,
       itemId: p.itemId,
@@ -47,6 +67,7 @@ function KasirInnerPage() {
   }
 
   const onDragEnd = (event: DragEndEvent) => {
+    // ... (kode onDragEnd Anda tetap sama)
     const product = event.active?.data?.current?.product as
       | ProductItem
       | undefined;
@@ -57,6 +78,7 @@ function KasirInnerPage() {
   };
 
   const renderCurrentView = () => {
+    // ... (kode renderCurrentView Anda tetap sama)
     switch (currentView) {
       case 'products':
         return <ProductsView />;
@@ -66,7 +88,6 @@ function KasirInnerPage() {
         return <PaymentTypesView />;
       case 'orders':
         return <OrdersView />;
-      // Render DashboardView by default
       case 'dashboard':
       default:
         return <CenterMock />;
@@ -76,13 +97,13 @@ function KasirInnerPage() {
   return (
     <DndContext onDragEnd={onDragEnd}>
       <main className='h-screen w-full bg-background overflow-hidden'>
-        <div className='mx-auto max-w-[1400px] px-4 h-full flex flex-col'>
+        <div className='mx-auto w-full max-w-[min(1400px,96vw)] px-3 sm:px-4 lg:px-6 h-full flex flex-col'>
           <div className='grid gap-2 md:grid-cols-[300px_1fr_340px] flex-1 overflow-hidden'>
             <aside
               aria-label='Navigation'
               className={[
                 'rounded-lg border border-border h-full overflow-hidden',
-                surface.bg,
+                surface,
               ].join(' ')}
             >
               <SidebarMock
@@ -95,7 +116,7 @@ function KasirInnerPage() {
               aria-label='Content'
               className={[
                 'rounded-lg border border-border h-full overflow-y-auto relative',
-                surface.bg,
+                surface,
               ].join(' ')}
             >
               {renderCurrentView()}
@@ -105,7 +126,7 @@ function KasirInnerPage() {
               aria-label='Right Sidebar'
               className={[
                 'rounded-lg border border-border p-3 md:p-4 h-full overflow-hidden relative',
-                surface.bg,
+                surface,
               ].join(' ')}
             >
               <AsideMock />
@@ -137,16 +158,19 @@ function KasirInnerPage() {
 
 export default function KasirPage() {
   return (
-    <SessionProvider>
-      <AuthProvider>
-        <PreferencesProvider>
-          <NotificationProvider>
-            <CartProvider>
-              <KasirInnerPage />
-            </CartProvider>
-          </NotificationProvider>
-        </PreferencesProvider>
-      </AuthProvider>
-    </SessionProvider>
+    // 3. Bungkus semua provider dengan QueryClientProvider
+    <QueryClientProvider client={queryClient}>
+      <SessionProvider>
+        <AuthProvider>
+          <PreferencesProvider>
+            <NotificationProvider>
+              <CartProvider>
+                <KasirInnerPage />
+              </CartProvider>
+            </NotificationProvider>
+          </PreferencesProvider>
+        </AuthProvider>
+      </SessionProvider>
+    </QueryClientProvider>
   );
 }

@@ -1,202 +1,258 @@
-"use client"
+"use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
-type ColorOption = {
-  key: string
-  classes: {
-    bg: string
-    text: string
-    border?: string
-  }
-}
-
-const colorOptions: ColorOption[] = [
-  {
-    key: "primary",
-    classes: { bg: "bg-primary", text: "text-primary-foreground" },
-  },
-  {
-    key: "secondary",
-    classes: { bg: "bg-secondary", text: "text-secondary-foreground" },
-  },
-  {
-    key: "destructive",
-    classes: { bg: "bg-destructive", text: "text-destructive-foreground" },
-  },
-  { key: "blue", classes: { bg: "bg-blue-500", text: "text-white" } },
-  { key: "green", classes: { bg: "bg-green-500", text: "text-white" } },
-  { key: "yellow", classes: { bg: "bg-yellow-500", text: "text-black" } },
-  { key: "red", classes: { bg: "bg-red-500", text: "text-white" } },
-  { key: "purple", classes: { bg: "bg-purple-500", text: "text-white" } },
-  { key: "gray-dark", classes: { bg: "bg-gray-700", text: "text-white" } },
-]
+type ThemePackage = {
+  key: string;
+  label: string;
+  bg: string;
+  button: string;
+  text: string;
+};
 
 type ButtonPref = {
-  label?: string
-  color?: string
-}
+  label: string;
+  icon: string;
+};
+
+type ButtonPrefs = {
+  [key: string]: ButtonPref;
+};
+
+type ProductImages = {
+  [productId: string]: string;
+};
 
 type UserProfile = {
-  name: string
-  role: string
-  photo: string
-}
+  name: string;
+  role: string;
+  logo: string;
+};
 
 type PreferencesContextValue = {
-  isCustomize: boolean
-  toggleCustomize: () => void
-  buttonPrefs: Record<string, ButtonPref>
-  setButtonPref: (key: string, pref: Partial<ButtonPref>) => void
-  getButtonLabel: (key: string, defaultLabel: string) => string
-  getButtonColorClasses: (key: string) => ColorOption["classes"]
-  colorOptions: ColorOption[]
-  productImages: Record<string, string>
-  setProductImage: (productId: string, imageUrl: string) => void
-  getProductImage: (productId: string, defaultImage: string) => string
-  getUserProfile: () => UserProfile
-  setUserProfile: (profile: UserProfile) => void
-  globalBackgroundColor: string
-  setGlobalBackgroundColor: (key: string) => void
-  globalButtonColor: string
-  setGlobalButtonColor: (key: string) => void
-  getGlobalBackgroundClasses: () => ColorOption["classes"]
-  getGlobalButtonClasses: () => ColorOption["classes"]
-}
+  isCustomize: boolean;
+  buttonPrefs: ButtonPrefs;
+  themePackages: ThemePackage[];
+  activeThemeKey: string;
+  productImages: ProductImages;
+  userProfile: UserProfile;
+  customTheme: ThemePackage;
 
-const PreferencesContext = createContext<PreferencesContextValue | null>(null)
+  toggleCustomize: () => void;
+  setButtonPref: (key: string, pref: Partial<ButtonPref>) => void;
+  getButtonLabel: (key: string, defaultLabel: string) => string;
+  setProductImage: (productId: string, imageUrl: string) => void;
+  getProductImage: (productId: string, defaultImage: string) => string;
+  setUserProfile: (profile: UserProfile) => void;
+  setActiveThemeKey: (key: string) => void;
+  setCustomTheme: (theme: ThemePackage) => void;
+  
+  getButtonClasses: () => { bg: string; text: string };
+  getBackgroundClass: () => string;
+  getTextClass: () => string;
+  getUserProfile: () => UserProfile;
 
-const STORAGE_KEY = "carwash-preferences"
-const DEFAULT_USER: UserProfile = {
-  name: "Carwash Cilodong",
-  role: "Admin",
-  photo: "/logo.jpg",
-}
+  resetCustomization: () => void;
+};
+
+const themePackages: ThemePackage[] = [
+  {
+    key: "dark",
+    label: "Dark",
+    bg: "bg-[#0a0a0a]",
+    button: "bg-[#fafafa] text-[#0a0a0a]",
+    text: "text-[#fafafa]",
+  },
+  {
+    key: "light",
+    label: "Light",
+    bg: "bg-[#ffffff]",
+    button: "bg-[#18181b] text-[#fafafa]",
+    text: "text-[#18181b]",
+  },
+  {
+    key: "green",
+    label: "Emerald Green",
+    bg: "bg-[#064e3b]",
+    button: "bg-[#ffffff] text-[#065f46]",
+    text: "text-[#ffffff]",
+  },
+  {
+    key: "blue",
+    label: "Ocean Blue",
+    bg: "bg-[#1e3a8a]",
+    button: "bg-[#ffffff] text-[#1e3a8a] hover:bg-white/90",
+    text: "text-[#ffffff]",
+  },
+  {
+    key: "purple",
+    label: "Royal Purple",
+    bg: "bg-[#581c87]",
+    button: "bg-[#ffffff] text-[#581c87] hover:bg-white/90",
+    text: "text-[#ffffff]",
+  },
+];
+
+const defaultUserProfile: UserProfile = {
+  name: "Ngumpul Pas Deadline",
+  role: "Kasir & Barista",
+  logo: "/Logo.png",
+};
+
+const PreferencesContext = createContext<PreferencesContextValue | undefined>(undefined);
+
+const getInitialState = <T,>(key: string, defaultValue: T): T => {
+  if (typeof window === "undefined") return defaultValue;
+  try {
+    const storedValue = localStorage.getItem(key);
+    return storedValue ? JSON.parse(storedValue) : defaultValue;
+  } catch (error) {
+    console.error("Error reading localStorage key:", key, error);
+    return defaultValue;
+  }
+};
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [isCustomize, setIsCustomize] = useState(false)
-  const [buttonPrefs, setButtonPrefs] = useState<Record<string, ButtonPref>>({})
-  const [productImages, setProductImages] = useState<Record<string, string>>({})
-  const [userProfile, setUserProfileState] = useState<UserProfile>(DEFAULT_USER)
-
-  // Global theme states
-  const [globalBackgroundColor, setGlobalBackgroundColor] = useState<string>("secondary")
-  const [globalButtonColor, setGlobalButtonColor] = useState<string>("primary")
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        setButtonPrefs(parsed.buttonPrefs || {})
-        setProductImages(parsed.productImages || {})
-        setUserProfileState(parsed.userProfile || DEFAULT_USER)
-        // Hydrate global theme
-        if (parsed.globalBackgroundColor) setGlobalBackgroundColor(parsed.globalBackgroundColor)
-        if (parsed.globalButtonColor) setGlobalButtonColor(parsed.globalButtonColor)
-      }
-    } catch (e) {
-      console.error("Failed to load preferences", e)
-    }
-  }, [])
+  const [isCustomize, setIsCustomize] = useState(() =>
+    getInitialState("isCustomize", false)
+  );
+  const [activeThemeKeyState, setActiveThemeKeyState] = useState(() =>
+    getInitialState("activeThemeKey", themePackages[0].key)
+  );
+  const [buttonPrefs, setButtonPrefs] = useState<ButtonPrefs>(() =>
+    getInitialState("buttonPrefs", {})
+  );
+  const [productImages, setProductImages] = useState<ProductImages>(() =>
+    getInitialState("productImages", {})
+  );
+  const [userProfile, setUserProfileState] = useState<UserProfile>(() =>
+    getInitialState("userProfile", defaultUserProfile)
+  );
+  
+  const initialTheme = themePackages.find(t => t.key === activeThemeKeyState) || themePackages[0];
+  const [customTheme, setCustomThemeState] = useState<ThemePackage>(() =>
+    getInitialState("customTheme", initialTheme)
+  );
 
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          buttonPrefs,
-          productImages,
-          userProfile,
-          // Persist global theme
-          globalBackgroundColor,
-          globalButtonColor,
-        }),
-      )
-    } catch (e) {
-      console.error("Failed to save preferences", e)
-    }
-  }, [buttonPrefs, productImages, userProfile, globalBackgroundColor, globalButtonColor])
+    localStorage.setItem("isCustomize", JSON.stringify(isCustomize));
+  }, [isCustomize]);
 
-  const toggleCustomize = () => setIsCustomize((s) => !s)
+  useEffect(() => {
+    localStorage.setItem("activeThemeKey", JSON.stringify(activeThemeKeyState));
+  }, [activeThemeKeyState]);
+
+  useEffect(() => {
+    localStorage.setItem("buttonPrefs", JSON.stringify(buttonPrefs));
+  }, [buttonPrefs]);
+
+  useEffect(() => {
+    localStorage.setItem("productImages", JSON.stringify(productImages));
+  }, [productImages]);
+
+  useEffect(() => {
+    localStorage.setItem("userProfile", JSON.stringify(userProfile));
+  }, [userProfile]);
+  
+  useEffect(() => {
+    localStorage.setItem("customTheme", JSON.stringify(customTheme));
+  }, [customTheme]);
+
+  const toggleCustomize = () => setIsCustomize((s) => !s);
+  
+  const resetCustomization = () => {
+    setIsCustomize(false);
+  };
+
+  const setCustomTheme = (theme: ThemePackage) => {
+    setCustomThemeState(theme);
+    setIsCustomize(true);
+  };
+
+  const setActiveThemeKey = (key: string) => {
+    setActiveThemeKeyState(key);
+    resetCustomization();
+  };
+
+  const getActiveTheme = (): ThemePackage => {
+    if (isCustomize) return customTheme; 
+
+    const active = themePackages.find((t) => t.key === activeThemeKeyState);
+    
+    return active || themePackages[0];
+  };
+
+  const activeTheme = getActiveTheme();
+
+  const getButtonClasses = () => {
+    const [bg, text] = activeTheme.button.split(" ");
+    return { bg, text };
+  };
+
+  const getBackgroundClass = () => activeTheme.bg;
+  const getTextClass = () => activeTheme.text;
 
   const setButtonPref = (key: string, pref: Partial<ButtonPref>) => {
     setButtonPrefs((prev) => ({
       ...prev,
-      [key]: { ...prev[key], ...pref },
-    }))
-  }
+      [key]: {
+        ...prev[key],
+        ...pref,
+      },
+    }));
+  };
 
   const getButtonLabel = (key: string, defaultLabel: string): string => {
-    return buttonPrefs[key]?.label || defaultLabel
-  }
-
-  // Helper to resolve a color key to classes
-  const resolveColor = (key: string): ColorOption["classes"] => {
-    const found = colorOptions.find((opt) => opt.key === key)
-    return found?.classes || colorOptions[0].classes
-  }
-
-  // Global background classes (used for surfaces/panels)
-  const getGlobalBackgroundClasses = (): ColorOption["classes"] => {
-    return resolveColor(globalBackgroundColor)
-  }
-
-  // Global button classes (used for generic buttons)
-  const getGlobalButtonClasses = (): ColorOption["classes"] => {
-    return resolveColor(globalButtonColor)
-  }
-
-  // Override per-button colors when global is set (flat customization)
-  const getButtonColorClasses = (key: string): ColorOption["classes"] => {
-    // Always prioritize global button color (flat control)
-    if (globalButtonColor) return resolveColor(globalButtonColor)
-    const colorKey = buttonPrefs[key]?.color || "primary"
-    return resolveColor(colorKey)
-  }
-
+    return buttonPrefs[key]?.label || defaultLabel;
+  };
+  
   const setProductImage = (productId: string, imageUrl: string) => {
     setProductImages((prev) => ({
       ...prev,
       [productId]: imageUrl,
-    }))
-  }
+    }));
+  };
 
   const getProductImage = (productId: string, defaultImage: string): string => {
-    return productImages[productId] || defaultImage
-  }
+    return productImages[productId] || defaultImage;
+  };
 
-  const getUserProfile = (): UserProfile => userProfile
-  const setUserProfile = (profile: UserProfile) => setUserProfileState(profile)
+  const getUserProfile = (): UserProfile => userProfile;
+  const setUserProfile = (profile: UserProfile) => setUserProfileState(profile);
 
   const value: PreferencesContextValue = {
     isCustomize,
-    toggleCustomize,
     buttonPrefs,
+    themePackages,
+    activeThemeKey: activeThemeKeyState,
+    productImages,
+    userProfile,
+    customTheme,
+    
+    toggleCustomize,
     setButtonPref,
     getButtonLabel,
-    getButtonColorClasses,
-    colorOptions,
-    productImages,
     setProductImage,
     getProductImage,
-    getUserProfile,
     setUserProfile,
-    // Expose global theme controls
-    globalBackgroundColor,
-    setGlobalBackgroundColor,
-    globalButtonColor,
-    setGlobalButtonColor,
-    getGlobalBackgroundClasses,
-    getGlobalButtonClasses,
+    setActiveThemeKey,
+    setCustomTheme,
+    
+    getButtonClasses,
+    getBackgroundClass,
+    getTextClass,
+    getUserProfile,
+
+    resetCustomization,
+  };
+
+  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
+}
+
+export const usePreferences = () => {
+  const context = useContext(PreferencesContext);
+  if (context === undefined) {
+    throw new Error("usePreferences must be used within a PreferencesProvider");
   }
-
-  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>
-}
-
-export function usePreferences() {
-  const ctx = useContext(PreferencesContext)
-  if (!ctx) throw new Error("usePreferences must be used within PreferencesProvider")
-  return ctx
-}
+  return context;
+};
