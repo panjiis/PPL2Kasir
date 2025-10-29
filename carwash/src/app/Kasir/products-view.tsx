@@ -2,8 +2,9 @@
 import { useState, useMemo } from 'react';
 import { useSession } from '../lib/context/session';
 import type { PosProduct } from '@/app/lib/types/pos';
-import { AlertTriangle, Loader2, Search } from 'lucide-react';
+import { AlertTriangle, Loader2, Search, Pencil } from 'lucide-react';
 import { useProducts } from '@/app/Hooks/useProducts';
+import { Button } from '@/components/ui/button';
 
 const formatRupiah = (amount?: number) => {
   if (amount === undefined || amount === null) return 'N/A';
@@ -17,31 +18,29 @@ const formatRupiah = (amount?: number) => {
 
 const ITEMS_PER_PAGE = 10;
 
-export default function ProductsView() {
+export default function ProductsView({
+  onEdit,
+}: {
+  onEdit: (code: string) => void;
+}) {
   const { session } = useSession();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Menggunakan React Query hook untuk mengambil data, loading, dan error
   const {
-    data: products = [], // Beri nilai default array kosong
+    data: products = [],
     isLoading: loading,
     error,
   } = useProducts(session?.token ?? '');
 
-  // --- TAMBAHAN CONSOLE LOG ---
-  // Cek status API di sini. Ini akan berjalan setiap kali komponen render ulang.
   console.log('STATUS API PRODUCTS:', {
     token: session?.token ? 'Token Ada' : 'Token KOSONG',
     loading,
     error,
-    productsData: products, // Cek apakah ini null, undefined, atau []
+    productsData: products,
   });
-  // ---------------------------
 
-  // Normalisasi/Mapping data dari hook
   const mappedProducts = useMemo(() => {
-    // FIX: Tambahkan (products || []) untuk mencegah crash jika products null
     return (products || []).map(
       (p): PosProduct => ({
         ...p,
@@ -71,7 +70,6 @@ export default function ProductsView() {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
-  // Mengkonversi objek error dari React Query menjadi pesan string
   const errorMessage = error
     ? error instanceof Error
       ? error.message
@@ -104,7 +102,6 @@ export default function ProductsView() {
         </p>
       </header>
 
-      {/* Search */}
       <div className='px-3 pb-3'>
         <div className='relative'>
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
@@ -121,7 +118,6 @@ export default function ProductsView() {
         </div>
       </div>
 
-      {/* Table */}
       <div className='flex-1 overflow-y-auto px-3 pb-3'>
         <div className='border rounded-lg overflow-hidden'>
           <table className='w-full text-sm'>
@@ -130,13 +126,14 @@ export default function ProductsView() {
                 <th className='text-left font-medium p-3'>Product Name</th>
                 <th className='text-left font-medium p-3'>Product Code</th>
                 <th className='text-right font-medium p-3'>Price</th>
+                <th className='text-center font-medium p-3'>Actions</th>
               </tr>
             </thead>
             <tbody className='bg-card'>
               {paginatedProducts.length > 0 ? (
                 paginatedProducts.map((item) => (
                   <tr
-                    key={item.product_code} // FIX: Menggunakan product_code sebagai key
+                    key={item.product_code}
                     className='border-t hover:bg-accent/30 transition-colors'
                   >
                     <td className='p-3 font-medium'>{item.product_name}</td>
@@ -146,12 +143,23 @@ export default function ProductsView() {
                     <td className='p-3 text-right font-semibold'>
                       {formatRupiah(Number(item.price))}
                     </td>
+                    <td className='p-3 text-center'>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => item.product_code && onEdit(item.product_code)}
+                        disabled={!item.product_code}
+                      >
+                        <Pencil className='h-3 w-3 mr-2' />
+                        Edit
+                      </Button>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={3}
+                    colSpan={4}
                     className='text-center p-6 text-muted-foreground'
                   >
                     No products found.
@@ -163,27 +171,26 @@ export default function ProductsView() {
         </div>
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <footer className='p-4 border-t flex items-center justify-between'>
           <span className='text-sm text-muted-foreground'>
             Page {currentPage} of {totalPages}
           </span>
           <div className='flex items-center gap-2'>
-            <button
+            <Button
+              variant='outline'
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              className='px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed'
             >
               Previous
-            </button>
-            <button
+            </Button>
+            <Button
+              variant='outline'
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
-              className='px-4 py-2 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed'
             >
               Next
-            </button>
+            </Button>
           </div>
         </footer>
       )}

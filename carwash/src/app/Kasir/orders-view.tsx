@@ -288,7 +288,7 @@ export default function OrdersView() {
             </DialogHeader>
 
             <div className='flex-1 overflow-y-auto p-1'>
-              <div className='border rounded-lg p-4 bg-gray-50 shadow-sm mb-4'>
+              <div className='border rounded-lg p-4 bg-muted shadow-sm mb-4'>
                 <table className='w-full text-xs'>
                   <tbody>
                     <tr>
@@ -329,8 +329,8 @@ export default function OrdersView() {
                 </table>
               </div>
 
-              <div className='border rounded-lg bg-white shadow-sm'>
-                <div className='font-semibold text-sm px-4 py-2 bg-gray-100 border-b'>
+              <div className='border rounded-lg bg-muted shadow-sm'>
+                <div className='font-semibold text-sm px-4 py-2 bg-muted border-b'>
                   Daftar Item
                 </div>
                 <table className='w-full text-xs'>

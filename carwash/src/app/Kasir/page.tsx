@@ -1,7 +1,6 @@
 'use client';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-// 1. Import QueryClient dan QueryClientProvider
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import SidebarMock from './sidebar-mock';
@@ -22,8 +21,8 @@ import ProductsView from './products-view';
 import GroupsView from './groups-view';
 import PaymentTypesView from './payment-types-view';
 import OrdersView from './orders-view';
+import ProductUpdateView from './product-update-view';
 
-// 2. Buat instance QueryClient (cukup sekali)
 const queryClient = new QueryClient();
 
 function KasirInnerPage() {
@@ -33,9 +32,9 @@ function KasirInnerPage() {
   console.log(surface);
 
   const [currentView, setCurrentView] = useState('dashboard');
+  const [editingProductCode, setEditingProductCode] = useState<string | null>(null);
 
   useEffect(() => {
-    // ... (kode useEffect Anda tetap sama)
     function handler(e: Event) {
       const ev = e as CustomEvent;
       if (ev?.detail?.view) {
@@ -51,7 +50,6 @@ function KasirInnerPage() {
   }, []);
 
   function convertProductToCartItem(p: ProductItem): CartItem {
-    // ... (kode convertProductToCartItem Anda tetap sama)
     return {
       id: p.id,
       itemId: p.itemId,
@@ -67,7 +65,6 @@ function KasirInnerPage() {
   }
 
   const onDragEnd = (event: DragEndEvent) => {
-    // ... (kode onDragEnd Anda tetap sama)
     const product = event.active?.data?.current?.product as
       | ProductItem
       | undefined;
@@ -77,17 +74,43 @@ function KasirInnerPage() {
     }
   };
 
+  const handleEditProduct = (code: string) => {
+    setEditingProductCode(code);
+    setCurrentView('update');
+  };
+
   const renderCurrentView = () => {
-    // ... (kode renderCurrentView Anda tetap sama)
     switch (currentView) {
       case 'products':
-        return <ProductsView />;
+        return (
+          <ProductsView
+            onEdit={handleEditProduct}
+          />
+        );
       case 'groups':
         return <GroupsView />;
       case 'paymentTypes':
         return <PaymentTypesView />;
       case 'orders':
         return <OrdersView />;
+      case 'update':
+        if (!editingProductCode) {
+          setCurrentView('products');
+          return <ProductsView onEdit={handleEditProduct} />;
+        }
+        return (
+          <ProductUpdateView
+            productCode={editingProductCode}
+            onBack={() => {
+              setEditingProductCode(null);
+              setCurrentView('products');
+            }}
+            onSuccess={() => {
+              setEditingProductCode(null);
+              setCurrentView('products');
+            }}
+          />
+        );
       case 'dashboard':
       default:
         return <CenterMock />;
@@ -158,7 +181,6 @@ function KasirInnerPage() {
 
 export default function KasirPage() {
   return (
-    // 3. Bungkus semua provider dengan QueryClientProvider
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
         <AuthProvider>

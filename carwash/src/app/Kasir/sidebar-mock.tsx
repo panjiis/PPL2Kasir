@@ -240,7 +240,6 @@ function SortableNavItem({
   item,
   onNavigate,
   isActive,
-  onFetch,
 }: {
   id: string;
   item: NavItem;
@@ -271,9 +270,6 @@ function SortableNavItem({
         itemKey={item.key}
         onClick={() => {
           onNavigate(item.key);
-         if (item.key !== 'dashboard') {
-            onFetch(item.key);
-          }
         }}
         isActive={isActive}
         isDragging={isDragging}
@@ -343,13 +339,6 @@ export default function SidebarMock({
     }
   };
 
-  const addNavItem = (label: string) => {
-    // ✅ hindari mismatch dengan random ID berbeda di server & client
-    const key = `custom-${Math.random().toString(36).substring(2, 9)}`;
-    const newItem: NavItem = { key, label, icon: Boxes };
-    setNavItems((items) => [...items, newItem]);
-  };
-
   // popup state for API results
   const [popupContent, setPopupContent] = useState<React.ReactNode | null>(
     null
@@ -416,7 +405,7 @@ export default function SidebarMock({
                 return (
                   <div
                     key={itemKey}
-                    className='border rounded-lg p-3 bg-gray-50 shadow dark:bg-muted'
+                    className='border rounded-lg p-3 bg-muted shadow dark:bg-muted'
                   >
                     <div className='mb-2 text-base font-bold'>{itemTitle}</div>
                     <div className='text-xs text-gray-700 dark:text-gray-200 space-y-1'>
@@ -571,18 +560,6 @@ export default function SidebarMock({
                 )
               )}
             </div>
-
-            <div className='mt-3 flex gap-2'>
-              <button
-                onClick={() => addNavItem('New Button')}
-                className='px-3 py-2 rounded bg-primary text-primary-foreground text-xs'
-              >
-                + Add Nav Button (demo)
-              </button>
-              <div className='text-xs text-muted-foreground self-center'>
-                Added items are draggable
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -657,7 +634,6 @@ export default function SidebarMock({
       {popupContent && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
           <div className='bg-white dark:bg-card rounded-lg shadow-lg p-6 max-w-lg w-[min(95vw,640px)]'>
-            <div className='max-h-[60vh] overflow-auto'>{popupContent}</div>
             <div className='mt-4 flex justify-between items-center'>
               <div className='text-sm text-muted-foreground'>
                 {loadingApi ? 'Loading...' : 'API result'}

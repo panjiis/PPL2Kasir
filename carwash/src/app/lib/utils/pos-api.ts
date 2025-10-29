@@ -40,63 +40,56 @@ async function safeReadText(res: Response) {
 export async function fetchProducts(
   token?: string
 ): Promise<{ data: PosProduct[] }> {
-  // Mencoba endpoint list yang umum terlebih dahulu, lalu fallback ke endpoint code
-  const endpoints = ['/pos/products', '/pos/products/code'];
-
-  for (const path of endpoints) {
-    const url = `${BASE_URL}${path}`;
-    const res = await fetch(url, {
-      headers: defaultHeaders(token),
-    });
-
-    // try next endpoint if not found
-    if (res.status === 404) continue;
-
-    // if bad request or other client/server error, read body for message and throw
-    if (!res.ok) {
-      const text = await safeReadText(res);
-      throw new Error(
-        `Failed to fetch products from ${url}. Status ${res.status}. Body: ${text}`
-      );
-    }
-
-    const body = await res.json().catch(() => null);
-
-    if (!body) return { data: [] };
-
-    // common shapes (support array langsung, atau di dalam properti 'data')
-    if (Array.isArray(body)) return { data: body as PosProduct[] };
-    if (Array.isArray(body.data)) return { data: body.data as PosProduct[] };
-    // fallback: if wrapper contains data-like property
-    for (const key of ['result', 'items', 'rows']) {
-      if (Array.isArray(body[key])) return { data: body[key] as PosProduct[] };
-    }
-
-    // unknown but successful: return empty array instead of throwing
-    return { data: [] };
-  }
-
-  throw new Error(
-    'Failed to fetch products from API (tried /pos/products/code and /pos/products).'
-  );
-}
-
-export async function fetchProductById(
-  id: number,
-  token?: string
-): Promise<{ data: PosProduct }> {
-  const res = await fetch(`${BASE_URL}/pos/products/${id}`, {
+  const url = `${BASE_URL}/pos/products`;
+  const res = await fetch(url, {
     headers: defaultHeaders(token),
   });
-  if (!res.ok) throw new Error(await safeReadText(res));
-  return res.json();
+
+  if (!res.ok) {
+    const text = await safeReadText(res);
+    throw new Error(
+      `Failed to fetch products from ${url}. Status ${res.status}. Body: ${text}`
+    );
+  }
+
+  const body: unknown = await res.json().catch(() => null);
+
+  if (!body) return { data: [] };
+
+  // common shapes (support array langsung, atau di dalam properti 'data')
+  if (Array.isArray(body)) return { data: body as PosProduct[] };
+
+  // Check for { data: [...] } shape
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'data' in body &&
+    Array.isArray(body.data)
+  ) {
+    return { data: body.data as PosProduct[] };
+  }
+
+  // fallback: if wrapper contains data-like property
+  for (const key of ['result', 'items', 'rows']) {
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      key in body &&
+      Array.isArray((body as Record<string, unknown>)[key])
+    ) {
+      return { data: (body as Record<string, unknown>)[key] as PosProduct[] };
+    }
+  }
+
+  // unknown but successful: return empty array instead of throwing
+  return { data: [] };
 }
 
 export async function fetchProductByCode(
   code: string,
   token?: string
 ): Promise<{ data: PosProduct }> {
-  const res = await fetch(`${BASE_URL}/pos/products/code/${code}`, {
+  const res = await fetch(`${BASE_URL}/pos/products/${code}`, {
     headers: defaultHeaders(token),
   });
   if (!res.ok) throw new Error(await safeReadText(res));
@@ -109,6 +102,20 @@ export async function createProduct(
 ): Promise<{ data: PosProduct }> {
   const res = await fetch(`${BASE_URL}/pos/products`, {
     method: 'POST',
+    headers: defaultHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await safeReadText(res));
+  return res.json();
+}
+
+export async function updateProduct(
+  code: string,
+  body: Partial<PosProduct>,
+  token?: string
+): Promise<{ data: PosProduct }> {
+  const res = await fetch(`${BASE_URL}/pos/products/${code}`, {
+    method: 'PUT',
     headers: defaultHeaders(token),
     body: JSON.stringify(body),
   });
@@ -165,6 +172,7 @@ export async function addItemToCart(
   body: CartItem,
   token?: string
 ): Promise<{ data: CartItem }> {
+  console.log('Adding item to cart with body:', body);
   const res = await fetch(`${BASE_URL}/pos/carts/items`, {
     method: 'POST',
     headers: defaultHeaders(token),
@@ -176,13 +184,16 @@ export async function addItemToCart(
 
 export async function removeItemFromCart(
   cart_id: string,
-  item_id: string,
+  item_code: string,
   token?: string
 ): Promise<{ success: boolean }> {
-  const res = await fetch(`${BASE_URL}/pos/carts/${cart_id}/items/${item_id}`, {
-    method: 'DELETE',
-    headers: defaultHeaders(token),
-  });
+  const res = await fetch(
+    `${BASE_URL}/pos/carts/${cart_id}/items/${item_code}`,
+    {
+      method: 'DELETE',
+      headers: defaultHeaders(token),
+    }
+  );
   if (!res.ok) throw new Error(await safeReadText(res));
   return res.json();
 }
@@ -211,10 +222,14 @@ export async function deleteCart(
   });
   if (!res.ok) {
     const text = await safeReadText(res);
-    throw new Error(`Failed to delete cart ${cart_id}. Status ${res.status}. Body: ${text}`);
+    throw new Error(
+      `Failed to delete cart ${cart_id}. Status ${res.status}. Body: ${text}`
+    );
   }
   // Handle case where API might return an empty body on successful delete
-  return res.json().catch(() => ({ success: true, message: `Cart ${cart_id} deleted` }));
+  return res
+    .json()
+    .catch(() => ({ success: true, message: `Cart ${cart_id} deleted` }));
 }
 
 // ==================== ORDERS ====================

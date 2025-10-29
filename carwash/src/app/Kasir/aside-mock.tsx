@@ -337,7 +337,7 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
   const [codeInput, setCodeInput] = useState('');
 
   // FIX: Mengganti any[] dengan ApiDiscount[]
-  const [apiDiscounts, setApiDiscounts] = useState<ApiDiscount[]>([]); 
+  const [apiDiscounts, setApiDiscounts] = useState<ApiDiscount[]>([]);
   const [loadingDiscounts, setLoadingDiscounts] = useState(true);
 
   // FIX: Fetch data diskon dari API
@@ -351,7 +351,7 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
         setLoadingDiscounts(true);
         const res = await fetchDiscounts(session.token);
         // Casting hasil ke ApiDiscount[] untuk konsistensi
-        setApiDiscounts(res.data as ApiDiscount[] || []); 
+        setApiDiscounts((res.data as ApiDiscount[]) || []);
       } catch (e) {
         console.error('Failed to fetch discounts:', e);
         setApiDiscounts([]);
@@ -362,22 +362,24 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
     loadDiscounts();
   }, [session?.token]);
 
-
   // FIX: Konversi data API ke tipe Coupon (Mapping asumsi)
-const coupons: Coupon[] = apiDiscounts.map((d) => {
-  const scope = 'all' as const;
-  const discountType: 'amount' | 'percent' =
-    d.discount_type === 'amount' ? 'amount' : 'percent';
-  return {
-    id: String(d.id ?? d.discount_id ?? ''),
-    code: d.discount_code ?? d.discount_name ?? String(d.id ?? d.discount_id ?? ''),
-    label: d.discount_name ?? d.description ?? 'Unknown Discount',
-    scope,
-    discountType,
-    value: Number(d.percentage ?? d.value ?? 0),
-    maxDiscount: Number(d.max_amount ?? d.max_discount ?? 0) || undefined,
-  };
-});
+  const coupons: Coupon[] = apiDiscounts.map((d) => {
+    const scope = 'all' as const;
+    const discountType: 'amount' | 'percent' =
+      d.discount_type === 'amount' ? 'amount' : 'percent';
+    return {
+      id: String(d.id ?? d.discount_id ?? ''),
+      code:
+        d.discount_code ??
+        d.discount_name ??
+        String(d.id ?? d.discount_id ?? ''),
+      label: d.discount_name ?? d.description ?? 'Unknown Discount',
+      scope,
+      discountType,
+      value: Number(d.percentage ?? d.value ?? 0),
+      maxDiscount: Number(d.max_amount ?? d.max_discount ?? 0) || undefined,
+    };
+  });
 
   const filtered = coupons.filter((c) => {
     const okType = filter === 'all' ? true : c.scope === filter;
@@ -453,7 +455,8 @@ const coupons: Coupon[] = apiDiscounts.map((d) => {
       <div className='max-h-40 overflow-auto rounded-md border border-border/30 p-2 space-y-2 bg-secondary'>
         {loadingDiscounts ? (
           <div className='text-xs text-muted-foreground flex items-center justify-center py-2'>
-            <Loader2 className='h-4 w-4 animate-spin mr-2' /> Loading Discounts...
+            <Loader2 className='h-4 w-4 animate-spin mr-2' /> Loading
+            Discounts...
           </div>
         ) : filtered.length === 0 ? (
           <div className='text-xs text-muted-foreground'>Tidak ada kupon.</div>
@@ -715,7 +718,6 @@ export default function AsideMock(): React.ReactElement {
         return; // Stop on error
       }
     }
-  
 
     setBusy(true);
     setLocked(true); // 🔒 kunci sementara agar tidak dobel klik
@@ -724,12 +726,17 @@ export default function AsideMock(): React.ReactElement {
       setPaymentSheetOpen(false);
 
       const { data: cart } = await createCart({ cashier_id: 1 }, token);
-      const cartId = String(cart.id);
+      const cartId = String(cart.cart_id);
 
       // Save last cart id so 'void' can delete it later
       try {
         localStorage.setItem('last_cart_id', cartId);
       } catch (e) {}
+
+      if (!cartId) {
+        console.error('Cart ID is undefined!');
+        return;
+      }
 
       for (const it of items) {
         const productCode = it.itemId ?? String(it.id);
@@ -740,10 +747,7 @@ export default function AsideMock(): React.ReactElement {
           serving_employee_id: undefined,
         };
         // Menggunakan cart item ID yang lebih robust
-        await addItemToCart(
-          { id: `${cartId}-${productCode}-${Date.now()}`, ...payload },
-          token
-        );
+        await addItemToCart(payload, token);
       }
 
       const { data: order } = await createOrderFromCart(
@@ -790,15 +794,13 @@ export default function AsideMock(): React.ReactElement {
 
       // ✅ sukses -> reset & unlock
       clearAll();
-      
+
       // FIX (Perbaikan 7): Navigate to orders view after successful order
       try {
         window.dispatchEvent(
           new CustomEvent('navigate-kasir-view', { detail: { view: 'orders' } })
         );
       } catch (e) {}
-
-
     } catch (err) {
       console.error(err);
 
@@ -824,13 +826,13 @@ export default function AsideMock(): React.ReactElement {
     setBusy(true);
     try {
       const lastCartId = localStorage.getItem('last_cart_id');
-      
+
       // Prioritaskan Hapus Cart (DELETE /pos/carts/{id})
-      if (lastCartId) { 
+      if (lastCartId) {
         await deleteCart(lastCartId, token);
-        
+
         showNotif({ type: 'success', message: `Cart ${lastCartId} deleted` });
-        
+
         // remove saved last cart id
         try {
           localStorage.removeItem('last_cart_id');
@@ -839,15 +841,21 @@ export default function AsideMock(): React.ReactElement {
         // fallback: try to void last completed order via orders/void endpoint
         const lastOrderId =
           orders.length > 0 ? Number(orders[orders.length - 1].id) || 0 : 0;
-          
+
         if (lastOrderId > 0) {
-            await voidOrderApi(
-              { id: lastOrderId, voided_by: 1, reason: 'Customer canceled' },
-              token
-            );
-            showNotif({ type: 'success', message: `Order ${lastOrderId} voided` });
+          await voidOrderApi(
+            { id: lastOrderId, voided_by: 1, reason: 'Customer canceled' },
+            token
+          );
+          showNotif({
+            type: 'success',
+            message: `Order ${lastOrderId} voided`,
+          });
         } else {
-             showNotif({ type: 'info', message: 'Tidak ada Cart/Order yang bisa di-Void' });
+          showNotif({
+            type: 'info',
+            message: 'Tidak ada Cart/Order yang bisa di-Void',
+          });
         }
       }
 
@@ -882,7 +890,7 @@ export default function AsideMock(): React.ReactElement {
       // Di aplikasi nyata, Anda harusnya menggunakan ID cart yang sedang aktif.
       // Kita pertahankan alur ini untuk kompatibilitas sementara.
       const { data: cart } = await createCart({ cashier_id: 1 }, token);
-      const cartId = String(cart.id);
+      const cartId = String(cart.cart_id  );
 
       // NOTE: Using a placeholder '1' for discount_id as in the original code.
       // This should be replaced with a real ID from the `coupon` object if available.
