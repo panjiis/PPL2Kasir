@@ -1,9 +1,7 @@
 'use client';
-import {  useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useSession } from '../lib/context/session';
-import {
-  returnOrder as returnOrderApi,
-} from '@/app/lib/utils/pos-api';
+import { returnOrder as returnOrderApi } from '@/app/lib/utils/pos-api';
 
 import { useOrders } from '@/app/Hooks/useOrders'; // FIX: Menggunakan hook
 import { useProducts } from '@/app/Hooks/useProducts'; // FIX: Menggunakan hook
@@ -58,22 +56,22 @@ const ITEMS_PER_PAGE = 10;
 export default function OrdersView() {
   const { session } = useSession();
   const { showNotif } = useNotification();
-  
+
   // FIX: Menggunakan hook useOrders
-  const { 
-    data: orders = [], 
-    isLoading: loadingOrders, 
-    error: errorOrders, 
-    refetch: refetchOrders 
+  const {
+    data: orders = [],
+    isLoading: loadingOrders,
+    error: errorOrders,
+    refetch: refetchOrders,
   } = useOrders(session?.token ?? '');
-  
+
   // FIX: Menggunakan hook useProducts
-  const { 
-    data: products = [], 
-    isLoading: loadingProducts, 
-    error: errorProducts 
+  const {
+    data: products = [],
+    isLoading: loadingProducts,
+    error: errorProducts,
   } = useProducts(session?.token ?? '');
-  
+
   // State lokal
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -147,7 +145,6 @@ export default function OrdersView() {
       ? error.message
       : 'An unknown error occurred.'
     : null;
-
 
   if (loading) {
     return (
@@ -282,7 +279,7 @@ export default function OrdersView() {
           open={!!selectedOrder}
           onOpenChange={(open) => !open && setSelectedOrder(null)}
         >
-          <DialogContent className='max-w-3xl max-h-[90vh] flex flex-col'>
+          <DialogContent className='max-w-3xl max-h-[90vh] flex flex-col bg-card text-foreground'>
             <DialogHeader>
               <DialogTitle>Order #{selectedOrder.document_number}</DialogTitle>
             </DialogHeader>
@@ -335,7 +332,7 @@ export default function OrdersView() {
                 </div>
                 <table className='w-full text-xs'>
                   <thead>
-                    <tr className='bg-gray-100'>
+                    <tr className='bg-muted'>
                       <th className='border px-2 py-1 text-left'>Produk</th>
                       <th className='border px-2 py-1 text-center'>Qty</th>
                       <th className='border px-2 py-1 text-right'>Total</th>
