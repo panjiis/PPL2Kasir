@@ -1,0 +1,32 @@
+name: Build and Push Docker Images to GHCR
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  FRONTEND_PATH: "carwash/"
+
+jobs:
+  build-and-push-docker-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push Front-end image
+        if: env.FRONTEND_PATH != '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          LOWER_ORG_NAME=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          FOLDER_NAME=$(basename "$FRONTEND_PATH")
+          IMAGE_NAME="ghcr.io/${LOWER_ORG_NAME}/frontend-${FOLDER_NAME,,}:latest"
+          
+          echo "Building Front-end image from $FRONTEND_PATH"
+          docker build -t $IMAGE_NAME "$FRONTEND_PATH"
+          docker push $IMAGE_NAME
