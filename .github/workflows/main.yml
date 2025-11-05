@@ -51,6 +51,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+            API_BASE_URL=${{ secrets.API_BASE_URL }}
 
       - name: Image digest
         if: env.FRONTEND_PATH != '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
