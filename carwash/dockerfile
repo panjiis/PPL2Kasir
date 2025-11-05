@@ -2,36 +2,35 @@
 FROM node:23.3.0-alpine AS builder
 WORKDIR /app
 
-# Declare build arguments
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG API_BASE_URL
 
-# Set them as environment variables
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV API_BASE_URL=$API_BASE_URL
 
-# Copy package files
 COPY package.json package-lock.json ./
 RUN npm install
 
-# Copy source code
 COPY . .
 
-# Build the application (skip type checking)
-RUN npm run build -- --no-lint || NEXT_DISABLE_TYPECHECK=1 npm run build
+RUN npm run build
 
 # Production stage
 FROM node:23.3.0-alpine
 WORKDIR /app
 
-# Copy built assets and necessary files
+# Re-declare args and env for runtime
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG API_BASE_URL
+
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV API_BASE_URL=$API_BASE_URL
+
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
 
-# Install only production dependencies
 RUN npm ci --only=production
 
-# Start the application
 CMD ["npm", "start"]
