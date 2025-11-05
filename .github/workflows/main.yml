@@ -5,6 +5,9 @@ on:
     branches:
       - main
   pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 env:
   FRONTEND_PATH: "carwash/"
@@ -12,21 +15,43 @@ env:
 jobs:
   build-and-push-docker-images:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.CONTAINER_OWNER }} --password-stdin
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract repository owner (lowercase)
+        id: repo
+        run: |
+          echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Build and push Front-end image
         if: env.FRONTEND_PATH != '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          REPO_OWNER=$(echo "${{ github.CONTAINER_OWNER }}" | tr '[:upper:]' '[:lower:]')
-          FOLDER_NAME=$(basename "$FRONTEND_PATH")
-          IMAGE_NAME="ghcr.io/$REPO_OWNER/pos-${FOLDER_NAME,,}:latest"
-          
-          echo "Building Front-end image from $FRONTEND_PATH"
-          docker build -t $IMAGE_NAME "$FRONTEND_PATH"
-          docker push $IMAGE_NAME
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.FRONTEND_PATH }}
+          file: ${{ env.FRONTEND_PATH }}/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner }}/frontend-carwash:latest
+            ghcr.io/${{ steps.repo.outputs.owner }}/frontend-carwash:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Image digest
+        if: env.FRONTEND_PATH != '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "Image pushed successfully to ghcr.io/${{ steps.repo.outputs.owner }}/frontend-carwash:latest"
