@@ -60,8 +60,6 @@ Thumbs.db
 .gitattributes
 
 # Docker
-Dockerfile
-docker-compose.yml
 .dockerignore
 
 # Documentation
