@@ -70,6 +70,20 @@ const themePackages: ThemePackage[] = [
     button: "bg-[#18181b] text-[#fafafa]",
     text: "text-[#18181b]",
   },
+    {
+    key: 'grey', 
+    label: 'Grey', 
+    bg: 'bg-[#2A2A2A]', // <-- Diubah dari 'bg-[#0a0a0a]'
+    button: 'bg-[#fafafa] text-[#2A2A2A]', // <-- Diubah dari 'text-[#0a0a0a]'
+    text: 'text-[#fafafa]',
+  },
+  {
+    key: 'lightgrey', // <-- Diubah dari 'light'
+    label: 'Light Gray', // <-- Diubah dari 'Light'
+    bg: 'bg-[#DFDFE1]', // <-- Diubah dari 'bg-[#454341]'
+    button: 'bg-[#18181b] text-[#fafafa]',
+    text: 'text-[#18181b]',
+  },
   {
     key: "green",
     label: "Emerald Green",

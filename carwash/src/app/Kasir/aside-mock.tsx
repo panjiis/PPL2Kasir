@@ -14,7 +14,7 @@ import {
   CreditCard,
   QrCode,
   Banknote,
-  Loader2, // FIX: Import Loader2 untuk loading discount
+  Loader2,
 } from 'lucide-react';
 import { useCart } from './cart-content';
 import { employees, type Coupon } from './dummy';
@@ -30,17 +30,15 @@ import { useNotification } from './notification-context';
 import { usePreferences } from '../providers/preferences-context';
 import { useSession } from '../lib/context/session';
 import {
-  createCart,
-  addItemToCart,
+  // createCart, // --- Tidak perlu lagi
+  // addItemToCart, // --- Tidak perlu lagi
   createOrderFromCart,
   processPayment as processPaymentApi,
   voidOrder as voidOrderApi,
   createPaymentType as createPaymentTypeApi,
-  deleteCart,
-  fetchDiscounts, // FIX: Import fetchDiscounts
+  fetchDiscounts,
+  applyDiscount as applyDiscountApi, // +++ Impor applyDiscount
 } from '../lib/utils/pos-api';
-
-import { validateDiscount } from '../lib/utils/pos-api';
 
 // FIX (Perbaikan Tipe): Definisi tipe lokal untuk response diskon API
 type ApiDiscount = {
@@ -56,22 +54,22 @@ type ApiDiscount = {
   max_discount?: number;
 };
 
-interface AddItemPayload {
-  cart_id: string;
-  product_code: string;
-  quantity: number;
-  serving_employee_id?: number;
-}
+// --- Tidak perlu lagi, payload di pos-api.ts ---
+// interface AddItemPayload {
+//   cart_id: string;
+//   product_code: string;
+//   quantity: number;
+//   serving_employee_id?: number;
+// }
 
 export interface DiscountPayload {
   cart_id: string;
   discount_id: number;
-  item_ids: string[]; // ✅ sesuai API kamu — harus string[]
+  item_ids: string[];
 }
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.interphaselabs.com/api/v1';
+// ... (Komponen SmallPill, LineItem, ProductSection, ServicesSection tidak berubah) ...
+// ... (Scroll ke bawah) ...
 
 function SmallPill({
   prefKey,
@@ -331,16 +329,14 @@ function ServicesSection() {
 
 function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
   const { appliedCoupon, clearCoupon } = useCart();
-  const { session } = useSession(); // FIX: Ambil session
+  const { session } = useSession();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'product' | 'service'>('all');
   const [codeInput, setCodeInput] = useState('');
 
-  // FIX: Mengganti any[] dengan ApiDiscount[]
   const [apiDiscounts, setApiDiscounts] = useState<ApiDiscount[]>([]);
   const [loadingDiscounts, setLoadingDiscounts] = useState(true);
 
-  // FIX: Fetch data diskon dari API
   useEffect(() => {
     if (!session?.token) {
       setLoadingDiscounts(false);
@@ -350,7 +346,6 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
       try {
         setLoadingDiscounts(true);
         const res = await fetchDiscounts(session.token);
-        // Casting hasil ke ApiDiscount[] untuk konsistensi
         setApiDiscounts((res.data as ApiDiscount[]) || []);
       } catch (e) {
         console.error('Failed to fetch discounts:', e);
@@ -362,7 +357,6 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
     loadDiscounts();
   }, [session?.token]);
 
-  // FIX: Konversi data API ke tipe Coupon (Mapping asumsi)
   const coupons: Coupon[] = apiDiscounts.map((d) => {
     const scope = 'all' as const;
     const discountType: 'amount' | 'percent' =
@@ -604,18 +598,17 @@ export default function AsideMock(): React.ReactElement {
     formatIDR,
     paymentSheetOpen,
     setPaymentSheetOpen,
-    setAdjustMode,
-    setSelectedItemId,
-    setItems,
+  
     locked,
-    orders,
+   
     setLocked,
     addOrder,
     items,
-    appliedCoupon,
+
     applyCoupon,
     clearCoupon,
-    // clearCart,
+    cartId, // +++ Ambil cartId dari context
+    clearCartState, // +++ Ambil clearCartState dari context
   } = useCart();
 
   const { showNotif } = useNotification();
@@ -630,18 +623,14 @@ export default function AsideMock(): React.ReactElement {
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const statuses = ['In Queue', 'In Process', 'Waiting Payment'] as const;
 
+  // --- PERBAIKAN: clearAll sekarang memanggil context ---
   function clearAll() {
-    setItems([]);
-    setSelectedItemId(null);
-    setAdjustMode(false);
-    setPaymentSheetOpen(false);
+    clearCartState(); // <-- Memanggil fungsi reset dari context
     setPaymentType('cash');
     setPaymentBank('');
-    setLocked(false); // ✅ tambahkan ini
-    try {
-      localStorage.removeItem('last_cart_id');
-    } catch (e) {}
+    // setLocked(false) sudah dihandle clearCartState
   }
+  // --- AKHIR PERBAIKAN ---
 
   const [time, setTime] = useState<string>('');
   const [busy, setBusy] = useState<boolean>(false);
@@ -660,64 +649,31 @@ export default function AsideMock(): React.ReactElement {
   // Process payment flow */
   // ----------------------- */
   async function handleProcessPayment(): Promise<void> {
-    if (items.length === 0) {
+    // --- PERBAIKAN: Cek cartId dan items ---
+    if (!cartId || items.length === 0) {
       showNotif({
         type: 'error',
         message: 'Cart kosong, tidak ada yang diproses.',
       });
       return;
     }
+    // --- AKHIR PERBAIKAN ---
 
     // ---- VALIDATION LOGIC START ----
+    // --- PERBAIKAN: Hapus blok validasi diskon yang salah ---
+    // Logika validasi ini salah karena:
+    // 1. Menggunakan hardcoded discountId = 1
+    // 2. Hanya memvalidasi item pertama
+    // 3. Bertentangan dengan alur `handleSelectAndApplyDiscount`
+    // Diskon seharusnya sudah diterapkan di backend via /pos/carts/discounts
+    /*
     if (appliedCoupon) {
       setBusy(true);
       showNotif({ type: 'info', message: 'Validating discount...' });
-
-      try {
-        const discountId = 1; // placeholder, ganti dengan id properti coupon kalau ada
-        const firstItem = items[0];
-
-        if (!firstItem) {
-          throw new Error('Cannot validate discount on an empty cart.');
-        }
-
-        // API validate endpoint expects product_code (string), bukan numeric id
-        const productCode = String(firstItem.itemId ?? firstItem.id ?? '');
-
-        const validateResult = await validateDiscount(
-          {
-            discount_id: discountId,
-            product_code: productCode,
-            quantity: firstItem.qty,
-          },
-          token
-        );
-
-        if (
-          !validateResult ||
-          !('success' in validateResult) ||
-          !validateResult.success
-        ) {
-          showNotif({
-            type: 'error',
-            message:
-              'Discount is not valid. Please select another one and try again.',
-          });
-          setBusy(false);
-          setPaymentSheetOpen(false); // Close payment sheet
-          return; // Stop the process
-        }
-        showNotif({ type: 'success', message: 'Discount validated.' });
-      } catch (err) {
-        console.error(err);
-        showNotif({
-          type: 'error',
-          message: 'Error validating discount. Please try again.',
-        });
-        setBusy(false);
-        return; // Stop on error
-      }
+      // ... (KODE LAMA DIHAPUS) ...
     }
+    */
+    // --- AKHIR PERBAIKAN ---
 
     setBusy(true);
     setLocked(true); // 🔒 kunci sementara agar tidak dobel klik
@@ -725,34 +681,16 @@ export default function AsideMock(): React.ReactElement {
     try {
       setPaymentSheetOpen(false);
 
-      const { data: cart } = await createCart({ cashier_id: 1 }, token);
-      const cartId = String(cart.cart_id);
+      // --- PERBAIKAN: Hapus createCart, gunakan cartId dari context ---
+      // const { data: cart } = await createCart({ cashier_id: 1 }, token);
+      // const cartId = String(cart.cart_id); // <-- Gunakan cartId dari useCart()
+      // --- AKHIR PERBAIKAN ---
 
       // Save last cart id so 'void' can delete it later
-      try {
-        localStorage.setItem('last_cart_id', cartId);
-      } catch (e) {}
-
-      if (!cartId) {
-        console.error('Cart ID is undefined!');
-        return;
-      }
-
-      for (const it of items) {
-        const productCode = it.itemId ?? String(it.id);
-        const payload: AddItemPayload = {
-          cart_id: cartId,
-          product_code: productCode,
-          quantity: it.qty,
-          serving_employee_id: undefined,
-        };
-        // Menggunakan cart item ID yang lebih robust
-        await addItemToCart(payload, token);
-      }
 
       const { data: order } = await createOrderFromCart(
         {
-          cart_id: cartId,
+          cart_id: cartId, // <-- Gunakan cartId dari context
           document_number: `INV-${Date.now()}`,
           additional_info: 'Generated by POS aside',
           notes: `Payment type: ${paymentType}`,
@@ -793,16 +731,9 @@ export default function AsideMock(): React.ReactElement {
       });
 
       // ✅ sukses -> reset & unlock
-      clearAll();
+      clearAll(); // clearAll sekarang memanggil clearCartState
 
       // FIX (Perbaikan 7): Navigate to orders view after successful order
-      try {
-        window.dispatchEvent(
-          new CustomEvent('navigate-kasir-view', { detail: { view: 'orders' } })
-        );
-      } catch (e) {}
-    } catch (err) {
-      console.error(err);
 
       // ⚠️ gagal -> jangan di-lock
       setLocked(false);
@@ -821,60 +752,74 @@ export default function AsideMock(): React.ReactElement {
   // Void & Return & Discount handlers */
   // ----------------------- */
   async function handleVoidOrder(): Promise<void> {
-    const confirmVoid = window.confirm('Yakin void order ini?');
+    const confirmVoid = window.confirm(
+      'Yakin void order ini? (Ini akan tercatat sebagai order "Void")'
+    );
     if (!confirmVoid) return;
+
+    // PERBAIKAN: Cek apakah ada item di keranjang
+    if (!cartId || items.length === 0) {
+      showNotif({
+        type: 'info',
+        message: 'Tidak ada item di keranjang untuk di-void.',
+      });
+      return;
+    }
+
     setBusy(true);
+    setLocked(true); // Kunci interaksi
+
     try {
-      const lastCartId = localStorage.getItem('last_cart_id');
+      // 1. Buat Order dari Cart
+      // Kita beri prefix VOID- agar mudah diidentifikasi
+      const { data: createdOrder } = await createOrderFromCart(
+        {
+          cart_id: cartId,
+          document_number: `VOID-${Date.now()}`,
+          notes: 'Dibatalkan oleh kasir sebelum pembayaran',
+        },
+        token
+      );
 
-      // Prioritaskan Hapus Cart (DELETE /pos/carts/{id})
-      if (lastCartId) {
-        await deleteCart(lastCartId, token);
-
-        showNotif({ type: 'success', message: `Cart ${lastCartId} deleted` });
-
-        // remove saved last cart id
-        try {
-          localStorage.removeItem('last_cart_id');
-        } catch (e) {}
-      } else {
-        // fallback: try to void last completed order via orders/void endpoint
-        const lastOrderId =
-          orders.length > 0 ? Number(orders[orders.length - 1].id) || 0 : 0;
-
-        if (lastOrderId > 0) {
-          await voidOrderApi(
-            { id: lastOrderId, voided_by: 1, reason: 'Customer canceled' },
-            token
-          );
-          showNotif({
-            type: 'success',
-            message: `Order ${lastOrderId} voided`,
-          });
-        } else {
-          showNotif({
-            type: 'info',
-            message: 'Tidak ada Cart/Order yang bisa di-Void',
-          });
-        }
+      const newOrderId = createdOrder.id;
+      if (!newOrderId) {
+        throw new Error('Gagal membuat entry order untuk di-void.');
       }
 
-      clearAll();
+      // 2. Langsung panggil API voidOrder pada order yang baru dibuat
+      // Ini akan mengubah status order di database menjadi "Void"
+      await voidOrderApi(
+        {
+          id: newOrderId,
+          voided_by: 1, // Asumsi ID kasir = 1
+          reason: 'Voided from cart by user',
+        },
+        token
+      );
 
-      // FIX (Perbaikan 6): Dispatch custom event to navigate to orders view
-      try {
-        window.dispatchEvent(
-          new CustomEvent('navigate-kasir-view', { detail: { view: 'orders' } })
-        );
-      } catch (e) {}
+      // 3. Beri notifikasi sukses
+      showNotif({
+        type: 'success',
+        message: `Order ${createdOrder.document_number} berhasil di-void.`,
+      });
+
+      // 4. Kosongkan keranjang (UI)
+      clearAll(); // Ini sudah memanggil clearCartState
     } catch (err) {
       console.error(err);
-      showNotif({ type: 'error', message: 'Gagal void order / delete cart' });
+      const errorMessage =
+        err instanceof Error ? err.message : 'Gagal memproses void order.';
+      showNotif({ type: 'error', message: errorMessage });
     } finally {
       setBusy(false);
+      // Pastikan lock terbuka meskipun terjadi error
+      if (locked) {
+        setLocked(false);
+      }
     }
   }
 
+  // --- PERBAIKAN: Alur Diskon ---
   async function handleSelectAndApplyDiscount(coupon: Coupon): Promise<void> {
     if (items.length === 0) {
       showNotif({
@@ -884,42 +829,38 @@ export default function AsideMock(): React.ReactElement {
       return;
     }
 
+    // +++ Cek jika cartId ada +++
+    if (!cartId) {
+      showNotif({
+        type: 'error',
+        message: 'Cart belum ada. Tambah item terlebih dahulu.',
+      });
+      return;
+    }
+
     setBusy(true);
     try {
-      // NOTE: Logic ini membuat cart baru hanya untuk apply discount.
-      // Di aplikasi nyata, Anda harusnya menggunakan ID cart yang sedang aktif.
-      // Kita pertahankan alur ini untuk kompatibilitas sementara.
-      const { data: cart } = await createCart({ cashier_id: 1 }, token);
-      const cartId = String(cart.cart_id  );
+      // --- Hapus createCart, gunakan cartId dari context ---
+      // const { data: cart } = await createCart({ cashier_id: 1 }, token);
+      // const cartId = String(cart.cart_id  );
 
-      // NOTE: Using a placeholder '1' for discount_id as in the original code.
-      // This should be replaced with a real ID from the `coupon` object if available.
-      const discountIdToApply = Number(coupon.id) || 1; // FIX: Gunakan ID dari kupon yang dipilih
+      const discountIdToApply = Number(coupon.id);
+      if (!discountIdToApply) {
+        throw new Error('Coupon ID tidak valid');
+      }
 
       const discountPayload: DiscountPayload = {
-        cart_id: cartId,
+        cart_id: cartId, // <-- Gunakan cartId dari context
         discount_id: discountIdToApply,
-        item_ids: items.map((it) =>
-          typeof it.id === 'string' || typeof it.id === 'number'
-            ? String(it.id)
-            : String(it.id)
-        ),
+        item_ids: items.map((it) => String(it.id)), // Pastikan ID adalah string
       };
 
-      // Call real API endpoint for discounts on carts
-      const res = await fetch(`${API_BASE_URL}/pos/carts/discounts`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(discountPayload),
-      });
-
-      const result = await res.json();
-      if (!res.ok || !result.success) {
-        throw new Error(result.message || 'Failed to apply discount');
+      // --- Gunakan fungsi applyDiscountApi dari pos-api.ts ---
+      const result = await applyDiscountApi(discountPayload, token);
+      if (!result.success) {
+        throw new Error('Gagal menerapkan diskon dari API');
       }
+      // --- AKHIR PERBAIKAN FETCH ---
 
       // On successful API call, update UI state
       applyCoupon(coupon);
@@ -933,6 +874,7 @@ export default function AsideMock(): React.ReactElement {
       setBusy(false);
     }
   }
+  // --- AKHIR PERBAIKAN DISKON ---
 
   async function handleCreatePaymentType(paymentName: string): Promise<void> {
     setBusy(true);
@@ -965,8 +907,11 @@ export default function AsideMock(): React.ReactElement {
   };
 
   return (
-    <div className='flex flex-col gap-4 h-full max-h-[calc(150vh-0rem)] overflow-hidden relative'>
+    <div className='flex flex-col gap-4 h-full  overflow-hidden relative'>
       <div className={asideBlur}></div>
+
+      {/* ... (Bagian JSX lainnya tidak berubah) ... */}
+      {/* ... (Scroll ke bawah) ... */}
 
       <div className='flex items-center gap-3 h-6 flex-shrink-0'>
         <SmallPill

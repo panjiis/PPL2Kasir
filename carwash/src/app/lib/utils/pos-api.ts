@@ -4,7 +4,7 @@ import type {
   ProductGroup,
   ProductType,
   Cart,
-  CartItem,
+  CartItem as ApiCartItem, // Ubah nama import agar tidak konflik
   Discount,
   PosOrder,
   PaymentType,
@@ -35,6 +35,14 @@ async function safeReadText(res: Response) {
   }
 }
 
+// +++ PAYLOAD TYPE BARU (dipindah dari aside-mock) +++
+export interface AddItemPayload {
+  cart_id: string;
+  product_code: string;
+  quantity: number;
+  serving_employee_id?: number;
+}
+
 // ==================== PRODUCTS ====================
 
 export async function fetchProducts(
@@ -57,32 +65,37 @@ export async function fetchProducts(
   if (!body) return { data: [] };
 
   // common shapes (support array langsung, atau di dalam properti 'data')
-  if (Array.isArray(body)) return { data: body as PosProduct[] };
 
-  // Check for { data: [...] } shape
-  if (
+  let data: PosProduct[] = [];
+
+  // common shapes (support array langsung, atau di dalam properti 'data')
+  if (Array.isArray(body)) {
+    data = body as PosProduct[];
+  } else if (
     typeof body === 'object' &&
     body !== null &&
     'data' in body &&
     Array.isArray(body.data)
   ) {
-    return { data: body.data as PosProduct[] };
-  }
-
-  // fallback: if wrapper contains data-like property
-  for (const key of ['result', 'items', 'rows']) {
-    if (
-      typeof body === 'object' &&
-      body !== null &&
-      key in body &&
-      Array.isArray((body as Record<string, unknown>)[key])
-    ) {
-      return { data: (body as Record<string, unknown>)[key] as PosProduct[] };
+    data = body.data as PosProduct[];
+  } else {
+    // fallback: if wrapper contains data-like property
+    for (const key of ['result', 'items', 'rows']) {
+      if (
+        typeof body === 'object' &&
+        body !== null &&
+        key in body &&
+        Array.isArray((body as Record<string, unknown>)[key])
+      ) {
+        data = (body as Record<string, unknown>)[key] as PosProduct[];
+        break;
+      }
     }
   }
 
-  // unknown but successful: return empty array instead of throwing
-  return { data: [] };
+  const activeProducts = data.filter((p) => p.is_active === true);
+
+  return { data: activeProducts };
 }
 
 export async function fetchProductByCode(
@@ -168,10 +181,13 @@ export async function fetchCartById(
   return res.json();
 }
 
+// --- PERBAIKAN DI SINI ---
+// 1. Menggunakan AddItemPayload
+// 2. Mengganti nama import CartItem menjadi ApiCartItem
 export async function addItemToCart(
-  body: CartItem,
+  body: AddItemPayload, // <-- Tipe payload yang benar
   token?: string
-): Promise<{ data: CartItem }> {
+): Promise<{ data: ApiCartItem }> {
   console.log('Adding item to cart with body:', body);
   const res = await fetch(`${BASE_URL}/pos/carts/items`, {
     method: 'POST',
@@ -181,6 +197,7 @@ export async function addItemToCart(
   if (!res.ok) throw new Error(await safeReadText(res));
   return res.json();
 }
+// --- AKHIR PERBAIKAN ---
 
 export async function removeItemFromCart(
   cart_id: string,

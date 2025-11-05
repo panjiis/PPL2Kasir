@@ -338,7 +338,7 @@ export default function CenterMock() {
   const { notif, clearNotif } = useNotification();
 
   return (
-    <div className='flex flex-col gap-6 p-4 h-full overflow-y-auto'>
+    <div className='flex flex-col gap-4 p-4 h-full overflow-y-auto'>
       <DynamicIsland
         type={notif.type as 'success' | 'error' | null}
         message={notif.message}
@@ -347,7 +347,7 @@ export default function CenterMock() {
         onClose={clearNotif}
       />
 
-      <div className='h-12 text-4xl font-bold font-rubik text-foreground tracking-wide'>
+      <div className='h-12 font-rubik text-foreground tracking-wide text-lg md:text-xl font-semibold break-words'>
         Ongoing Order
       </div>
 
@@ -427,7 +427,7 @@ export default function CenterMock() {
           {
             type: 'itemId',
             icon: <Tags className='h-5 w-5' />,
-            label: 'Item ID',
+            label: 'ID',
           },
         ].map((btn) => (
           <button
@@ -469,7 +469,8 @@ export default function CenterMock() {
             Loading products...
           </div>
         ) : (
-          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
+          // Responsive product grid: 1 column on very small, 2 on sm, 3 on lg, 4 on xl
+          <div className='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
             {filteredProducts.map((p) => (
               <ProductCard
                 key={p.id}

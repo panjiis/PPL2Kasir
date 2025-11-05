@@ -94,11 +94,19 @@ export default function OrdersView() {
     }
     setBusy(true);
     try {
+      // PERBAIKAN: Ambil 'id' dari setiap order_item
+      // Ini adalah ID unik baris item (contoh: 101, 102, 103)
+      const allItemIds = selectedOrder.order_items.map((item) => item.id); //
+
+      if (allItemIds.length === 0) {
+        throw new Error('Tidak ada item ID yang valid untuk di-return.');
+      }
+
       await returnOrderApi(
         {
           original_order_id: selectedOrder.id,
-          item_ids: [], // Returning the whole order
-          processed_by: 1, // Assuming cashier ID 1
+          item_ids: allItemIds, // <-- PERBAIKAN: Kirim array 'item.id'
+          processed_by: 1, // Asumsi cashier ID 1
           reason: 'Return initiated from Orders view',
         },
         session.token
@@ -109,10 +117,13 @@ export default function OrdersView() {
       });
       setIsReturnDialogOpen(false); // Close the dialog
       setSelectedOrder(null); // Close the details modal
-      refetchOrders(); // FIX: Refresh data order setelah return
+      refetchOrders(); // Refresh data order setelah return
     } catch (err) {
       console.error(err);
-      showNotif({ type: 'error', message: 'Failed to create return.' });
+      // Tampilkan pesan error spesifik dari API jika ada
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to create return.';
+      showNotif({ type: 'error', message: errorMessage });
     } finally {
       setBusy(false);
     }

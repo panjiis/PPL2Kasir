@@ -118,6 +118,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
   }
 }
 
@@ -126,4 +127,71 @@ html, body, * {
   transition: background-color 0.4s ease-in-out,
               color 0.4s ease-in-out,
               border-color 0.4s ease-in-out;
+}
+
+/* --- FIX: Apply Webkit scrollbar styles universally to all elements --- */
+ ::-webkit-scrollbar {
+  display: none;
+} 
+
+/* Track background (the area the scrollbar moves along) */
+*::-webkit-scrollbar-track { /* Apply universally */
+  background: transparent; 
+}
+
+/* Handle (the part you drag) */
+*::-webkit-scrollbar-thumb { /* Apply universally */
+  background: var(--ring);
+  border-radius: var(--radius-lg);
+  opacity: 0; 
+  transition: opacity 0.4s ease-in-out;
+}
+
+/* Make the handle visible on hover over the container it belongs to (e.g., the body, or a specific div) */
+/* The simplest way to handle this on internal divs is to let the thumb show up on hover over the thumb itself, 
+   but for the body/main view, we keep the :hover on body/dark */
+body:hover::-webkit-scrollbar-thumb,
+.dark:hover::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb:hover { /* Added :hover on the thumb itself as a fallback for internal divs */
+  opacity: 0.3; 
+}
+
+/* Handle on hover over the handle itself (optional) */
+/* This is now mostly redundant due to the fix above, but kept for explicit control */
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+  opacity: 0.5;
+}
+
+/* --- Scrollbar Styles for Firefox --- */
+/* Firefox styles were already universal with the '*' selector */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ring) transparent; 
+}
+
+* {
+-ms-overflow-x: hidden; /*IE and Edge */
+scrollbar-width: none; /* Firefox */
+}
+
+@media (min-width: 768px) and (max-width: 899px) {
+  /* iPad Mini portrait */
+  .md\:grid-cols-\[200px_1fr\] {
+    grid-template-columns: 180px 1fr !important;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1099px) {
+  /* iPad Air landscape */
+  .lg\:grid-cols-\[220px_1fr_260px\] {
+    grid-template-columns: 200px 1fr 240px !important;
+  }
+}
+
+@media (min-width: 1100px) and (max-width: 1366px) {
+  /* iPad Pro landscape */
+  .xl\:grid-cols-\[260px_1fr_300px\] {
+    grid-template-columns: 240px 1fr 280px !important;
+  }
 }
