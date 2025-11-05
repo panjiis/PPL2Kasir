@@ -18,14 +18,14 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.CONTAINER_OWNER }} --password-stdin
 
       - name: Build and push Front-end image
         if: env.FRONTEND_PATH != '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          REPO_OWNER=$(echo "${{ github.actor }}" | tr '[:upper:]' '[:lower:]')
+          REPO_OWNER=$(echo "${{ github.CONTAINER_OWNER }}" | tr '[:upper:]' '[:lower:]')
           FOLDER_NAME=$(basename "$FRONTEND_PATH")
-          IMAGE_NAME="ghcr.io/${REPO_OWNER}/frontend-${FOLDER_NAME,,}:latest"
+          IMAGE_NAME="ghcr.io/$REPO_OWNER/pos-${FOLDER_NAME,,}:latest"
           
           echo "Building Front-end image from $FRONTEND_PATH"
           docker build -t $IMAGE_NAME "$FRONTEND_PATH"
