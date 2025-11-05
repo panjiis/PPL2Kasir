@@ -23,9 +23,9 @@ jobs:
       - name: Build and push Front-end image
         if: env.FRONTEND_PATH != '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          LOWER_ORG_NAME=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO_OWNER=$(echo "${{ github.actor }}" | tr '[:upper:]' '[:lower:]')
           FOLDER_NAME=$(basename "$FRONTEND_PATH")
-          IMAGE_NAME="ghcr.io/${LOWER_ORG_NAME}/frontend-${FOLDER_NAME,,}:latest"
+          IMAGE_NAME="ghcr.io/${REPO_OWNER}/frontend-${FOLDER_NAME,,}:latest"
           
           echo "Building Front-end image from $FRONTEND_PATH"
           docker build -t $IMAGE_NAME "$FRONTEND_PATH"
