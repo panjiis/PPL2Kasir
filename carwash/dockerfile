@@ -2,6 +2,14 @@
 FROM node:23.3.0-alpine AS builder
 WORKDIR /app
 
+# Declare build arguments
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG API_BASE_URL
+
+# Set them as environment variables
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV API_BASE_URL=$API_BASE_URL
+
 # Copy package files
 COPY package.json package-lock.json ./
 RUN npm install
