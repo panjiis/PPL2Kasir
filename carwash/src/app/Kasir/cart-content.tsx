@@ -39,7 +39,9 @@ export type CartItem = {
   category: string;
   description?: string;
   qty: number;
-  employee?: string;
+
+  employeeId?: number; // <-- GANTI DENGAN INI
+  isApiSynced?: boolean; // <-- TAMBAH
 };
 
 export type OrderItem = {
@@ -49,7 +51,7 @@ export type OrderItem = {
   customer?: string;
   items: CartItem[];
   status: 'In Queue' | 'In Process' | 'Waiting Payment' | 'Done';
-  paymentType: 'cash' | 'credit' | 'qris';
+  paymentType: string;
   paymentBank?: string;
   total: number;
 };
@@ -72,7 +74,7 @@ type CartContextValue = {
   toggleAdjust: () => void;
   adjustQuantity: (id: string, delta: number) => void;
   deleteSelected: () => void;
-  setEmployee: (id: string, name: string) => void;
+  setEmployee: (itemId: string, employeeId: number) => Promise<void>;
   products: CartItem[];
   services: CartItem[];
   subtotal: number;
@@ -98,6 +100,7 @@ type CartContextValue = {
   orders: OrderItem[];
   addOrder: (order: OrderItem) => void;
   updateOrderStatus: (id: string, status: OrderItem['status']) => void;
+  addingItemId: string | null; // <-- TAMBAHKAN INI
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -121,6 +124,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartId, setCartId] = useState<string | null>(null);
   const { session } = useSession();
   const { showNotif } = useNotification();
+  
+  // --- STATE BARU UNTUK MENCEGAH KLIK GANDA ---
+  const [addingItemId, setAddingItemId] = useState<string | null>(null);
 
   // clearCartState me-reset semua state API
   const clearCartState = useCallback(() => {
@@ -146,80 +152,114 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAppliedCoupon(null);
   };
 
+  // --- FUNGSI 'addItem' DIPERBARUI ---
   const addItem = useCallback(
     async (p: CartItem) => {
+      // 1. Cek apakah item ini sedang ditambahkan
+      if (addingItemId === p.id) {
+        showNotif({ type: 'info', message: 'Sedang diproses...' });
+        return; 
+      }
       if (locked) return;
-
-      // Saat item ditambah/diubah, perhitungan API lama tidak valid lagi
-      resetApiFinancials();
-
-      const token = session?.token;
-      if (!token) {
-        showNotif({ type: 'error', message: 'Anda harus login' });
-        return;
-      }
-
-      let currentCartId = cartId;
-
-      if (!currentCartId) {
-        try {
-          const { data } = await createCart({ cashier_id: 1 }, token);
-          currentCartId = String(data.cart_id);
-          setCartId(currentCartId);
-          localStorage.setItem('last_cart_id', currentCartId);
-        } catch (e) {
-          console.error(e);
-          showNotif({ type: 'error', message: 'Gagal membuat keranjang' });
-          return;
-        }
-      }
-
-      const found = items.find((it) => it.id === p.id);
-      const newQty = found ? found.qty + 1 : 1;
-      const productCode = p.itemId ?? p.id;
-
-      const payload: AddItemPayload = {
-        cart_id: currentCartId,
-        product_code: productCode,
-        quantity: newQty,
-      };
+      
+      // 2. Set item ini sebagai 'adding'
+      setAddingItemId(p.id);
 
       try {
-        await addItemToCart(payload, token);
-      } catch (e) {
-        console.error(e);
-        showNotif({
-          type: 'error',
-          message: `Gagal menambah ${p.name} ke keranjang`,
-        });
-        return;
-      }
-
-      setItems((prev) => {
-        if (found) {
-          return prev.map((it) =>
-            it.id === p.id ? { ...it, qty: it.qty + 1 } : it
-          );
+        resetApiFinancials();
+        const token = session?.token;
+        if (!token) {
+          showNotif({ type: 'error', message: 'Anda harus login' });
+          return;
         }
-        return [
-          ...prev,
-          {
-            id: p.id,
-            itemId: p.itemId,
-            name: p.name,
-            image: p.image,
-            price: p.price,
-            type: p.type,
-            category: p.category,
-            description: p.description,
-            barcode: p.barcode,
-            qty: 1,
-          },
-        ];
-      });
+
+        // 1. Pastikan Cart ID ada
+        let currentCartId = cartId;
+        if (!currentCartId) {
+          try {
+            const { data } = await createCart({ cashier_id: 1 }, token);
+            currentCartId = String(data.cart_id);
+            setCartId(currentCartId);
+            localStorage.setItem('last_cart_id', currentCartId);
+          } catch (e) {
+            console.error(e);
+            showNotif({ type: 'error', message: 'Gagal membuat keranjang' });
+            return;
+          }
+        }
+
+        // 2. Cek item sudah ada di state lokal
+        const found = items.find((it) => it.id === p.id);
+
+        // 3. Logika Percabangan (Service vs Product)
+        if (p.type === 'service') {
+          // --- JIKA SERVICE ---
+          setItems((prev) => {
+            // Cek lagi 'found' di dalam setter untuk data paling baru
+            const foundInSetter = prev.find((it) => it.id === p.id);
+            if (foundInSetter) {
+              showNotif({
+                type: 'info',
+                message: 'Layanan sudah ada. Pilih/ganti employee.',
+              });
+              return prev; // Jangan ubah state jika sudah ada
+            }
+            showNotif({
+              type: 'info',
+              message: `${p.name} ditambah. Silakan pilih employee.`,
+            });
+            return [
+              ...prev,
+              { ...p, qty: 1, isApiSynced: false }, // Tambah dengan qty 1 dan tandai belum sinkron
+            ];
+          });
+        } else {
+          // --- JIKA PRODUCT ---
+          const newQty = found ? found.qty + 1 : 1;
+          const productCode = p.itemId ?? p.id;
+
+          const payload: AddItemPayload = {
+            cart_id: currentCartId,
+            product_code: productCode,
+            quantity: newQty,
+          };
+
+          try {
+            await addItemToCart(payload, token);
+          } catch (e) {
+            console.error(e);
+            showNotif({
+              type: 'error',
+              message: `Gagal menambah ${p.name} ke keranjang`,
+            });
+            return; // Penting: jangan update state jika API gagal
+          }
+
+          // Update state lokal
+          setItems((prev) => {
+            const foundInSetter = prev.find((it) => it.id === p.id);
+            if (foundInSetter) {
+              return prev.map((it) =>
+                it.id === p.id
+                  ? { ...it, qty: it.qty + 1, isApiSynced: true }
+                  : it
+              );
+            }
+            return [...prev, { ...p, qty: 1, isApiSynced: true }];
+          });
+        }
+      } catch (err) {
+        console.error("Error in addItem:", err);
+        // Tangani error lain jika perlu
+      } finally {
+        // 3. Selalu unset 'adding' di finally
+        setAddingItemId(null);
+      }
     },
-    [cartId, items, locked, session?.token, showNotif]
+    [cartId, items, locked, session?.token, showNotif, addingItemId] // <-- Tambahkan dependency
   );
+  // --- AKHIR PERUBAHAN 'addItem' ---
+
 
   const selectItem = (id: string | null) => {
     if (locked) return;
@@ -235,7 +275,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const adjustQuantity = (id: string, delta: number) => {
     if (locked || !adjustMode || selectedItemId !== id) return;
 
-    // Saat kuantitas diubah, perhitungan API lama tidak valid
     resetApiFinancials();
 
     setItems((prev) => {
@@ -254,7 +293,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const deleteSelected = () => {
     if (locked || !selectedItemId) return;
 
-    // Saat item dihapus, perhitungan API lama tidak valid
     resetApiFinancials();
 
     setItems((prev) => prev.filter((it) => it.id !== selectedItemId));
@@ -262,16 +300,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAdjustMode(false);
   };
 
-  const setEmployee = (id: string, name: string) => {
-    if (locked) return;
-    setItems((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, employee: name } : it))
-    );
-  };
+  const setEmployee = useCallback(
+    async (itemId: string, employeeId: number) => {
+      if (locked) return;
 
+      const token = session?.token;
+      const currentCartId = cartId;
+      const item = items.find((it) => it.id === itemId);
+
+      if (!token || !currentCartId || !item) {
+        showNotif({
+          type: 'error',
+          message: 'Cart atau item tidak ditemukan.',
+        });
+        return;
+      }
+
+      if (item.employeeId === employeeId && item.isApiSynced) {
+        return;
+      }
+
+      const payload: AddItemPayload = {
+        cart_id: currentCartId,
+        product_code: item.itemId, // Gunakan itemId (product_code)
+        quantity: item.qty, // Kirim kuantitas saat ini
+        serving_employee_id: employeeId, // <-- Kuncinya di sini
+      };
+
+      try {
+        await addItemToCart(payload, token);
+
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === itemId
+              ? { ...it, employeeId: employeeId, isApiSynced: true }
+              : it
+          )
+        );
+        showNotif({ type: 'success', message: 'Employee di-assign.' });
+      } catch (e) {
+        console.error(e);
+        const errMsg =
+          e instanceof Error ? e.message : 'Gagal assign employee.';
+        showNotif({ type: 'error', message: errMsg });
+      }
+    },
+    [cartId, items, locked, session?.token, showNotif]
+  );
   const applyCoupon = (c: Coupon, financials: ApiFinancials) => {
     setAppliedCoupon(c);
-    // Simpan semua nilai pasti dari API
     setApiSubtotal(financials.subtotal);
     setApiTax(financials.tax);
     setApiDiscount(financials.discount);
@@ -279,7 +356,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const clearCoupon = () => {
-    // Reset semua nilai API
     resetApiFinancials();
   };
 
@@ -292,33 +368,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items]
   );
 
-  // --- Logika Kalkulasi ---
-
-  // 1. Hitung subtotal lokal (selalu dihitung)
   const localSubtotal = useMemo(
     () => items.reduce((acc, it) => acc + it.price * it.qty, 0),
     [items]
   );
-  // 2. Hitung pajak lokal (selalu dihitung)
   const taxRate = 0.1;
   const localTax = useMemo(
     () => Math.round(localSubtotal * taxRate),
     [localSubtotal]
   );
 
-  // 3. Tentukan nilai yang akan ditampilkan
-  // Jika apiSubtotal ada (setelah panggil API), gunakan itu. Jika tidak (masih null), gunakan perhitungan lokal.
   const subtotal = apiSubtotal !== null ? apiSubtotal : localSubtotal;
   const tax = apiTax !== null ? apiTax : localTax;
-  // Jika tidak ada diskon API, diskon adalah 0
   const discount = apiDiscount !== null ? apiDiscount : 0;
-
-  // +++ PERBAIKAN LOGIKA TOTAL +++
-  // Jika apiTotal ada (dari API diskon), gunakan itu.
-  // Jika tidak, hitung total secara lokal: (subtotal + tax - discount)
-  // Perhatikan: subtotal, tax, dan discount di sini adalah nilai yang sudah "diputuskan" (bisa lokal atau API)
   const total = apiTotal !== null ? apiTotal : subtotal + tax - discount;
-  // --- AKHIR PERBAIKAN ---
 
   const repeatRound = () => {
     if (locked) return;
@@ -348,10 +411,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setEmployee,
     products,
     services,
-    subtotal, // <-- Ini sekarang dinamis
-    tax, // <-- Ini sekarang dinamis
-    discount, // <-- Ini sekarang dinamis
-    total, // <-- Ini sekarang dinamis
+    subtotal, 
+    tax, 
+    discount,
+    total, 
     formatIDR,
     paymentSheetOpen,
     setPaymentSheetOpen,
@@ -371,6 +434,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     orders,
     addOrder,
     updateOrderStatus,
+    addingItemId, // <-- TAMBAHKAN INI
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -2,14 +2,11 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useSession } from '../lib/context/session';
-import type { PosProduct } from '@/app/lib/types/pos';
+import type { PosProduct, ProductGroup } from '@/app/lib/types/pos';
 import { AlertTriangle, Loader2, ArrowLeft } from 'lucide-react';
-// PERBAIKAN: Impor fungsi fetchProducts
-import { fetchProducts } from '@/app/lib/utils/pos-api';
+import { fetchProductGroups, fetchProducts } from '@/app/lib/utils/pos-api';
 
-// const API_BASE_URL = ...; // Dihapus, tidak perlu lagi
-
-// Komponen untuk menampilkan item produk (tidak ada perubahan)
+// Komponen ProductItem (Tidak ada perubahan)
 const ProductItem = ({ product }: { product: PosProduct }) => (
   <div className='border rounded-lg p-3 bg-card shadow-sm'>
     <h4 className='font-bold text-md text-foreground'>
@@ -28,12 +25,12 @@ const ProductItem = ({ product }: { product: PosProduct }) => (
   </div>
 );
 
-// Komponen untuk menampilkan item grup (tidak ada perubahan)
+// Komponen GroupItem (Tidak ada perubahan dari versi sebelumnya)
 const GroupItem = ({
-  groupName,
+  group,
   onClick,
 }: {
-  groupName: string;
+  group: ProductGroup;
   onClick: () => void;
 }) => (
   <div
@@ -41,22 +38,27 @@ const GroupItem = ({
     className='border rounded-lg p-4 bg-card shadow-sm cursor-pointer hover:bg-accent transition-colors'
   >
     <h3 className='font-bold text-lg text-primary capitalize'>
-      {groupName.toLowerCase()}
+      {group.product_group_name?.toLowerCase() ?? 'Unnamed Group'}
     </h3>
-    <p className='text-sm text-muted-foreground'>Kategori Produk</p>
+    <p className='text-sm text-muted-foreground'>
+      {group.product_group_code ?? 'Kategori Produk'}
+    </p>
   </div>
 );
 
 export default function GroupsView() {
   const { session } = useSession();
 
-  // State untuk menyimpan semua produk, status loading, dan grup yang dipilih
+  const [groups, setGroups] = useState<ProductGroup[]>([]);
   const [allProducts, setAllProducts] = useState<PosProduct[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  
+  // PERBAIKAN: Simpan seluruh objek grup yang dipilih, bukan hanya kode/ID
+  const [selectedGroup, setSelectedGroup] = useState<ProductGroup | null>(null);
 
-  // 1. Ambil SEMUA produk saat komponen pertama kali dimuat
+  // Ambil SEMUA data (Groups dan Products)
   useEffect(() => {
     if (!session?.token) {
       setError('Session not found. Please login again.');
@@ -67,27 +69,34 @@ export default function GroupsView() {
     const loadData = async () => {
       try {
         setLoading(true);
+        const [groupResponse, productResponse] = await Promise.all([
+          fetchProductGroups(session.token),
+          fetchProducts(session.token),
+        ]);
 
-        // PERBAIKAN: Ganti fetch manual dengan fungsi yang sudah ada
-        const body = await fetchProducts(session.token);
+        // 1. Proses Groups
+        const groupData = Array.isArray(groupResponse.data) ? groupResponse.data : [];
+        setGroups(groupData);
 
-        // Kode di bawah ini sudah benar karena 'body' sekarang dijamin punya '.data'
-        const data = Array.isArray(body.data) ? body.data : [];
-
-        // Normalize
-        const mapped: PosProduct[] = data.map((p: unknown) => {
+        // 2. Proses Products (Termasuk normalisasi)
+        const productData = Array.isArray(productResponse.data) ? productResponse.data : [];
+        const mappedProducts: PosProduct[] = productData.map((p: unknown) => {
+          // Normalisasi data produk dari JSON
           const raw = p as Partial<PosProduct> & {
             product_price?: string | number;
+            product_group_id?: number; // Pastikan ini ada
           };
           return {
             ...raw,
             price: Number(raw.product_price ?? raw.price ?? 0),
             product_name: raw.product_name ?? '',
             product_code: raw.product_code ?? '',
+            // Pastikan product_group_id ada di objek PosProduct
+            product_group_id: raw.product_group_id, 
           };
         });
+        setAllProducts(mappedProducts);
 
-        setAllProducts(mapped);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'An unknown error occurred.'
@@ -100,42 +109,52 @@ export default function GroupsView() {
     loadData();
   }, [session]);
 
-  // 2. Buat daftar grup secara dinamis dari daftar produk
-  const groups = useMemo(() => {
-    const groupSet = new Set<string>();
-    allProducts.forEach((product) => {
-      // Ambil bagian sebelum tanda hubung pertama, e.g., "FOOD" dari "FOOD-002"
-      const codePrefix = (product.product_code || '').split('-')[0];
-      if (codePrefix) {
-        groupSet.add(codePrefix);
-      }
-    });
-    return Array.from(groupSet); // Hasilnya: ['FOOD', 'BEVERAGES', 'SERVICES']
-  }, [allProducts]);
 
-  // 3. Filter produk yang akan ditampilkan berdasarkan grup yang dipilih
+  // 2. PERBAIKAN: Logika filter hybrid
   const filteredProducts = useMemo(() => {
     if (!selectedGroup) return [];
-    return allProducts.filter((p) =>
-      (p.product_code || '').startsWith(selectedGroup)
-    );
+
+    const groupId = selectedGroup.id;
+    const groupCode = selectedGroup.product_group_code; // Misal: "SRV" atau "DRINK"
+
+    return allProducts.filter((p) => {
+      // PRIORITAS 1: Cocokkan dengan 'product_group_id' jika ada.
+      // Ini adalah sumber kebenaran utama.
+      if (p.product_group_id) {
+        return p.product_group_id === groupId;
+      }
+
+      // PRIORITAS 2 (Fallback): Jika 'product_group_id' tidak ada (null/undefined),
+      // coba cocokkan dengan awalan 'product_code'.
+      if (groupCode) {
+        return (p.product_code || '').startsWith(groupCode);
+      }
+      
+      // Jika tidak ada 'product_group_id' dan grup tidak punya 'groupCode',
+      // maka produk tidak bisa dicocokkan.
+      return false;
+    });
   }, [selectedGroup, allProducts]);
 
   // Handler untuk memilih grup dan kembali
-  const handleSelectGroup = (groupName: string) => {
-    setSelectedGroup(groupName);
+  const handleSelectGroup = (group: ProductGroup) => {
+    setSelectedGroup(group); // Simpan seluruh objek
   };
 
   const handleGoBack = () => {
     setSelectedGroup(null);
   };
+  
+  // Dapatkan nama grup yang sedang dipilih untuk ditampilkan di header
+  const selectedGroupName = selectedGroup?.product_group_name ?? 'Product Groups';
+
 
   // Tampilan Loading dan Error
   if (loading) {
     return (
       <div className='flex items-center justify-center h-full text-muted-foreground'>
         <Loader2 className='h-8 w-8 animate-spin mr-2' />
-        <span>Loading Products...</span>
+        <span>Loading Data...</span>
       </div>
     );
   }
@@ -164,11 +183,11 @@ export default function GroupsView() {
         )}
         <div>
           <h1 className='text-2xl font-bold text-foreground capitalize'>
-            {selectedGroup ? selectedGroup.toLowerCase() : 'Product Groups'}
+            {selectedGroupName.toLowerCase()}
           </h1>
           <p className='text-muted-foreground'>
             {selectedGroup
-              ? `Produk dalam kategori ${selectedGroup}`
+              ? `Produk dalam kategori ${selectedGroupName}`
               : 'Pilih kategori untuk melihat produk.'}
           </p>
         </div>
@@ -178,16 +197,16 @@ export default function GroupsView() {
           {!selectedGroup ? (
             // Tampilan Folder Grup
             groups.length > 0 ? (
-              groups.map((groupName) => (
+              groups.map((group) => (
                 <GroupItem
-                  key={groupName}
-                  groupName={groupName}
-                  onClick={() => handleSelectGroup(groupName)}
+                  key={group.id ?? group.product_group_code}
+                  group={group}
+                  onClick={() => handleSelectGroup(group)}
                 />
               ))
             ) : (
               <div className='text-center text-muted-foreground mt-10'>
-                No products found to create groups.
+                No product groups found.
               </div>
             )
           ) : // Tampilan Daftar Produk di dalam Grup
@@ -196,6 +215,7 @@ export default function GroupsView() {
               <ProductItem key={product.product_code} product={product} />
             ))
           ) : (
+            // Ini adalah pesan yang Anda lihat di screenshot
             <div className='text-center text-muted-foreground mt-10'>
               No products found in this group.
             </div>

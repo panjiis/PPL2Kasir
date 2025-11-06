@@ -3,6 +3,7 @@ export interface PosProduct {
   product_name: string;
   product_type?: string;
   product_type_id?: number;
+  product_group_id?: number; // <--- TAMBAHKAN BARIS INI
   supplier_id?: number;
   unit_of_measure?: string;
   reorder_level?: number;
@@ -10,18 +11,24 @@ export interface PosProduct {
   cost_price?: string | number | undefined;
   is_active?: boolean;
   created_at?: string;
+  image_url?: string;
+  color?: string;
   price?: number;
   product_price?: number | string;
   updated_at?: string;
   commision_eligible?: boolean;
   requires_service_employee?: boolean;
+  product_group_code?: string;
+  product_group_name?: string;
 }
 
 export interface ProductGroup {
   id?: number;
   product_group_code?: string;
   product_group_name?: string;
+  product_group_id?: number;
   desc?: string;
+  is_active?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -156,4 +163,13 @@ export interface ApiSyncedCartItem {
   line_total: string; // Total baris (cth: "10000.00")
   product: ApiSyncedCartProduct; // Objek produk yang di-nest
   discount?: unknown; // Objek diskon opsional, 'unknown' lebih aman dari 'any'
+}
+
+
+export interface Employee {
+  id: number;
+  employee_name: string;
+  base_salary?: string;
+  commission_rate?: string;
+  commission_type?: number;
 }

@@ -13,6 +13,7 @@ import type {
   DetailedPosOrder,
   DiscountPayload,
   ApiSyncedCartItem, // +++ PERBAIKAN: IMPOR TIPE BARU +++
+  Employee,
 } from '../types/pos';
 
 const BASE_URL =
@@ -144,9 +145,47 @@ export async function fetchProductGroups(
     headers: defaultHeaders(token),
   });
   if (!res.ok) throw new Error(await safeReadText(res));
-  return res.json();
-}
 
+  // --- PERBAIKAN DIMULAI (Meniru logika fetchProducts) ---
+  const body: unknown = await res.json().catch(() => null);
+
+  if (!body) return { data: [] };
+
+  let data: ProductGroup[] = [];
+
+  // Mendukung respons berbentuk array langsung: [...]
+  if (Array.isArray(body)) {
+    data = body as ProductGroup[];
+  }
+  // Mendukung respons terbungkus: { data: [...] }
+  else if (
+    typeof body === 'object' &&
+    body !== null &&
+    'data' in body &&
+    Array.isArray(body.data)
+  ) {
+    data = body.data as ProductGroup[];
+  }
+  // Fallback untuk wrapper umum lainnya
+  else {
+    for (const key of ['result', 'items', 'rows']) {
+      if (
+        typeof body === 'object' &&
+        body !== null &&
+        key in body &&
+        Array.isArray((body as Record<string, unknown>)[key])
+      ) {
+        data = (body as Record<string, unknown>)[key] as ProductGroup[];
+        break;
+      }
+    }
+    const activeGroups = data.filter((g) => g.is_active === true);
+
+    return { data: activeGroups };
+  }
+
+  return { data: data }; // Kembalikan semua grup yang sudah diparsing
+}
 export async function fetchProductTypes(
   token?: string
 ): Promise<{ data: ProductType[] }> {
@@ -463,4 +502,46 @@ export async function validateDiscount(
   });
   if (!res.ok) throw new Error(await safeReadText(res));
   return res.json();
+}
+
+
+export async function fetchEmployees(
+  token?: string
+): Promise<{ data: Employee[] }> {
+  const res = await fetch(`${BASE_URL}/employees`, {
+    headers: defaultHeaders(token),
+  });
+  if (!res.ok) throw new Error(await safeReadText(res));
+
+  // Meniru logika fetchProducts untuk parsing body
+  const body: unknown = await res.json().catch(() => null);
+
+  if (!body) return { data: [] };
+
+  let data: Employee[] = [];
+
+  if (Array.isArray(body)) {
+    data = body as Employee[];
+  } else if (
+    typeof body === 'object' &&
+    body !== null &&
+    'data' in body &&
+    Array.isArray(body.data)
+  ) {
+    data = body.data as Employee[];
+  } else {
+    for (const key of ['result', 'items', 'rows']) {
+      if (
+        typeof body === 'object' &&
+        body !== null &&
+        key in body &&
+        Array.isArray((body as Record<string, unknown>)[key])
+      ) {
+        data = (body as Record<string, unknown>)[key] as Employee[];
+        break;
+      }
+    }
+  }
+
+  return { data: data };
 }

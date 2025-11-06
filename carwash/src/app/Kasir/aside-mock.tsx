@@ -15,9 +15,11 @@ import {
   Banknote,
   Loader2,
 } from 'lucide-react';
-// +++ PERBAIKAN: Impor 'ApiCartSyncData' +++
+
+// Impor 'ApiCartSyncData' dari cart-content
 import { useCart, type ApiCartSyncData } from './cart-content';
-import { employees, type Coupon } from './dummy';
+// Hapus 'employees' dummy, tapi pertahankan 'Coupon'
+import type { Coupon } from './dummy';
 import {
   Select,
   SelectContent,
@@ -33,10 +35,13 @@ import {
   createOrderFromCart,
   processPayment as processPaymentApi,
   voidOrder as voidOrderApi,
-  createPaymentType as createPaymentTypeApi,
   fetchDiscounts,
   applyDiscount as applyDiscountApi,
+  fetchEmployees,
+  fetchPaymentTypes,
 } from '../lib/utils/pos-api';
+// Impor Tipe Employee dan PaymentType
+import type { Employee, PaymentType } from '../lib/types/pos'; 
 
 // ... (Tipe ApiDiscount, DiscountPayload, SmallPill, LineItem tidak berubah) ...
 
@@ -64,8 +69,7 @@ function SmallPill({
   defaultLabel,
   icon,
   onClick,
-}: // forceColorFrom,
-{
+}: {
   prefKey: string;
   defaultLabel: string;
   icon: React.ReactNode;
@@ -166,7 +170,7 @@ function LineItem({
       <button
         type='button'
         onClick={onSelect}
-        className='mt-0.5 grid h-6 w-6 place-items-center  text-foreground'
+        className='grid h-8 w-8 place-items-center text-foreground text-xl'
         aria-pressed={selected}
         aria-label={selected ? 'Deselect item' : 'Select item'}
       >
@@ -214,7 +218,6 @@ function ProductSection() {
       <legend className='px-2 text-sm text-muted-foreground'>
         Section label product
       </legend>
-      {/* PERUBAHAN UI/UX: Memperbesar max-h */}
       <div className='space-y-3 max-h-[160px] overflow-y-auto'>
         {products.length === 0 ? (
           <div className='text-xs text-muted-foreground'>
@@ -257,12 +260,27 @@ function ServicesSection() {
     setEmployee,
     locked,
   } = useCart();
+  const { session } = useSession(); 
+
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(true);
+
+  useEffect(() => {
+    if (!session?.token) {
+      setLoadingEmployees(false);
+      return;
+    }
+    fetchEmployees(session.token)
+      .then((res) => setEmployees(res.data || []))
+      .catch((err) => console.error('Gagal fetch employees:', err))
+      .finally(() => setLoadingEmployees(false));
+  }, [session?.token]);
+
   return (
     <fieldset className='rounded-lg border border-border bg-secondary p-3'>
       <legend className='px-2 text-sm text-muted-foreground'>
         Section label services
       </legend>
-      {/* PERUBAHAN UI/UX: Memperbesar max-h */}
       <div className='space-y-3 max-h-[160px] overflow-y-auto'>
         {services.length === 0 ? (
           <div className='text-xs text-muted-foreground'>
@@ -290,18 +308,26 @@ function ServicesSection() {
               extraRight={
                 <div className='inline-flex items-center gap-2'>
                   <Select
-                    value={it.employee || ''}
-                    onValueChange={(val) => setEmployee(it.id, val)}
-                    disabled={locked}
+                    value={it.employeeId ? String(it.employeeId) : ''}
+                    onValueChange={(val) => setEmployee(it.id, Number(val))}
+                    disabled={locked || loadingEmployees}
                   >
                     <SelectTrigger className='h-7 px-2 py-1 text-xs border border-border bg-card text-foreground'>
-                      <SelectValue placeholder='Employee' />
+                      <SelectValue
+                        placeholder={
+                          loadingEmployees ? 'Loading...' : 'Employee'
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
                         {employees.map((e) => (
-                          <SelectItem key={e} value={e} className='text-xs'>
-                            {e}
+                          <SelectItem
+                            key={e.id}
+                            value={String(e.id)} 
+                            className='text-xs'
+                          >
+                            {e.employee_name}
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -394,7 +420,6 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
   return (
     <div className='rounded-lg border border-border bg-card p-3 space-y-3 relative'>
       <div className='flex gap-2'>
-        {/* PERUBAHAN UI/UX: Menghapus min-w-[20px] */}
         <div className='relative'>
           <button
             type='button'
@@ -425,9 +450,7 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
             </div>
           )}
         </div>
-        {/* PERUBAHAN UI/UX: Menghapus min-w-[140px] */}
         <div className='flex-1 flex rounded-md border border-border bg-secondary overflow-hidden'>
-          {/* PERUBAHAN UI/UX: Merapikan style input */}
           <input
             type='text'
             value={codeInput}
@@ -508,13 +531,11 @@ function BillOptionSection({
   const { isCustomize, getButtonLabel, getButtonClasses, setButtonPref } =
     usePreferences();
 
-  // PERUBAHAN 1: Menghapus 'Repeat'
   const options = [
     { key: 'create', label: 'Order', value: 'create' },
     { key: 'void', label: 'Void', value: 'void' },
   ];
 
-  // PERUBAHAN 2: Menghapus Ikon 'Repeat'
   const getIcon = (key: string) => {
     switch (key) {
       case 'create':
@@ -526,16 +547,14 @@ function BillOptionSection({
     }
   };
   return (
-    // PERUBAHAN 3: Mengganti grid-cols-3 menjadi grid-cols-2
     <div className='grid grid-cols-2 gap-3 bg-secondary p-3 rounded-lg'>
       {options.map((opt) => {
-        const active = false; // Tombol ini adalah aksi, bukan status
+        const active = false; 
 
         const prefKey = `aside:bill:${opt.key}`;
         const shown = getButtonLabel(prefKey, opt.label);
         const color = getButtonClasses();
 
-        // +++ PERUBAHAN UI/UX: Buat tombol 'Void' berbeda +++
         const isVoid = opt.key === 'void';
         const buttonClasses = [
           'rounded-lg p-3 text-center transition w-full',
@@ -546,12 +565,10 @@ function BillOptionSection({
         ];
 
         return (
-          // PERUBAHAN UI/UX: Menghapus padding p-2 dari wrapper
           <div key={opt.value} className='rounded-lg'>
             <button
               type='button'
-              className={buttonClasses.join(' ')} // <-- Terapkan kelas baru
-              // PERUBAHAN 4: Menghapus logika onClick 'repeat'
+              className={buttonClasses.join(' ')} 
               onClick={() => {
                 if (opt.value === 'create') {
                   onCreateOrder();
@@ -615,17 +632,61 @@ export default function AsideMock(): React.ReactElement {
   const { session } = useSession();
   const token = session?.token ?? '';
 
-  const [paymentType, setPaymentType] = useState<'cash' | 'credit' | 'qris'>(
-    'cash'
-  );
-  const [paymentBank, setPaymentBank] = useState('');
+  // --- State Pembayaran ---
+  const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
+  const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(true);
+  const [selectedPaymentType, setSelectedPaymentType] =
+    useState<PaymentType | null>(null);
+  
+  // --- STATE BARU: Untuk Uang Tunai ---
+  const [amountTendered, setAmountTendered] = useState<string>('');
+
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const statuses = ['In Queue', 'In Process', 'Waiting Payment'] as const;
 
+  // Ambil Payment Types saat komponen dimuat
+  useEffect(() => {
+    if (session?.token) {
+      setLoadingPaymentTypes(true);
+      fetchPaymentTypes(session.token)
+        .then((res) => {
+          const activeTypes = (res.data || []).filter((pt) => pt.is_active);
+          setPaymentTypes(activeTypes);
+          // Set default payment ke 'cash' jika ada
+          const cashDefault = activeTypes.find(pt => pt.payment_name.toLowerCase().includes('cash'));
+          if(cashDefault) {
+            setSelectedPaymentType(cashDefault);
+          }
+        })
+        .catch((err) =>
+          console.error('Gagal mengambil payment types:', err)
+        )
+        .finally(() => setLoadingPaymentTypes(false));
+    }
+  }, [session?.token]);
+
+  // Helper untuk ikon pembayaran
+  const getPaymentIcon = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('cash')) {
+      return <Banknote className='w-4 h-4' />;
+    }
+    if (lowerName.includes('qris')) {
+      return <QrCode className='w-4 h-4' />;
+    }
+    return <CreditCard className='w-4 h-4' />;
+  };
+
   function clearAll() {
     clearCartState();
-    setPaymentType('cash');
-    setPaymentBank('');
+    setSelectedPaymentType(null);
+    setAmountTendered(''); // <-- RESET UANG TUNAI
+    
+    // Set default payment ke 'cash' lagi jika ada
+    const cashDefault = paymentTypes.find(pt => pt.payment_name.toLowerCase().includes('cash'));
+    if(cashDefault) {
+      setSelectedPaymentType(cashDefault);
+    }
   }
 
   const [time, setTime] = useState<string>('');
@@ -641,9 +702,6 @@ export default function AsideMock(): React.ReactElement {
     return () => clearInterval(interval);
   }, []);
 
-  // ... (Fungsi handleProcessPayment, handleVoidOrder, handleSelectAndApplyDiscount, handleCreatePaymentType tidak berubah) ...
-  
-  // +++ PERBAIKAN: Fungsi handleProcessPayment dengan 'catch' +++
   async function handleProcessPayment(): Promise<void> {
     if (!cartId || items.length === 0) {
       showNotif({
@@ -653,31 +711,66 @@ export default function AsideMock(): React.ReactElement {
       return;
     }
 
+    // Cek service yg belum di-assign
+    const unassignedService = items.find(
+      (it) => it.type === 'service' && !it.isApiSynced
+    );
+    if (unassignedService) {
+      showNotif({
+        type: 'error',
+        message: `Pilih employee untuk "${unassignedService.name}" sebelum proses.`,
+      });
+      return;
+    }
+
+    // Cek metode pembayaran
+    if (!selectedPaymentType || !selectedPaymentType.id) {
+      showNotif({
+        type: 'error',
+        message: 'Silakan pilih metode pembayaran.',
+      });
+      return;
+    }
+    
+    // --- VALIDASI BARU UNTUK UANG TUNAI ---
+    const isCash = selectedPaymentType.payment_name.toLowerCase().includes('cash');
+    const tendered = Number(amountTendered) || 0;
+    
+    if (isCash && tendered < total) {
+      showNotif({
+        type: 'error',
+        message: `Uang tunai (Rp${tendered.toLocaleString('id-ID')}) kurang dari total (Rp${total.toLocaleString('id-ID')}).`,
+      });
+      return;
+    }
+    // --- AKHIR VALIDASI UANG TUNAI ---
+
     setBusy(true);
-    setLocked(true); // 🔒 Kunci interaksi
+    setLocked(true);
 
     try {
       setPaymentSheetOpen(false);
 
+      const paymentTypeId = selectedPaymentType.id;
+      const paymentName = selectedPaymentType.payment_name;
+
       const { data: order } = await createOrderFromCart(
         {
-          cart_id: cartId, // <-- Gunakan cartId dari context
+          cart_id: cartId,
           document_number: `INV-${Date.now()}`,
           additional_info: 'Generated by POS aside',
-          notes: `Payment type: ${paymentType}`,
+          notes: `Payment type: ${paymentName}`, 
         },
         token
       );
 
       const createdOrderId = order.id;
-      const paymentTypeId =
-        paymentType === 'cash' ? 1 : paymentType === 'credit' ? 2 : 3;
 
       await processPaymentApi(
         {
           order_id: createdOrderId,
-          paid_amount: String(total),
-          payment_type_id: paymentTypeId,
+          paid_amount: String(total), // API tetap dikirim TOTAL
+          payment_type_id: paymentTypeId, 
           reference_number: `TRX-${Date.now()}`,
         },
         token
@@ -688,9 +781,9 @@ export default function AsideMock(): React.ReactElement {
         orderNo: order.document_number ?? `INV-${createdOrderId}`,
         createdAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
         items: [...items],
-        status: paymentType === 'cash' ? 'Done' : 'Waiting Payment',
-        paymentType,
-        paymentBank: paymentType === 'credit' ? paymentBank : undefined,
+        status: paymentName.toLowerCase().includes('cash') ? 'Done' : 'Waiting Payment',
+        paymentType: paymentName, 
+        paymentBank: undefined, 
         total,
       });
 
@@ -698,35 +791,30 @@ export default function AsideMock(): React.ReactElement {
         type: 'success',
         message: `Order ${createdOrderId} processed. Payment OK`,
         amount: total,
-        method: paymentType,
+        method: paymentName, 
       });
 
-      // Panggil clearAll() HANYA setelah semua proses di atas berhasil.
+      // --- PERBAIKAN: Pindahkan navigasi ke sini ---
+      window.dispatchEvent(
+        new CustomEvent('navigate-kasir-view', { detail: { view: 'orders' } })
+      );
+
       clearAll();
-
-      // (Notifikasi error palsu yang sebelumnya ada di sini sudah dihapus)
-
-    // Tambahkan blok CATCH untuk menangani kegagalan
     } catch (err) {
       console.error('Payment processing failed:', err);
       const errorMessage =
         err instanceof Error ? err.message : 'Gagal memproses pembayaran.';
-      
+
       showNotif({
         type: 'error',
         message: `${errorMessage} Silakan coba lagi.`,
       });
 
-      // Jika gagal, JANGAN clear cart, tapi BUKA KUNCI
-      // agar pengguna bisa mencoba membayar lagi.
       setLocked(false);
-
     } finally {
-      // Pastikan setBusy(false) selalu dipanggil
       setBusy(false);
     }
   }
-
 
   async function handleVoidOrder(): Promise<void> {
     const confirmVoid = window.confirm(
@@ -743,7 +831,7 @@ export default function AsideMock(): React.ReactElement {
     }
 
     setBusy(true);
-    setLocked(true); // Kunci interaksi
+    setLocked(true);
 
     try {
       const { data: createdOrder } = await createOrderFromCart(
@@ -763,7 +851,7 @@ export default function AsideMock(): React.ReactElement {
       await voidOrderApi(
         {
           id: newOrderId,
-          voided_by: 1, // Asumsi ID kasir = 1
+          voided_by: 1, 
           reason: 'Voided from cart by user',
         },
         token
@@ -788,12 +876,22 @@ export default function AsideMock(): React.ReactElement {
     }
   }
 
-  // +++ PERBAIKAN: GANTI FUNGSI 'handleSelectAndApplyDiscount' SECARA KESELURUHAN +++
   async function handleSelectAndApplyDiscount(coupon: Coupon): Promise<void> {
     if (items.length === 0) {
       showNotif({
         type: 'error',
         message: 'Cart kosong, tidak bisa apply diskon',
+      });
+      return;
+    }
+    
+    const unassignedService = items.find(
+      (it) => it.type === 'service' && !it.isApiSynced
+    );
+    if (unassignedService) {
+      showNotif({
+        type: 'error',
+        message: `Pilih employee untuk "${unassignedService.name}" sebelum apply diskon.`,
       });
       return;
     }
@@ -816,13 +914,9 @@ export default function AsideMock(): React.ReactElement {
       const discountPayload: DiscountPayload = {
         cart_id: cartId,
         discount_id: discountIdToApply,
-        // --- PERBAIKAN: Kirim 'product_code' (itemId), BUKAN 'id' acak ---
-        // 'itemId' di frontend CartItem adalah 'product_code'
         item_ids: items.map((it) => String(it.itemId)),
       };
 
-      // 'result' sekarang akan berisi { success: true, subtotal: "...", items: [...] }
-      // Tipe 'result.items' akan otomatis di-infer dari 'applyDiscountApi'
       const result = await applyDiscountApi(discountPayload, token);
 
       console.log('API Discount Response:', result);
@@ -831,23 +925,20 @@ export default function AsideMock(): React.ReactElement {
         throw new Error(result.message || 'Gagal menerapkan diskon dari API');
       }
 
-      // --- PERBAIKAN: Siapkan objek ApiCartSyncData (NO 'any') ---
       const syncData: ApiCartSyncData = {
         subtotal: parseFloat(result.subtotal ?? '0'),
         tax: parseFloat(result.tax_amount ?? '0'),
         discount: parseFloat(result.discount_amount ?? '0'),
         total: parseFloat(result.total_amount ?? '0'),
-        items: result.items || [], // <-- 'result.items' sudah type-safe
+        items: result.items || [], 
       };
-      // --- AKHIR PERBAIKAN ---
 
-      // Kirim kupon DAN objek sinkronisasi lengkap ke context
       applyCoupon(coupon, syncData);
 
       showNotif({ type: 'success', message: 'Diskon diterapkan.' });
     } catch (err) {
       console.error(err);
-      clearCoupon(); // Pastikan frontend di-reset jika API gagal
+      clearCoupon(); 
       const errorMessage =
         err instanceof Error ? err.message : 'Gagal apply diskon.';
       showNotif({ type: 'error', message: errorMessage });
@@ -855,37 +946,27 @@ export default function AsideMock(): React.ReactElement {
       setBusy(false);
     }
   }
-
-  async function handleCreatePaymentType(paymentName: string): Promise<void> {
-    setBusy(true);
-    try {
-      await createPaymentTypeApi(
-        {
-          payment_name: paymentName,
-          processing_fee_rate: '0.7%',
-          is_active: true,
-        },
-        token
-      );
-      showNotif({ type: 'success', message: 'Payment type created' });
-    } catch (err) {
-      console.error(err);
-      showNotif({ type: 'error', message: 'Gagal membuat payment type' });
-    } finally {
-      setBusy(false);
-    }
-  }
-  // ... (Sisa JSX tidak berubah) ...
-
+  
   const asideBlur =
     paymentSheetOpen || statusSheetOpen
       ? 'filter blur-md pointer-events-none'
       : '';
 
   const handleChooseStatus = (status: string) => {
-    // Implement status change logic here
     console.log(`Status changed to: ${status}`);
   };
+
+  // --- LOGIKA BARU UNTUK PAYMENT SHEET ---
+  const isCashPayment = selectedPaymentType?.payment_name.toLowerCase().includes('cash');
+  const tenderedAmountNum = Number(amountTendered) || 0;
+  const changeDue = (isCashPayment && tenderedAmountNum > 0) ? tenderedAmountNum - total : 0;
+  
+  // Logika baru untuk menonaktifkan tombol "Process"
+  const isProcessDisabled = 
+    busy || 
+    !selectedPaymentType || 
+    (isCashPayment && tenderedAmountNum < total);
+  // --- AKHIR LOGIKA BARU ---
 
   return (
     <div className='flex flex-col gap-4 h-full  overflow-hidden relative'>
@@ -955,114 +1036,99 @@ export default function AsideMock(): React.ReactElement {
         <div className='flex justify-end'></div>
       </div>
 
-      {/* Payment sheet */}
+      {/* --- PAYMENT SHEET DIPERBARUI --- */}
       {paymentSheetOpen && (
         <div className='absolute inset-0 z-50 flex items-end justify-center'>
           <div
             className='absolute inset-0 bg-black/30 backdrop-blur-sm z-0'
-            onClick={() => setPaymentSheetOpen(false)}
+            onClick={() => {
+              setPaymentSheetOpen(false);
+              setAmountTendered(''); // <-- RESET
+            }}
           />
-          <div className='relative w-full max-w-md h-auto bg-secondary rounded-t-2xl shadow-lg p-6 flex flex-col gap-6 min-h-[480px] z-10'>
+          <div className='relative w-full max-w-md h-auto bg-secondary rounded-t-2xl shadow-lg p-6 flex flex-col gap-4 min-h-[480px] z-10'>
             <div className='mx-auto mb-2 h-1 w-12 rounded-full bg-muted-foreground/40' />
             <div className='text-center font-bold font-rubik text-foreground text-lg mb-2'>
               Calculation
             </div>
-            <div className='rounded-lg border border-border bg-primary p-3 text-primary-foreground text-center font-rubik font-semibold mb-2'>
+            <div className='rounded-lg border border-border bg-primary p-3 text-primary-foreground text-center font-rubik font-semibold'>
               Total: {formatIDR(total)}
             </div>
 
-            {/* --- Payment Type Selection --- */}
+            {/* --- Payment Type Selection (DINAMIS) --- */}
             <div>
               <div className='font-medium mb-1'>Tipe Pembayaran:</div>
               <div className='flex flex-wrap gap-2 mb-3'>
-                {/* Cash */}
-                <button
-                  type='button'
-                  className={`flex items-center gap-1 px-3 py-2 rounded-md border ${
-                    paymentType === 'cash'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                  onClick={() => setPaymentType('cash')}
-                >
-                  <Banknote className='w-4 h-4' /> Cash
-                </button>
-
-                {/* Credit / Card */}
-                <button
-                  type='button'
-                  className={`flex items-center gap-1 px-3 py-2 rounded-md border ${
-                    paymentType === 'credit'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                  onClick={() => setPaymentType('credit')}
-                >
-                  <CreditCard className='w-4 h-4' /> Card
-                </button>
-
-                {/* QRIS */}
-                <button
-                  type='button'
-                  className={`flex items-center gap-1 px-3 py-2 rounded-md border ${
-                    paymentType === 'qris'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                  onClick={() => setPaymentType('qris')}
-                >
-                  <QrCode className='w-4 h-4' /> QRIS
-                </button>
-
-                {/* Add New Payment Type */}
-                <button
-                  type='button'
-                  className='flex items-center gap-1 px-3 py-2 rounded-md border border-dashed hover:bg-secondary transition'
-                  onClick={async () => {
-                    const name = window.prompt(
-                      'Masukkan nama Payment Type baru:'
-                    );
-                    if (name) await handleCreatePaymentType(name);
-                  }}
-                >
-                  + Add
-                </button>
+                {loadingPaymentTypes ? (
+                  <div className='flex items-center justify-center w-full text-muted-foreground'>
+                    <Loader2 className='w-4 h-4 animate-spin mr-2' />
+                    <span>Loading payment methods...</span>
+                  </div>
+                ) : (
+                  paymentTypes.map((pt) => (
+                    <button
+                      key={pt.id}
+                      type='button'
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-md border ${
+                        selectedPaymentType?.id === pt.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      }`}
+                      onClick={() => setSelectedPaymentType(pt)}
+                    >
+                      {getPaymentIcon(pt.payment_name)}
+                      <span className='text-sm'>{pt.payment_name}</span>
+                    </button>
+                  ))
+                )}
               </div>
-
-              {/* --- Card / Credit extra field --- */}
-              {paymentType === 'credit' && (
-                <div className='mb-2'>
-                  <div className='text-xs mb-1'>Pilih Bank:</div>
-                  <select
-                    value={paymentBank}
-                    onChange={(e) => setPaymentBank(e.target.value)}
-                    className='px-2 py-1 rounded border bg-card text-xs w-full'
-                  >
-                    <option value=''>- Pilih Bank -</option>
-                    <option value='BCA'>BCA</option>
-                    <option value='BRI'>BRI</option>
-                    <option value='Mandiri'>Mandiri</option>
-                    <option value='BNI'>BNI</option>
-                    <option value='CIMB'>CIMB</option>
-                    <option value='Danamon'>Danamon</option>
-                    <option value='Permata'>Permata</option>
-                  </select>
-                </div>
-              )}
             </div>
+
+            {/* --- BLOK BARU: UANG TUNAI & KEMBALIAN --- */}
+            {isCashPayment && (
+              <div className='space-y-3'>
+                <div>
+                  <label htmlFor='amountTendered' className='font-medium mb-1 text-sm'>
+                    Nominal Uang (Rp)
+                  </label>
+                  <input
+                    type='number'
+                    id='amountTendered'
+                    value={amountTendered}
+                    onChange={(e) => setAmountTendered(e.target.value)}
+                    placeholder='e.g. 100000'
+                    className='w-full px-3 py-2 rounded border bg-card text-foreground text-lg'
+                  />
+                </div>
+                {/* Tampilkan kembalian hanya jika uang cukup */}
+                {tenderedAmountNum >= total && (
+                   <div className='text-right font-medium text-lg'>
+                    Kembalian:{' '}
+                    <span className='font-bold text-primary'>
+                      {formatIDR(changeDue)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* --- AKHIR BLOK BARU --- */}
+
 
             {/* --- Payment Buttons --- */}
             <div className='mt-auto flex gap-3'>
               <button
                 className='flex-1 px-6 py-2 bg-muted text-foreground rounded-lg font-rubik font-semibold'
-                onClick={() => setPaymentSheetOpen(false)}
+                onClick={() => {
+                  setPaymentSheetOpen(false);
+                  setAmountTendered(''); // <-- RESET
+                }}
               >
                 Back
               </button>
               <button
-                className='flex-1 px-6 py-2 bg-primary text-primary-foreground rounded-lg font-rubik font-semibold'
+                className='flex-1 px-6 py-2 bg-primary text-primary-foreground rounded-lg font-rubik font-semibold disabled:opacity-50'
                 onClick={handleProcessPayment}
-                disabled={busy || (paymentType === 'credit' && !paymentBank)}
+                disabled={isProcessDisabled} // <-- Logika disabled diperbarui
               >
                 {busy ? 'Processing...' : 'Process'}
               </button>
@@ -1070,6 +1136,7 @@ export default function AsideMock(): React.ReactElement {
           </div>
         </div>
       )}
+      {/* --- AKHIR PERUBAHAN PAYMENT SHEET --- */}
 
       {/* Status sheet */}
       {statusSheetOpen && (

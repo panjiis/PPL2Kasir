@@ -26,7 +26,7 @@ import {
 // Import Button component
 import { Button } from '@/components/ui/button';
 
-// --- Utility functions ---
+// --- Utility functions --- (Tidak berubah)
 const formatDate = (seconds?: number) => {
   if (!seconds) return '-';
   const d = new Date(seconds * 1000);
@@ -60,9 +60,7 @@ const ITEMS_PER_PAGE = 8;
 
 /**
  * PrintableReceipt
- * - Optimized for thermal paper (58mm). If you want 80mm, change `width: 58mm` to `width: 80mm` in printStyles.
- * - Injects print CSS into head (only on client).
- * - Renders into document.body using createPortal.
+ * (Komponen ini berisi perbaikan)
  */
 const PrintableReceipt = ({
   order,
@@ -70,7 +68,7 @@ const PrintableReceipt = ({
   storeName = 'EZEL CARWASH CILODONG',
   storeAddress = 'Jl. Raya Bogor KM. 34,5, Cilodong, Depok',
   storePhone = '(0812) 3456-7890',
-  paperWidth = '58mm', // default 58mm; change to '80mm' for 80mm printer
+  paperWidth = '58mm',
 }: {
   order: DetailedPosOrder;
   products: PosProduct[];
@@ -83,11 +81,9 @@ const PrintableReceipt = ({
 
   // print CSS (thermal friendly)
   const printStyles = `
-  /* Thermal receipt print styles */
+  /* ... (Styles CSS tidak berubah) ... */
   @media print {
-    /* hide everything except #printable-receipt */
     body > * { display: none !important; visibility: hidden !important; }
-
     #printable-receipt {
       display: block !important;
       visibility: visible !important;
@@ -102,36 +98,25 @@ const PrintableReceipt = ({
       font-size: 10px;
       line-height: 1.25;
     }
-
-    /* ensure all children are visible */
     #printable-receipt, #printable-receipt * { visibility: visible !important; color: #000 !important; background: transparent !important; }
-
     .rcpt-header { text-align: center; margin-bottom: 4px; }
     .rcpt-header h2 { font-size: 12px; margin: 0; font-weight: 700; }
     .rcpt-meta { font-size: 9px; margin-bottom: 4px; }
     .rcpt-meta p { margin: 2px 0; }
-
     .rcpt-divider { border-top: 1px dashed #000; margin: 4px 0; }
-
     .rcpt-items { width: 100%; border-collapse: collapse; font-size: 10px; }
     .rcpt-items thead th { text-align: left; font-size: 9px; padding-bottom: 4px; }
     .rcpt-items td { padding: 2px 0; vertical-align: top; }
-
     .rcpt-items td.qty { width: 10%; text-align: center; }
     .rcpt-items td.price { width: 30%; text-align: right; }
-
     .rcpt-summary { width: 100%; margin-top: 6px; font-size: 10px; border-collapse: collapse; }
     .rcpt-summary td { padding: 2px 0; }
     .rcpt-summary tr.total td { border-top: 1px dashed #000; font-weight: 700; padding-top: 4px; }
-
     .rcpt-footer { text-align: center; margin-top: 6px; font-size: 10px; }
-
-    /* Hide any app UI classes that we use to hide during print (utility) */
     .print\\:hidden { display: none !important; }
   }
   `;
 
-  // ensure hooks always executed in same order
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -151,12 +136,12 @@ const PrintableReceipt = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClient, paperWidth]);
 
-  const getProductName = (code?: string) =>
-    products.find((p) => p.product_code === code)?.product_name ?? code ?? 'Unknown';
+  const getProductName = (item: { product_name?: string, product_code?: string }) =>
+    item.product_name ?? 
+    products.find((p) => p.product_code === item.product_code)?.product_name ?? 
+    item.product_code ?? 'Unknown';
 
   if (!isClient) return null;
-
-  // Ensure document.body exists
   if (typeof document === 'undefined' || !document.body) return null;
 
   return createPortal(
@@ -189,13 +174,10 @@ const PrintableReceipt = ({
         </thead>
         <tbody>
           {order.order_items.map((item, idx) => {
-            const product = products.find((p) => p.product_code === item.product_code);
-            const price = Number(product?.price ?? 0);
-            const total = (item.quantity ?? 0) * price;
-            // If your data has item.price or item.subtotal, adapt here.
+            const total = Number(item.line_total ?? item.total_price ?? 0);
             return (
               <tr key={idx}>
-                <td style={{ wordBreak: 'break-word' }}>{getProductName(item.product_code)}</td>
+                <td style={{ wordBreak: 'break-word' }}>{getProductName(item)}</td>
                 <td className="qty" style={{ textAlign: 'center' }}>{item.quantity}</td>
                 <td className="price" style={{ textAlign: 'right' }}>{formatRupiah(total)}</td>
               </tr>
@@ -213,20 +195,27 @@ const PrintableReceipt = ({
             <td style={{ textAlign: 'right' }}>{formatRupiah(order.subtotal)}</td>
           </tr>
 
-          {/* If you have discount/tax fields, show them conditionally */}
+          {/* --- PERBAIKAN ESLINT DI SINI --- */}
           {('discount_amount' in order) && (
             <tr>
               <td>Discount</td>
-              <td style={{ textAlign: 'right' }}>{formatRupiah((order as any).discount_amount ?? 0)}</td>
+              <td style={{ textAlign: 'right' }}>
+                {/* Kita memberi tahu TypeScript bahwa 'order' di sini 
+                  adalah objek yang mungkin memiliki 'discount_amount' 
+                */}
+                {formatRupiah(
+                  (order as { discount_amount?: number }).discount_amount ?? 0
+                )}
+              </td>
             </tr>
           )}
+          {/* --- AKHIR PERBAIKAN --- */}
 
           <tr className="total">
             <td>TOTAL</td>
             <td style={{ textAlign: 'right' }}>{formatRupiah(order.total_amount)}</td>
           </tr>
 
-          {/* Payment & change if available */}
           {order.payment_type && (
             <tr>
               <td>Metode Bayar</td>
@@ -267,7 +256,7 @@ export default function OrdersView() {
     error: errorProducts,
   } = useProducts(session?.token ?? '');
 
-  // local state
+  // ... (state lokal, handleReturnOrder, handlePrintReceipt tidak berubah) ...
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<DetailedPosOrder | null>(null);
@@ -309,11 +298,9 @@ export default function OrdersView() {
   };
 
   const handlePrintReceipt = () => {
-    // Trigger browser print. PrintableReceipt is already in portal and will be used for printing.
-    // Some browsers may require a short delay to ensure styles are injected; we can provide a tiny wait.
-    // But keep it short. If you want guaranteed timing, consider awaiting a promise (not necessary usually).
     window.print();
   };
+
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) =>
@@ -356,12 +343,11 @@ export default function OrdersView() {
 
   return (
     <div className="h-full flex flex-col bg-card print:hidden">
+      {/* ... (Header, Search, Table tidak berubah) ... */}
       <header className="p-4">
         <h1 className="text-2xl font-bold text-foreground">Orders</h1>
         <p className="text-muted-foreground">Browse and review past transactions</p>
       </header>
-
-      {/* Search */}
       <div className="px-4 pb-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -377,8 +363,6 @@ export default function OrdersView() {
           />
         </div>
       </div>
-
-      {/* Table */}
       <div className="flex-1 overflow-y-auto px-4">
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
@@ -416,7 +400,7 @@ export default function OrdersView() {
         </div>
       </div>
 
-      {/* Pagination */}
+      {/* ... (Pagination tidak berubah) ... */}
       {totalPages > 1 && (
         <footer className="p-4 border-t flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
@@ -427,6 +411,7 @@ export default function OrdersView() {
         </footer>
       )}
 
+
       {/* Modal Detail */}
       {selectedOrder && (
         <>
@@ -434,10 +419,10 @@ export default function OrdersView() {
 
           <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
             <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col bg-card text-foreground print:hidden">
+              {/* ... (DialogHeader dan info detail tidak berubah) ... */}
               <DialogHeader>
                 <DialogTitle>Order #{selectedOrder.document_number}</DialogTitle>
               </DialogHeader>
-
               <div className="flex-1 overflow-y-auto p-1">
                 <div className="border rounded-lg p-4 bg-muted shadow-sm mb-4">
                   <table className="w-full text-xs">
@@ -490,14 +475,14 @@ export default function OrdersView() {
                     </thead>
                     <tbody>
                       {selectedOrder.order_items.map((item, idx) => {
-                        const product = (products as PosProduct[]).find((p) => p.product_code === item.product_code);
-                        const productName = product?.product_name ?? 'Unknown';
-                        const price = Number(product?.price ?? 0);
-                        const total = (item.quantity ?? 0) * price;
+                        const productName = item.product?.product_name ?? item.product_name ?? item.product_code ?? 'Unknown';
+                        const quantity = item.quantity ?? item.qty ?? 0;
+                        const total = Number(item.line_total ?? item.total_price ?? 0);
+
                         return (
-                          <tr key={idx}>
+                          <tr key={item.id ?? idx}>
                             <td className="border px-2 py-1">{productName}</td>
-                            <td className="border px-2 py-1 text-center">{item.quantity}</td>
+                            <td className="border px-2 py-1 text-center">{quantity}</td>
                             <td className="border px-2 py-1 text-right">{formatRupiah(total)}</td>
                           </tr>
                         );
@@ -507,6 +492,7 @@ export default function OrdersView() {
                 </div>
               </div>
 
+              {/* ... (DialogFooter dan tombol-tombol tidak berubah) ... */}
               <DialogFooter className="mt-4 gap-2">
                 <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
                   <DialogTrigger asChild>

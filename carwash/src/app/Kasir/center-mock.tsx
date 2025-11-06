@@ -2,10 +2,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Search,
-  Barcode,
-  HeartCrack as ChartBarStacked,
   Tag,
   Tags,
+  Wrench,
+  Box,
 } from 'lucide-react';
 import { useCart, type CartItem } from './cart-content';
 import DynamicIsland from './DynamicIsland';
@@ -23,11 +23,12 @@ import Image from 'next/image';
 type ProductCardProps = {
   id?: string;
   name: string;
-  image: string;
+  image_url: string;
   price: number;
   type: 'product' | 'service';
   description?: string;
   onAdd?: () => void;
+  isAdding?: boolean; // <-- TAMBAHKAN INI
 };
 
 // ============================ //
@@ -72,14 +73,15 @@ function SearchPill({
 function ProductCard({
   id,
   name,
-  image,
+  image_url,
   price,
   type,
   description,
   onAdd,
+  isAdding, // <-- TAMBAHKAN INI
 }: ProductCardProps) {
   const { isCustomize, getProductImage, setProductImage } = usePreferences();
-  const finalImage = id ? getProductImage(id, image) : image;
+  const finalImage = id ? getProductImage(id, image_url) : image_url;
 
   return (
     <div className='text-left rounded-lg border border-border bg-card p-3 hover:shadow transition flex flex-col justify-between h-full'>
@@ -87,7 +89,10 @@ function ProductCard({
         type='button'
         onClick={onAdd}
         aria-label={`Tambah ${name} ke pesanan`}
-        className='w-full flex flex-col flex-1'
+        // --- PERBAIKAN: Tambahkan disabled dan style-nya ---
+        disabled={isAdding}
+        className='w-full flex flex-col flex-1 disabled:opacity-50 disabled:cursor-wait'
+        // --- AKHIR PERBAIKAN ---
       >
         <div className='grid place-items-center rounded-lg border border-border bg-secondary overflow-hidden'>
           <Image
@@ -161,18 +166,16 @@ function ProductCard({
 }
 
 // ============================ //
-// ===== Order Card List  ===== //
-// ============================ //
-
-// ============================ //
 // ====== Main Component ====== //
 // ============================ //
 
 export default function CenterMock() {
-  const [selectedTiles] = useState<Set<string>>(new Set());
-  const [searchType, setSearchType] = useState<
-    'barcode' | 'category' | 'name' | 'itemId'
-  >('name');
+  // const [selectedTiles] = useState<Set<string>>(new Set());
+  
+  const [searchType, setSearchType] = useState<'name' | 'id'>('name');
+  const [typeFilter, setTypeFilter] = useState<'service' | 'nonService' | null>(
+    null
+  );
   const [query, setQuery] = useState('');
 
   const { session } = useSession();
@@ -181,26 +184,29 @@ export default function CenterMock() {
   const [apiProducts, setApiProducts] = useState<CartItem[]>([]);
   const [apiLoading, setApiLoading] = useState(true);
 
-  // 🔹 Langsung fetch produk saat komponen dimount
   useEffect(() => {
     const loadProducts = async () => {
       try {
         const result = await fetchProducts(token);
         const raw: PosProduct[] = Array.isArray(result.data) ? result.data : [];
 
-        const mapped: CartItem[] = raw.map((p) => ({
-          id: String(p.product_code),
-          itemId: p.product_code,
-          barcode: p.product_code || '',
-          name: p.product_name,
-          image: '/placeholder.svg',
-          price: Number(p.product_price) ?? 0,
-          type: 'product',
-          // FIX (Perbaikan 1 & 2): Ambil kategori dari prefix product_code
-          category: (p.product_code || '').split('-')[0] || '',
-          description: p.unit_of_measure ?? '',
-          qty: 1,
-        }));
+        const mapped: CartItem[] = raw.map((p) => {
+          const prefix = (p.product_code || '').split('-')[0] || '';
+          const itemType = prefix === 'SRV' ? 'service' : 'product';
+
+          return {
+            id: String(p.product_code),
+            itemId: p.product_code,
+            barcode: p.product_code || '',
+            name: p.product_name,
+            image: p.image_url || '/placeholder.svg',
+            price: Number(p.product_price ?? p.price ?? 0),
+            type: itemType, 
+            category: prefix, 
+            description: p.unit_of_measure ?? '',
+            qty: 1, 
+          };
+        });
 
         setApiProducts(mapped);
       } catch (err) {
@@ -211,10 +217,8 @@ export default function CenterMock() {
     };
 
     if (token) {
-      // Hanya jalankan jika token sudah ada
       loadProducts();
     } else {
-      // Jika token belum siap, pastikan list kosong dan tidak loading
       setApiProducts([]);
       setApiLoading(false);
     }
@@ -222,24 +226,42 @@ export default function CenterMock() {
 
   const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
+
     return apiProducts.filter((p) => {
-      const tileOk =
-        selectedTiles.size === 0 ? true : selectedTiles.has(p.category ?? '');
-      if (!q) return tileOk;
+      let typeFilterPassed = true; 
+      if (typeFilter === 'service') {
+        typeFilterPassed = p.type === 'service';
+      } else if (typeFilter === 'nonService') {
+        typeFilterPassed = p.type === 'product';
+      }
+
+      if (!q) {
+        return typeFilterPassed; 
+      }
+
       const hay =
-        searchType === 'barcode'
-          ? p.barcode?.toLowerCase() || ''
-          : searchType === 'category'
-          ? p.category?.toLowerCase() || ''
-          : searchType === 'itemId'
+        searchType === 'id'
           ? p.itemId?.toLowerCase() || ''
           : p.name.toLowerCase();
-      return tileOk && hay.includes(q);
-    });
-  }, [query, searchType, selectedTiles, apiProducts]);
+      
+      const textFilterPassed = hay.includes(q);
 
-  const { addItem } = useCart();
+      return typeFilterPassed && textFilterPassed;
+    });
+  }, [query, searchType, typeFilter, apiProducts]);
+
+  // --- PERBAIKAN: Ambil 'addingItemId' dari useCart ---
+  const { addItem, addingItemId } = useCart();
   const { notif, clearNotif } = useNotification();
+
+  const handleTypeFilterToggle = (key: 'service' | 'nonService') => {
+    setTypeFilter((current) => {
+      if (current === key) {
+        return null;
+      }
+      return key;
+    });
+  };
 
   return (
     <div className='flex flex-col gap-4 p-4 h-full overflow-y-auto'>
@@ -255,34 +277,47 @@ export default function CenterMock() {
         Main Menu
       </div>
 
-      {/* SEARCH & FILTER */}
       <div className='flex items-center gap-2'>
+        <button
+          type='button'
+          onClick={() => handleTypeFilterToggle('service')}
+          className={[
+            'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-24 ml-1 px-2 transition-all',
+            typeFilter === 'service' ? 'ring-2 ring-primary' : 'ring-0',
+          ].join(' ')}
+        >
+          <div className='grid h-5 w-5 place-items-center text-muted-foreground'>
+            <Wrench className='h-5 w-5' />
+          </div>
+          <span className='mt-1 text-xs text-foreground'>Service</span>
+        </button>
+        <button
+          type='button'
+          onClick={() => handleTypeFilterToggle('nonService')}
+          className={[
+            'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-24 ml-1 px-2 transition-all',
+            typeFilter === 'nonService' ? 'ring-2 ring-primary' : 'ring-0',
+          ].join(' ')}
+        >
+          <div className='grid h-5 w-5 place-items-center text-muted-foreground'>
+            <Box className='h-5 w-5' />
+          </div>
+          <span className='mt-1 text-xs text-foreground'>Non-Service</span>
+        </button>
+
+        <div className='h-8 w-px bg-border mx-2' />
+
         {[
-          // Search buttons
-          {
-            type: 'barcode',
-            icon: <Barcode className='h-5 w-5' />,
-            label: 'Barcode',
-          },
-          {
-            type: 'category',
-            icon: <ChartBarStacked className='h-5 w-5' />,
-            label: 'Category',
-          },
           { type: 'name', icon: <Tag className='h-5 w-5' />, label: 'Name' },
-          {
-            type: 'itemId',
-            icon: <Tags className='h-5 w-5' />,
-            label: 'ID',
-          },
+          { type: 'id', icon: <Tags className='h-5 w-5' />, label: 'ID' },
         ].map((btn) => (
           <button
             key={btn.type}
             type='button'
             onClick={() => setSearchType(btn.type as typeof searchType)}
             className={[
-              'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-24 ml-1 px-2',
-              searchType === btn.type ? 'ring-2' : '',
+              'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-24 ml-1 px-2 transition-all',
+              searchType === btn.type ? 'ring-2 ring-primary' : 'ring-0',
             ].join(' ')}
           >
             <div className='grid h-5 w-5 place-items-center text-muted-foreground'>
@@ -296,17 +331,14 @@ export default function CenterMock() {
           query={query}
           setQuery={setQuery}
           placeholder={
-            searchType === 'barcode'
-              ? 'Cari berdasarkan barcode...'
-              : searchType === 'category'
-              ? 'Cari berdasarkan kategori...'
-              : searchType === 'itemId'
+            searchType === 'id'
               ? 'Cari berdasarkan Item ID...'
               : 'Cari berdasarkan nama...'
           }
           onSubmit={() => {}}
         />
       </div>
+
 
       {/* PRODUCT LIST */}
       <div className='flex-1 overflow-y-auto pr-1'>
@@ -315,18 +347,18 @@ export default function CenterMock() {
             Loading products...
           </div>
         ) : (
-          // Responsive product grid: 1 column on very small, 2 on sm, 3 on lg, 4 on xl
           <div className='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
             {filteredProducts.map((p) => (
               <ProductCard
                 key={p.id}
                 id={p.id}
                 name={p.name}
-                image={p.image}
+                image_url={p.image}
                 price={p.price}
                 type={p.type}
                 description={p.description}
                 onAdd={() => addItem(p)}
+                isAdding={addingItemId === p.id} // <-- TAMBAHKAN INI
               />
             ))}
           </div>

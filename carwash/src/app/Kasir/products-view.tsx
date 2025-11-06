@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useSession } from '../lib/context/session';
 import type { PosProduct } from '@/app/lib/types/pos';
-import { AlertTriangle, Loader2, Search } from 'lucide-react'; // Menghapus 'Pencil'
+import { AlertTriangle, Loader2, Search } from 'lucide-react';
 import { useProducts } from '@/app/Hooks/useProducts';
 import { Button } from '@/components/ui/button';
 
@@ -16,10 +16,8 @@ const formatRupiah = (amount?: number) => {
   }).format(amount);
 };
 
-// PERUBAHAN: Diubah dari 10 menjadi 8
 const ITEMS_PER_PAGE = 12;
 
-// Menghapus prop 'onEdit'
 export default function ProductsView() {
   const { session } = useSession();
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,6 +62,12 @@ export default function ProductsView() {
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
 
+  // BARU: Menghitung informasi spesifik untuk footer
+  const totalItems = filteredProducts.length;
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const startItem = totalItems === 0 ? 0 : startIndex + 1;
+  const endItem = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+
   const handleNextPage = () =>
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
@@ -92,9 +96,7 @@ export default function ProductsView() {
     );
 
   return (
-    // Mengubah padding dan menambahkan bg-card untuk konsistensi
     <div className='h-full flex flex-col bg-card'>
-      {/* Menggunakan padding-4 yang konsisten */}
       <header className='p-4'>
         <h1 className='text-2xl font-bold text-foreground'>Products</h1>
         <p className='text-muted-foreground'>
@@ -102,7 +104,6 @@ export default function ProductsView() {
         </p>
       </header>
 
-      {/* Menggunakan padding-4 horizontal dan padding-bottom */}
       <div className='px-4 pb-4'>
         <div className='relative'>
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
@@ -114,32 +115,26 @@ export default function ProductsView() {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            // Mengganti bg-card menjadi bg-background untuk kontras input
             className='w-full pl-10 pr-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50'
           />
         </div>
       </div>
 
-      {/* Menggunakan px-4 untuk padding horizontal */}
       <div className='flex-1 overflow-y-auto px-4'>
         <div className='border rounded-lg overflow-hidden'>
           <table className='w-full text-sm'>
-            {/* Membuat header tabel sticky untuk UX yang lebih baik saat scrolling */}
             <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
               <tr>
                 <th className='text-left font-medium p-3'>Product Name</th>
                 <th className='text-left font-medium p-3'>Product Code</th>
                 <th className='text-right font-medium p-3'>Price</th>
-                {/* Menghapus kolom 'Actions' */}
               </tr>
             </thead>
-            {/* Menggunakan divide-y for pemisah baris yang lebih bersih */}
             <tbody className='divide-y divide-border'>
               {paginatedProducts.length > 0 ? (
                 paginatedProducts.map((item) => (
                   <tr
                     key={item.product_code}
-                    // Menghapus border-t dan memperbaiki hover
                     className='hover:bg-accent transition-colors'
                   >
                     <td className='p-3 font-medium'>{item.product_name}</td>
@@ -149,12 +144,10 @@ export default function ProductsView() {
                     <td className='p-3 text-right font-semibold'>
                       {formatRupiah(Number(item.price))}
                     </td>
-                    {/* Menghapus sel 'Actions' */}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  {/* Mengubah colSpan from 4 menjadi 3 */}
                   <td
                     colSpan={3}
                     className='text-center p-6 text-muted-foreground'
@@ -168,12 +161,21 @@ export default function ProductsView() {
         </div>
       </div>
 
-      {/* Footer Paginasi (Tidak berubah, sudah baik) */}
+      {/* MODIFIKASI: Footer Paginasi dengan info spesifik */}
       {totalPages > 1 && (
         <footer className='p-4 border-t flex items-center justify-between'>
-          <span className='text-sm text-muted-foreground'>
-            Page {currentPage} of {totalPages}
-          </span>
+          {/* Membungkus info di sebelah kiri */}
+          <div className='flex items-center gap-4'>
+            <span className='text-sm text-muted-foreground'>
+              Page {currentPage} of {totalPages}
+            </span>
+            {/* Info spesifik baru, disembunyikan di layar kecil (sm:) */}
+            <span className='text-sm text-muted-foreground hidden sm:block'>
+              (Showing {startItem}–{endItem} of {totalItems} products)
+            </span>
+          </div>
+
+          {/* Tombol tetap di sebelah kanan */}
           <div className='flex items-center gap-2'>
             <Button
               variant='outline'
