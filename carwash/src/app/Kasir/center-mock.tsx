@@ -30,20 +30,6 @@ type ProductCardProps = {
   onAdd?: () => void;
 };
 
-type OrderStatus = 'In Queue' | 'In Process' | 'Waiting Payment' | 'Done';
-
-type Order = {
-  id: string;
-  orderNo: string;
-  createdAt: string;
-  customer?: string;
-  items: CartItem[];
-  status: OrderStatus;
-  paymentType: 'cash' | 'credit' | 'qris';
-  paymentBank?: string;
-  total: number;
-};
-
 // ============================ //
 // ===== Search Component ===== //
 // ============================ //
@@ -178,98 +164,16 @@ function ProductCard({
 // ===== Order Card List  ===== //
 // ============================ //
 
-function OrderStatusBadge({ status }: { status: OrderStatus }) {
-  let color = 'bg-gray-200 text-gray-600';
-  if (status === 'In Queue') color = 'bg-yellow-200 text-yellow-800';
-  if (status === 'In Process') color = 'bg-blue-200 text-blue-800';
-  if (status === 'Waiting Payment') color = 'bg-gray-300 text-gray-700';
-  if (status === 'Done') color = 'bg-green-200 text-green-800';
-  return (
-    <span
-      className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${color}`}
-    >
-      {status}
-    </span>
-  );
-}
-
-function getNextStatus(status: OrderStatus): OrderStatus | null {
-  switch (status) {
-    case 'Waiting Payment':
-      return 'In Queue';
-    case 'In Queue':
-      return 'In Process';
-    case 'In Process':
-      return 'Done';
-    default:
-      return null;
-  }
-}
-
-function OrderCard({
-  order,
-  onStatusChange,
-}: {
-  order: Order;
-  onStatusChange: (id: string, next: OrderStatus) => void;
-}) {
-  const next = getNextStatus(order.status);
-
-  return (
-    <div className='flex-shrink-0 w-[320px] rounded-lg border border-border bg-card p-4 flex flex-col gap-2 mr-3'>
-      <div className='flex items-center justify-between gap-2'>
-        <div className='font-bold font-rubik text-foreground'>
-          Order {order.orderNo}
-        </div>
-        <OrderStatusBadge status={order.status} />
-      </div>
-      <div className='text-xs text-muted-foreground'>{order.createdAt}</div>
-      <div className='text-xs text-muted-foreground'>
-        Metode: {order.paymentType}
-        {order.paymentBank ? ` (${order.paymentBank})` : ''}
-      </div>
-      <ul className='mt-2 text-xs text-foreground/90 grid gap-1'>
-        {order.items.map((it, idx) => (
-          <li key={idx} className='flex justify-between'>
-            <span>
-              {it.name} × {it.qty}
-            </span>
-            <span>Rp{(it.price * it.qty).toLocaleString('id-ID')}</span>
-          </li>
-        ))}
-      </ul>
-      <div className='mt-2 text-xs font-bold text-primary'>
-        Total: Rp{order.total.toLocaleString('id-ID')}
-      </div>
-
-      {next && (
-        <button
-          onClick={() => onStatusChange(order.id, next)}
-          className='mt-3 px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs hover:opacity-90 transition'
-        >
-          Ubah ke {next}
-        </button>
-      )}
-    </div>
-  );
-}
-
 // ============================ //
 // ====== Main Component ====== //
 // ============================ //
 
 export default function CenterMock() {
-  const [detailMode, setDetailMode] = useState<
-    null | 'services' | 'non-services'
-  >(null);
   const [selectedTiles] = useState<Set<string>>(new Set());
   const [searchType, setSearchType] = useState<
     'barcode' | 'category' | 'name' | 'itemId'
   >('name');
   const [query, setQuery] = useState('');
-
-  const { orders, updateOrderStatus } = useCart();
-  const filteredOrders = orders.filter((o) => o.status !== 'Done');
 
   const { session } = useSession();
   const token = session?.token ?? '';
@@ -347,64 +251,6 @@ export default function CenterMock() {
         onClose={clearNotif}
       />
 
-      <div className='h-12 font-rubik text-foreground tracking-wide text-lg md:text-xl font-semibold break-words'>
-        Ongoing Order
-      </div>
-
-      <div
-        className='flex gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-gray-400'
-        style={{ maxHeight: 200 }}
-      >
-        {filteredOrders.length === 0 ? (
-          <div className='text-sm text-muted-foreground py-4'>
-            Belum ada order.
-          </div>
-        ) : (
-          filteredOrders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onStatusChange={(id, next) => updateOrderStatus(id, next)}
-            />
-          ))
-        )}
-      </div>
-
-      <hr className='border-t border-border my-2' />
-
-      <div className='h-12 text-3xl font-bold font-rubik text-foreground tracking-wide'>
-        Detailing
-      </div>
-
-      <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-        <button
-          type='button'
-          onClick={() =>
-            setDetailMode(detailMode === 'services' ? null : 'services')
-          }
-          className={[
-            'rounded-lg border px-4 py-3 bg-secondary border-border text-foreground',
-            detailMode === 'services' ? 'ring-2' : '',
-          ].join(' ')}
-        >
-          Services
-        </button>
-        <button
-          type='button'
-          onClick={() =>
-            setDetailMode(detailMode === 'non-services' ? null : 'non-services')
-          }
-          className={[
-            'rounded-lg border px-4 py-3 bg-secondary border-border text-foreground',
-            detailMode === 'non-services' ? 'ring-2' : '',
-          ].join(' ')}
-        >
-          Non-Services
-        </button>
-      </div>
-
-      <hr className='border-t border-border my-2' />
-
       <div className='h-12 text-3xl font-bold font-rubik text-foreground tracking-wide'>
         Main Menu
       </div>
@@ -463,7 +309,7 @@ export default function CenterMock() {
       </div>
 
       {/* PRODUCT LIST */}
-      <div className='flex-1 overflow-y-auto max-h-[50vh] pr-1'>
+      <div className='flex-1 overflow-y-auto pr-1'>
         {apiLoading ? (
           <div className='text-muted-foreground text-sm p-4'>
             Loading products...

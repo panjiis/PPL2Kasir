@@ -1,5 +1,5 @@
 'use client';
-import Image from 'next/image';
+// import Image from 'next/image';
 // Impor useState dan useEffect
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -23,7 +23,6 @@ import ProductsView from './products-view';
 import GroupsView from './groups-view';
 import PaymentTypesView from './payment-types-view';
 import OrdersView from './orders-view';
-import ProductUpdateView from './product-update-view';
 
 const queryClient = new QueryClient();
 
@@ -33,7 +32,7 @@ function KasirInnerPage() {
   // 'surface' akan didefinisikan nanti setelah 'isMounted' true
 
   const [currentView, setCurrentView] = useState('dashboard');
-  const [editingProductCode, setEditingProductCode] = useState<string | null>(
+  const [editingProductCode] = useState<string | null>(
     null
   );
   // <-- PERBAIKAN: State untuk mengontrol drawer keranjang di tablet
@@ -87,15 +86,12 @@ function KasirInnerPage() {
     }
   };
 
-  const handleEditProduct = (code: string) => {
-    setEditingProductCode(code);
-    setCurrentView('update');
-  };
+
 
   const renderCurrentView = () => {
     switch (currentView) {
       case 'products':
-        return <ProductsView onEdit={handleEditProduct} />;
+        return <ProductsView />;
       case 'groups':
         return <GroupsView />;
       case 'paymentTypes':
@@ -105,21 +101,9 @@ function KasirInnerPage() {
       case 'update':
         if (!editingProductCode) {
           setCurrentView('products');
-          return <ProductsView onEdit={handleEditProduct} />;
+          return <ProductsView />;
         }
-        return (
-          <ProductUpdateView
-            productCode={editingProductCode}
-            onBack={() => {
-              setEditingProductCode(null);
-              setCurrentView('products');
-            }}
-            onSuccess={() => {
-              setEditingProductCode(null);
-              setCurrentView('products');
-            }}
-          />
-        );
+
       case 'dashboard':
       default:
         return <CenterMock />;
@@ -251,7 +235,7 @@ function KasirInnerPage() {
             </div>
           )}
 
-          <footer className='mt-2 rounded-lg bg-primary px-3 sm:px-4 py-2 sm:py-3 text-primary-foreground text-center sm:text-left'>
+          {/* <footer className='mt-2 rounded-lg bg-primary px-3 sm:px-4 py-2 sm:py-3 text-primary-foreground text-center sm:text-left'>
             <div className='mx-auto flex flex-col sm:flex-row items-center justify-between gap-2'>
               <div className='flex items-center gap-2'>
                 <Image
@@ -267,7 +251,7 @@ function KasirInnerPage() {
                 Copyright 2025 Ngumpul Pas Deadline
               </p>
             </div>
-          </footer>
+          </footer> */}
         </div>
       </main>
     </DndContext>

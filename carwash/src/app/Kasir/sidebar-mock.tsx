@@ -4,7 +4,6 @@
 import type React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import {
-  Plus,
   LayoutDashboard,
   Boxes,
   Users,
@@ -15,7 +14,7 @@ import {
   Moon,
   Monitor,
 } from 'lucide-react';
-import { useCart } from './cart-content';
+
 import { usePreferences } from '../providers/preferences-context';
 import { useSession } from '../lib/context/session';
 import Image from 'next/image';
@@ -142,18 +141,18 @@ function ThemeSwitcher() {
   };
 
   const getIcon = (t: 'system' | 'dark' | 'light') => {
-    if (t === 'dark') return <Moon className="w-3.5 h-3.5" />;
-    if (t === 'light') return <Sun className="w-3.5 h-3.5" />;
-    return <Monitor className="w-3.5 h-3.5" />;
+    if (t === 'dark') return <Moon className='w-3.5 h-3.5' />;
+    if (t === 'light') return <Sun className='w-3.5 h-3.5' />;
+    return <Monitor className='w-3.5 h-3.5' />;
   };
 
   return (
-    <div className="mt-2 w-full flex justify-center overflow-x-auto px-1">
-      <div className="inline-flex rounded-md border border-border bg-secondary p-1">
+    <div className='mt-2 w-full flex justify-center overflow-x-auto px-1'>
+      <div className='inline-flex rounded-md border border-border bg-secondary p-1'>
         {(['system', 'light', 'dark'] as const).map((t) => (
           <button
             key={t}
-            type="button"
+            type='button'
             onClick={() => handleThemeChange(t)}
             aria-pressed={theme === t}
             className={[
@@ -165,7 +164,7 @@ function ThemeSwitcher() {
             title={t === 'system' ? 'Follow system (Windows) setting' : t}
           >
             {getIcon(t)}
-            <span className="capitalize">{t === 'system' ? 'System' : t}</span>
+            <span className='capitalize'>{t === 'system' ? 'System' : t}</span>
           </button>
         ))}
       </div>
@@ -203,9 +202,13 @@ function SidebarTileButton({
   const shownLabel = isMounted ? getButtonLabel(key, label) : label;
 
   return (
-    <div className={`p-1 text-center transition group ${isDragging ? 'opacity-90' : ''}`}>
+    <div
+      className={`p-1 text-center transition group ${
+        isDragging ? 'opacity-90' : ''
+      }`}
+    >
       <button
-        type="button"
+        type='button'
         className={[
           'block rounded-md p-1.5 w-full transition',
           color.bg,
@@ -215,18 +218,18 @@ function SidebarTileButton({
         ].join(' ')}
         onClick={!isCustomize ? onClick : undefined}
       >
-        <div className="mx-auto mb-1 grid h-8 w-8 place-items-center text-current">
-          <Icon className="h-4 w-4" />
+        <div className='mx-auto mb-1 grid h-8 w-8 place-items-center text-current'>
+          <Icon className='h-4 w-4' />
         </div>
 
         {isCustomize ? (
           <input
             defaultValue={shownLabel}
             onBlur={(e) => setButtonPref(key, { label: e.currentTarget.value })}
-            className="text-[10px] text-center w-full rounded-md border border-border bg-card text-foreground px-1 py-0.5"
+            className='text-[10px] text-center w-full rounded-md border border-border bg-card text-foreground px-1 py-0.5'
           />
         ) : (
-          <div className="text-[10px] text-center leading-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[86px] mx-auto">
+          <div className='text-[10px] text-center leading-tight whitespace-nowrap overflow-hidden text-ellipsis max-w-[86px] mx-auto'>
             {shownLabel}
           </div>
         )}
@@ -295,7 +298,7 @@ export default function SidebarMock({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const { setPaymentSheetOpen, billOption } = useCart();
+
   const {
     isCustomize,
     toggleCustomize,
@@ -331,7 +334,9 @@ export default function SidebarMock({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -345,14 +350,17 @@ export default function SidebarMock({
   };
 
   // popup state for API results
-  const [popupContent, setPopupContent] = useState<React.ReactNode | null>(null);
+  const [popupContent, setPopupContent] = useState<React.ReactNode | null>(
+    null
+  );
   const [loadingApi, setLoadingApi] = useState(false);
 
   const apiMap: Record<
     string,
-    | ((token: string) => Promise<
-        | { data: unknown[]; message?: string; success?: boolean }
-        | unknown
+    | ((
+        token: string
+      ) => Promise<
+        { data: unknown[]; message?: string; success?: boolean } | unknown
       >)
     | undefined
   > = {
@@ -381,8 +389,8 @@ export default function SidebarMock({
       if (Array.isArray(data) && data.length > 0) {
         content = (
           <div>
-            <h2 className="font-bold mb-3 capitalize">{key} Data</h2>
-            <div className="grid gap-3">
+            <h2 className='font-bold mb-3 capitalize'>{key} Data</h2>
+            <div className='grid gap-3'>
               {data.map((row: unknown, idx: number) => {
                 const item = row as Record<string, unknown>;
 
@@ -403,12 +411,16 @@ export default function SidebarMock({
                 );
 
                 return (
-                  <div key={itemKey} className="border rounded-lg p-3 bg-muted shadow dark:bg-muted">
-                    <div className="mb-2 text-base font-bold">{itemTitle}</div>
-                    <div className="text-xs text-gray-700 dark:text-gray-200 space-y-1">
+                  <div
+                    key={itemKey}
+                    className='border rounded-lg p-3 bg-muted shadow dark:bg-muted'
+                  >
+                    <div className='mb-2 text-base font-bold'>{itemTitle}</div>
+                    <div className='text-xs text-gray-700 dark:text-gray-200 space-y-1'>
                       {Object.entries(item).map(([k, v]) => (
                         <div key={k}>
-                          <strong className="mr-1">{k}:</strong> {String(v ?? '')}
+                          <strong className='mr-1'>{k}:</strong>{' '}
+                          {String(v ?? '')}
                         </div>
                       ))}
                     </div>
@@ -419,25 +431,36 @@ export default function SidebarMock({
           </div>
         );
       }
-      setPopupContent(<div style={{ maxHeight: 400, overflowY: 'auto' }}>{content}</div>);
+      setPopupContent(
+        <div style={{ maxHeight: 400, overflowY: 'auto' }}>{content}</div>
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setPopupContent(<div className="text-red-500">{message}</div>);
+      setPopupContent(<div className='text-red-500'>{message}</div>);
     } finally {
       setLoadingApi(false);
     }
   };
 
   return (
-    <div className={[ 'flex h-full min-h-[640px] flex-col gap-2 p-2 overflow-y-auto', globalBg ].join(' ')}>
-      <div className="flex flex-col items-center mb-3 pt-2">
-        <div className="h-12 w-12 rounded-lg overflow-hidden mb-1">
+    <div
+      className={[
+        'flex h-full min-h-[640px] flex-col gap-2 p-2 overflow-y-auto',
+        globalBg,
+      ].join(' ')}
+    >
+      <div className='flex flex-col items-center mb-3 pt-2'>
+        <div className='h-12 w-12 rounded-lg overflow-hidden mb-1'>
           <Image
-            src={ company.logo?.startsWith('http') ? company.logo : company.logo || '/logo.png' }
-            alt="Company Logo"
+            src={
+              company.logo?.startsWith('http')
+                ? company.logo
+                : company.logo || '/logo.png'
+            }
+            alt='Company Logo'
             width={48}
             height={48}
-            className="object-cover h-full w-full"
+            className='object-cover h-full w-full'
             unoptimized
           />
         </div>
@@ -445,24 +468,27 @@ export default function SidebarMock({
         {isCustomize ? (
           <input
             defaultValue={company.name}
-            onBlur={(e) => setCompany({ ...company, name: e.currentTarget.value })}
-            className="h-8 text-center rounded-md text-black font-semibold text-[0.85rem] w-full max-w-[120px]"
+            onBlur={(e) =>
+              setCompany({ ...company, name: e.currentTarget.value })
+            }
+            className='h-8 text-center rounded-md text-black font-semibold text-[0.85rem] w-full max-w-[120px]'
           />
         ) : (
-          <div className="text-center font-semibold text-[0.9rem] text-foreground leading-tight truncate max-w-[200px]">
+          <div className='text-center font-semibold text-[0.9rem] text-foreground leading-tight truncate max-w-[200px]'>
             {company.name}
           </div>
         )}
 
-        <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">
-          Powered by <span className="font-semibold text-primary uppercase">SYNTRA</span>
+        <div className='text-[10px] text-muted-foreground mt-1 whitespace-nowrap'>
+          Powered by{' '}
+          <span className='font-semibold text-primary uppercase'>SYNTRA</span>
         </div>
 
         <ThemeSwitcher />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div
+      <div className='grid grid-cols-2 gap-2'>
+        {/* <div
           className={[ 'col-span-2 rounded-lg border p-2 cursor-pointer text-center', globalBtn.bg, globalBtn.text, !billOption ? 'opacity-40 cursor-not-allowed' : '' ].join(' ')}
           onClick={() => billOption && setPaymentSheetOpen(true)}
         >
@@ -470,7 +496,7 @@ export default function SidebarMock({
             <Plus className="h-4 w-4" />
             <span className="text-[13px] font-medium">Create order</span>
           </div>
-        </div>
+        </div> */}
 
         {!isMounted &&
           navItems.map((item) => (
@@ -485,8 +511,15 @@ export default function SidebarMock({
           ))}
 
         {isMounted && (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={navItems.map((n) => n.key)} strategy={verticalListSortingStrategy}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={navItems.map((n) => n.key)}
+              strategy={verticalListSortingStrategy}
+            >
               {navItems.map((item) => (
                 <SortableNavItem
                   key={item.key}
@@ -503,68 +536,92 @@ export default function SidebarMock({
       </div>
 
       {isCustomize && (
-        <div className="mt-3 px-1">
-          <div className="rounded-lg border border-border bg-card p-2">
-            <h3 className="font-semibold text-sm mb-2">Customize Theme</h3>
+        <div className='mt-3 px-1'>
+          <div className='rounded-lg border border-border bg-card p-2'>
+            <h3 className='font-semibold text-sm mb-2'>Customize Theme</h3>
 
-            <div className="text-xs mb-1">Theme Package</div>
-            <div className="flex flex-wrap gap-2">
-              {themePackages.map((opt: { key: string; label: string; bg: string }) => (
-                <button
-                  key={opt.key}
-                  onClick={() => setActiveThemeKey(opt.key)}
-                  className={[
-                    'h-7 w-7 rounded-md border-2 transition-transform',
-                    opt.bg,
-                    activeThemeKey === opt.key ? 'ring-2 ring-offset-1 ring-primary' : 'border-border',
-                  ].join(' ')}
-                  title={opt.label}
-                />
-              ))}
+            <div className='text-xs mb-1'>Theme Package</div>
+            <div className='flex flex-wrap gap-2'>
+              {themePackages.map(
+                (opt: { key: string; label: string; bg: string }) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setActiveThemeKey(opt.key)}
+                    className={[
+                      'h-7 w-7 rounded-md border-2 transition-transform',
+                      opt.bg,
+                      activeThemeKey === opt.key
+                        ? 'ring-2 ring-offset-1 ring-primary'
+                        : 'border-border',
+                    ].join(' ')}
+                    title={opt.label}
+                  />
+                )
+              )}
             </div>
           </div>
         </div>
       )}
 
-      <div className="mt-auto space-y-2">
+      <div className='mt-auto space-y-2'>
         <button
           onClick={toggleCustomize}
-          className={[ 'w-full rounded-lg border border-border p-2 flex items-center gap-2 justify-center hover:opacity-90 transition text-sm', globalBtn.bg, globalBtn.text ].join(' ')}
+          className={[
+            'w-full rounded-lg border border-border p-2 flex items-center gap-2 justify-center hover:opacity-90 transition text-sm',
+            globalBtn.bg,
+            globalBtn.text,
+          ].join(' ')}
         >
-          <LayoutDashboard className="h-4 w-4" />
-          <span className="text-[13px]">{isCustomize ? 'Done' : 'Customize'}</span>
+          <LayoutDashboard className='h-4 w-4' />
+          <span className='text-[13px]'>
+            {isCustomize ? 'Done' : 'Customize'}
+          </span>
         </button>
 
-        <div className="rounded-lg border border-border bg-card p-2 relative" ref={menuRef}>
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-md overflow-hidden">
+        <div
+          className='rounded-lg border border-border bg-card p-2 relative'
+          ref={menuRef}
+        >
+          <div className='flex items-center gap-2'>
+            <div className='h-8 w-8 rounded-md overflow-hidden'>
               <Image
-                src={ company.logo?.startsWith('http') ? company.logo : company.logo || './Logo.png' }
-                alt="User Profile"
+                src={
+                  company.logo?.startsWith('http')
+                    ? company.logo
+                    : company.logo || './Logo.png'
+                }
+                alt='User Profile'
                 width={40}
                 height={40}
-                className="h-full w-full object-cover"
+                className='h-full w-full object-cover'
                 unoptimized
               />
             </div>
 
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-sm font-medium text-foreground truncate">{userProfile.name}</span>
-              <span className="text-[11px] text-muted-foreground truncate">{userProfile.role}</span>
+            <div className='flex flex-col flex-1 min-w-0'>
+              <span className='text-sm font-medium text-foreground truncate'>
+                {userProfile.name}
+              </span>
+              <span className='text-[11px] text-muted-foreground truncate'>
+                {userProfile.role}
+              </span>
             </div>
 
-            <button onClick={() => setMenuOpen((prev) => !prev)} className="p-1 rounded hover:bg-accent transition">
-              <MoreVertical className="h-4 w-4 text-muted-foreground" />
+            <button
+              onClick={() => setMenuOpen((prev) => !prev)}
+              className='p-1 rounded hover:bg-accent transition'
+            >
+              <MoreVertical className='h-4 w-4 text-muted-foreground' />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-2 bottom-14 bg-card border border-border rounded-md shadow-md py-1 z-50 w-28">
+              <div className='absolute right-2 bottom-14 bg-card border border-border rounded-md shadow-md py-1 z-50 w-28'>
                 <button
                   onClick={() => {
                     clearSession();
                     router.replace('/Login');
                   }}
-                  className="w-full text-left text-sm px-3 py-2 hover:bg-accent hover:text-destructive transition"
+                  className='w-full text-left text-sm px-3 py-2 hover:bg-accent hover:text-destructive transition'
                 >
                   Logout
                 </button>
@@ -575,19 +632,22 @@ export default function SidebarMock({
       </div>
 
       {popupContent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white dark:bg-card rounded-lg shadow-lg p-6 max-w-lg w-[min(95vw,640px)]">
-            <div className="mt-4 flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">{loadingApi ? 'Loading...' : 'API result'}</div>
-              <div className="text-right">
-                <button className="px-4 py-2 rounded bg-primary text-primary-foreground" onClick={() => setPopupContent(null)}>
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
+          <div className='bg-white dark:bg-card rounded-lg shadow-lg p-6 max-w-lg w-[min(95vw,640px)]'>
+            <div className='mt-4 flex justify-between items-center'>
+              <div className='text-sm text-muted-foreground'>
+                {loadingApi ? 'Loading...' : 'API result'}
+              </div>
+              <div className='text-right'>
+                <button
+                  className='px-4 py-2 rounded bg-primary text-primary-foreground'
+                  onClick={() => setPopupContent(null)}
+                >
                   Close
                 </button>
               </div>
             </div>
-            <div className="mt-4">
-              {popupContent}
-            </div>
+            <div className='mt-4'>{popupContent}</div>
           </div>
         </div>
       )}

@@ -12,6 +12,7 @@ import type {
   ValidateDiscountPayload,
   DetailedPosOrder,
   DiscountPayload,
+  ApiSyncedCartItem, // +++ PERBAIKAN: IMPOR TIPE BARU +++
 } from '../types/pos';
 
 const BASE_URL =
@@ -215,17 +216,49 @@ export async function removeItemFromCart(
   return res.json();
 }
 
+// +++ PERBAIKAN: GANTI FUNGSI 'applyDiscount' SECARA KESELURUHAN +++
 export async function applyDiscount(
-  body: DiscountPayload,
-  token?: string
-): Promise<{ success: boolean }> {
+  payload: DiscountPayload,
+  token: string
+): Promise<{
+  success: boolean;
+  subtotal?: string;
+  tax_amount?: string;
+  discount_amount?: string;
+  total_amount?: string;
+  message?: string;
+  items?: ApiSyncedCartItem[]; // <-- Tipe yang benar (bukan 'any[]')
+}> {
   const res = await fetch(`${BASE_URL}/pos/carts/discounts`, {
     method: 'POST',
     headers: defaultHeaders(token),
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await safeReadText(res));
-  return res.json();
+
+  // Beri tipe pada data respons untuk menghindari 'any'
+  const data: {
+    success: boolean;
+    message?: string;
+    data?: {
+      subtotal?: string | number;
+      tax_amount?: string | number;
+      discount_amount?: string | number;
+      total_amount?: string | number;
+      items?: ApiSyncedCartItem[]; // <-- Tipe yang benar
+    };
+  } = await res.json().catch(() => ({ success: false }));
+
+  const d = data?.data ?? {}; // ambil isi dalam "data"
+
+  return {
+    success: data.success ?? true,
+    subtotal: String(d.subtotal ?? 0),
+    tax_amount: String(d.tax_amount ?? 0),
+    discount_amount: String(d.discount_amount ?? 0),
+    total_amount: String(d.total_amount ?? 0),
+    items: d.items, // <-- Kembalikan 'items' yang sudah type-safe
+    message: data.message,
+  };
 }
 
 // ** BARU: DELETE CART **
@@ -392,7 +425,31 @@ export async function fetchDiscounts(
     headers: defaultHeaders(token),
   });
   if (!res.ok) throw new Error(await safeReadText(res));
-  return res.json();
+
+  // PERBAIKAN: Parsing body dan filtering
+  const body: unknown = await res.json().catch(() => null);
+
+  if (!body) return { data: [] };
+
+  let allDiscounts: Discount[] = [];
+
+  // Logic parsing body (mirip fetchProducts)
+  if (Array.isArray(body)) {
+    allDiscounts = body as Discount[];
+  } else if (
+    typeof body === 'object' &&
+    body !== null &&
+    'data' in body &&
+    Array.isArray(body.data)
+  ) {
+    allDiscounts = body.data as Discount[];
+  }
+
+  const activeDiscounts = allDiscounts.filter(
+    (d) => (d as Discount & { is_active?: boolean }).is_active === true
+  );
+
+  return { data: activeDiscounts };
 }
 
 export async function validateDiscount(

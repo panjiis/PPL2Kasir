@@ -5,8 +5,7 @@ import { useState, useEffect } from 'react';
 import {
   Trash,
   Columns3,
-  Lock,
-  RefreshCcw,
+  Plus,
   CircleSlash,
   Tags,
   Box,
@@ -16,7 +15,8 @@ import {
   Banknote,
   Loader2,
 } from 'lucide-react';
-import { useCart } from './cart-content';
+// +++ PERBAIKAN: Impor 'ApiCartSyncData' +++
+import { useCart, type ApiCartSyncData } from './cart-content';
 import { employees, type Coupon } from './dummy';
 import {
   Select,
@@ -30,17 +30,16 @@ import { useNotification } from './notification-context';
 import { usePreferences } from '../providers/preferences-context';
 import { useSession } from '../lib/context/session';
 import {
-  // createCart, // --- Tidak perlu lagi
-  // addItemToCart, // --- Tidak perlu lagi
   createOrderFromCart,
   processPayment as processPaymentApi,
   voidOrder as voidOrderApi,
   createPaymentType as createPaymentTypeApi,
   fetchDiscounts,
-  applyDiscount as applyDiscountApi, // +++ Impor applyDiscount
+  applyDiscount as applyDiscountApi,
 } from '../lib/utils/pos-api';
 
-// FIX (Perbaikan Tipe): Definisi tipe lokal untuk response diskon API
+// ... (Tipe ApiDiscount, DiscountPayload, SmallPill, LineItem tidak berubah) ...
+
 type ApiDiscount = {
   id?: number | string;
   discount_id?: number | string;
@@ -54,22 +53,11 @@ type ApiDiscount = {
   max_discount?: number;
 };
 
-// --- Tidak perlu lagi, payload di pos-api.ts ---
-// interface AddItemPayload {
-//   cart_id: string;
-//   product_code: string;
-//   quantity: number;
-//   serving_employee_id?: number;
-// }
-
 export interface DiscountPayload {
   cart_id: string;
   discount_id: number;
   item_ids: string[];
 }
-
-// ... (Komponen SmallPill, LineItem, ProductSection, ServicesSection tidak berubah) ...
-// ... (Scroll ke bawah) ...
 
 function SmallPill({
   prefKey,
@@ -226,7 +214,8 @@ function ProductSection() {
       <legend className='px-2 text-sm text-muted-foreground'>
         Section label product
       </legend>
-      <div className='space-y-3 max-h-[120px] overflow-y-auto'>
+      {/* PERUBAHAN UI/UX: Memperbesar max-h */}
+      <div className='space-y-3 max-h-[160px] overflow-y-auto'>
         {products.length === 0 ? (
           <div className='text-xs text-muted-foreground'>
             Belum ada product.
@@ -269,11 +258,12 @@ function ServicesSection() {
     locked,
   } = useCart();
   return (
-    <fieldset className='rounded-lg border border-border bg-secondary p-1'>
+    <fieldset className='rounded-lg border border-border bg-secondary p-3'>
       <legend className='px-2 text-sm text-muted-foreground'>
         Section label services
       </legend>
-      <div className='space-y-3 max-h-[120px] overflow-y-auto'>
+      {/* PERUBAHAN UI/UX: Memperbesar max-h */}
+      <div className='space-y-3 max-h-[160px] overflow-y-auto'>
         {services.length === 0 ? (
           <div className='text-xs text-muted-foreground'>
             Belum ada service.
@@ -404,7 +394,8 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
   return (
     <div className='rounded-lg border border-border bg-card p-3 space-y-3 relative'>
       <div className='flex gap-2'>
-        <div className='relative min-w-[20px]'>
+        {/* PERUBAHAN UI/UX: Menghapus min-w-[20px] */}
+        <div className='relative'>
           <button
             type='button'
             onClick={() => setOpen((s) => !s)}
@@ -434,14 +425,15 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
             </div>
           )}
         </div>
-        <div className='flex-1 flex rounded-md border border-border bg-secondary overflow-hidden min-w-[140px]'>
+        {/* PERUBAHAN UI/UX: Menghapus min-w-[140px] */}
+        <div className='flex-1 flex rounded-md border border-border bg-secondary overflow-hidden'>
+          {/* PERUBAHAN UI/UX: Merapikan style input */}
           <input
             type='text'
             value={codeInput}
             onChange={(e) => setCodeInput(e.target.value)}
             placeholder='Masukkan kode'
-            className='flex-1 bg-transparent px-2 text-sm text-foreground outline-none placeholder:text-muted-foreground min-w-[420px]'
-            style={{ minWidth: '100px', fontSize: '1rem' }}
+            className='flex-1 bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground'
           />
         </div>
       </div>
@@ -505,22 +497,28 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
   );
 }
 
-function BillOptionSection({ onVoid }: { onVoid: () => void }) {
-  const { billOption, setBillOption, locked, setLocked, repeatRound } =
-    useCart();
+function BillOptionSection({
+  onVoid,
+  onCreateOrder,
+}: {
+  onVoid: () => void;
+  onCreateOrder: () => void;
+}) {
+  useCart();
   const { isCustomize, getButtonLabel, getButtonClasses, setButtonPref } =
     usePreferences();
+
+  // PERUBAHAN 1: Menghapus 'Repeat'
   const options = [
-    { key: 'lock', label: 'Lock', value: 'Lock' },
-    { key: 'repeat', label: 'Repeat', value: 'repeat' },
+    { key: 'create', label: 'Order', value: 'create' },
     { key: 'void', label: 'Void', value: 'void' },
   ];
+
+  // PERUBAHAN 2: Menghapus Ikon 'Repeat'
   const getIcon = (key: string) => {
     switch (key) {
-      case 'lock':
-        return <Lock className='h-6 w-6' />;
-      case 'repeat':
-        return <RefreshCcw className='h-6 w-6' />;
+      case 'create':
+        return <Plus className='h-6 w-6' />;
       case 'void':
         return <CircleSlash className='h-6 w-6' />;
       default:
@@ -528,31 +526,36 @@ function BillOptionSection({ onVoid }: { onVoid: () => void }) {
     }
   };
   return (
-    <div className='grid grid-cols-3 gap-3 bg-secondary p-3 rounded-lg'>
+    // PERUBAHAN 3: Mengganti grid-cols-3 menjadi grid-cols-2
+    <div className='grid grid-cols-2 gap-3 bg-secondary p-3 rounded-lg'>
       {options.map((opt) => {
-        const active =
-          (opt.value === 'Lock' && locked) ||
-          (billOption === opt.value && opt.value !== 'Lock');
+        const active = false; // Tombol ini adalah aksi, bukan status
 
         const prefKey = `aside:bill:${opt.key}`;
         const shown = getButtonLabel(prefKey, opt.label);
         const color = getButtonClasses();
 
+        // +++ PERUBAHAN UI/UX: Buat tombol 'Void' berbeda +++
+        const isVoid = opt.key === 'void';
+        const buttonClasses = [
+          'rounded-lg p-3 text-center transition w-full',
+          active ? 'ring-2' : '',
+          isVoid
+            ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 active:ring-destructive'
+            : `${color.bg} ${color.text}`,
+        ];
+
         return (
-          <div key={opt.value} className='rounded-lg  p-2'>
+          // PERUBAHAN UI/UX: Menghapus padding p-2 dari wrapper
+          <div key={opt.value} className='rounded-lg'>
             <button
               type='button'
-              className={[
-                'rounded-lg p-3 text-center transition w-full',
-                color.bg,
-                color.text,
-                active ? 'ring-2' : '',
-              ].join(' ')}
+              className={buttonClasses.join(' ')} // <-- Terapkan kelas baru
+              // PERUBAHAN 4: Menghapus logika onClick 'repeat'
               onClick={() => {
-                setBillOption(opt.value as 'Dine In' | 'Take Away' | null);
-                if (opt.value === 'Lock') setLocked(!locked);
-                else if (opt.value === 'repeat') repeatRound();
-                else if (opt.value === 'void') {
+                if (opt.value === 'create') {
+                  onCreateOrder();
+                } else if (opt.value === 'void') {
                   if (window.confirm('Yakin void order ini?')) onVoid();
                 }
               }}
@@ -598,24 +601,20 @@ export default function AsideMock(): React.ReactElement {
     formatIDR,
     paymentSheetOpen,
     setPaymentSheetOpen,
-  
     locked,
-   
     setLocked,
     addOrder,
     items,
-
     applyCoupon,
     clearCoupon,
-    cartId, // +++ Ambil cartId dari context
-    clearCartState, // +++ Ambil clearCartState dari context
+    cartId,
+    clearCartState,
   } = useCart();
 
   const { showNotif } = useNotification();
   const { session } = useSession();
   const token = session?.token ?? '';
 
-  // State tambahan payment & status sheet
   const [paymentType, setPaymentType] = useState<'cash' | 'credit' | 'qris'>(
     'cash'
   );
@@ -623,14 +622,11 @@ export default function AsideMock(): React.ReactElement {
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const statuses = ['In Queue', 'In Process', 'Waiting Payment'] as const;
 
-  // --- PERBAIKAN: clearAll sekarang memanggil context ---
   function clearAll() {
-    clearCartState(); // <-- Memanggil fungsi reset dari context
+    clearCartState();
     setPaymentType('cash');
     setPaymentBank('');
-    // setLocked(false) sudah dihandle clearCartState
   }
-  // --- AKHIR PERBAIKAN ---
 
   const [time, setTime] = useState<string>('');
   const [busy, setBusy] = useState<boolean>(false);
@@ -645,11 +641,10 @@ export default function AsideMock(): React.ReactElement {
     return () => clearInterval(interval);
   }, []);
 
-  // ----------------------- */
-  // Process payment flow */
-  // ----------------------- */
+  // ... (Fungsi handleProcessPayment, handleVoidOrder, handleSelectAndApplyDiscount, handleCreatePaymentType tidak berubah) ...
+  
+  // +++ PERBAIKAN: Fungsi handleProcessPayment dengan 'catch' +++
   async function handleProcessPayment(): Promise<void> {
-    // --- PERBAIKAN: Cek cartId dan items ---
     if (!cartId || items.length === 0) {
       showNotif({
         type: 'error',
@@ -657,36 +652,12 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-    // --- AKHIR PERBAIKAN ---
-
-    // ---- VALIDATION LOGIC START ----
-    // --- PERBAIKAN: Hapus blok validasi diskon yang salah ---
-    // Logika validasi ini salah karena:
-    // 1. Menggunakan hardcoded discountId = 1
-    // 2. Hanya memvalidasi item pertama
-    // 3. Bertentangan dengan alur `handleSelectAndApplyDiscount`
-    // Diskon seharusnya sudah diterapkan di backend via /pos/carts/discounts
-    /*
-    if (appliedCoupon) {
-      setBusy(true);
-      showNotif({ type: 'info', message: 'Validating discount...' });
-      // ... (KODE LAMA DIHAPUS) ...
-    }
-    */
-    // --- AKHIR PERBAIKAN ---
 
     setBusy(true);
-    setLocked(true); // 🔒 kunci sementara agar tidak dobel klik
+    setLocked(true); // 🔒 Kunci interaksi
 
     try {
       setPaymentSheetOpen(false);
-
-      // --- PERBAIKAN: Hapus createCart, gunakan cartId dari context ---
-      // const { data: cart } = await createCart({ cashier_id: 1 }, token);
-      // const cartId = String(cart.cart_id); // <-- Gunakan cartId dari useCart()
-      // --- AKHIR PERBAIKAN ---
-
-      // Save last cart id so 'void' can delete it later
 
       const { data: order } = await createOrderFromCart(
         {
@@ -730,34 +701,39 @@ export default function AsideMock(): React.ReactElement {
         method: paymentType,
       });
 
-      // ✅ sukses -> reset & unlock
-      clearAll(); // clearAll sekarang memanggil clearCartState
+      // Panggil clearAll() HANYA setelah semua proses di atas berhasil.
+      clearAll();
 
-      // FIX (Perbaikan 7): Navigate to orders view after successful order
+      // (Notifikasi error palsu yang sebelumnya ada di sini sudah dihapus)
 
-      // ⚠️ gagal -> jangan di-lock
-      setLocked(false);
-
+    // Tambahkan blok CATCH untuk menangani kegagalan
+    } catch (err) {
+      console.error('Payment processing failed:', err);
+      const errorMessage =
+        err instanceof Error ? err.message : 'Gagal memproses pembayaran.';
+      
       showNotif({
         type: 'error',
-        message:
-          'Gagal memproses pembayaran. Kamu bisa ubah pesanan dan coba lagi.',
+        message: `${errorMessage} Silakan coba lagi.`,
       });
+
+      // Jika gagal, JANGAN clear cart, tapi BUKA KUNCI
+      // agar pengguna bisa mencoba membayar lagi.
+      setLocked(false);
+
     } finally {
+      // Pastikan setBusy(false) selalu dipanggil
       setBusy(false);
     }
   }
 
-  // ----------------------- */
-  // Void & Return & Discount handlers */
-  // ----------------------- */
+
   async function handleVoidOrder(): Promise<void> {
     const confirmVoid = window.confirm(
       'Yakin void order ini? (Ini akan tercatat sebagai order "Void")'
     );
     if (!confirmVoid) return;
 
-    // PERBAIKAN: Cek apakah ada item di keranjang
     if (!cartId || items.length === 0) {
       showNotif({
         type: 'info',
@@ -770,8 +746,6 @@ export default function AsideMock(): React.ReactElement {
     setLocked(true); // Kunci interaksi
 
     try {
-      // 1. Buat Order dari Cart
-      // Kita beri prefix VOID- agar mudah diidentifikasi
       const { data: createdOrder } = await createOrderFromCart(
         {
           cart_id: cartId,
@@ -786,8 +760,6 @@ export default function AsideMock(): React.ReactElement {
         throw new Error('Gagal membuat entry order untuk di-void.');
       }
 
-      // 2. Langsung panggil API voidOrder pada order yang baru dibuat
-      // Ini akan mengubah status order di database menjadi "Void"
       await voidOrderApi(
         {
           id: newOrderId,
@@ -797,14 +769,12 @@ export default function AsideMock(): React.ReactElement {
         token
       );
 
-      // 3. Beri notifikasi sukses
       showNotif({
         type: 'success',
         message: `Order ${createdOrder.document_number} berhasil di-void.`,
       });
 
-      // 4. Kosongkan keranjang (UI)
-      clearAll(); // Ini sudah memanggil clearCartState
+      clearAll();
     } catch (err) {
       console.error(err);
       const errorMessage =
@@ -812,14 +782,13 @@ export default function AsideMock(): React.ReactElement {
       showNotif({ type: 'error', message: errorMessage });
     } finally {
       setBusy(false);
-      // Pastikan lock terbuka meskipun terjadi error
       if (locked) {
         setLocked(false);
       }
     }
   }
 
-  // --- PERBAIKAN: Alur Diskon ---
+  // +++ PERBAIKAN: GANTI FUNGSI 'handleSelectAndApplyDiscount' SECARA KESELURUHAN +++
   async function handleSelectAndApplyDiscount(coupon: Coupon): Promise<void> {
     if (items.length === 0) {
       showNotif({
@@ -829,7 +798,6 @@ export default function AsideMock(): React.ReactElement {
       return;
     }
 
-    // +++ Cek jika cartId ada +++
     if (!cartId) {
       showNotif({
         type: 'error',
@@ -840,41 +808,53 @@ export default function AsideMock(): React.ReactElement {
 
     setBusy(true);
     try {
-      // --- Hapus createCart, gunakan cartId dari context ---
-      // const { data: cart } = await createCart({ cashier_id: 1 }, token);
-      // const cartId = String(cart.cart_id  );
-
       const discountIdToApply = Number(coupon.id);
       if (!discountIdToApply) {
         throw new Error('Coupon ID tidak valid');
       }
 
       const discountPayload: DiscountPayload = {
-        cart_id: cartId, // <-- Gunakan cartId dari context
+        cart_id: cartId,
         discount_id: discountIdToApply,
-        item_ids: items.map((it) => String(it.id)), // Pastikan ID adalah string
+        // --- PERBAIKAN: Kirim 'product_code' (itemId), BUKAN 'id' acak ---
+        // 'itemId' di frontend CartItem adalah 'product_code'
+        item_ids: items.map((it) => String(it.itemId)),
       };
 
-      // --- Gunakan fungsi applyDiscountApi dari pos-api.ts ---
+      // 'result' sekarang akan berisi { success: true, subtotal: "...", items: [...] }
+      // Tipe 'result.items' akan otomatis di-infer dari 'applyDiscountApi'
       const result = await applyDiscountApi(discountPayload, token);
-      if (!result.success) {
-        throw new Error('Gagal menerapkan diskon dari API');
-      }
-      // --- AKHIR PERBAIKAN FETCH ---
 
-      // On successful API call, update UI state
-      applyCoupon(coupon);
+      console.log('API Discount Response:', result);
+
+      if (!result.success) {
+        throw new Error(result.message || 'Gagal menerapkan diskon dari API');
+      }
+
+      // --- PERBAIKAN: Siapkan objek ApiCartSyncData (NO 'any') ---
+      const syncData: ApiCartSyncData = {
+        subtotal: parseFloat(result.subtotal ?? '0'),
+        tax: parseFloat(result.tax_amount ?? '0'),
+        discount: parseFloat(result.discount_amount ?? '0'),
+        total: parseFloat(result.total_amount ?? '0'),
+        items: result.items || [], // <-- 'result.items' sudah type-safe
+      };
+      // --- AKHIR PERBAIKAN ---
+
+      // Kirim kupon DAN objek sinkronisasi lengkap ke context
+      applyCoupon(coupon, syncData);
+
       showNotif({ type: 'success', message: 'Diskon diterapkan.' });
     } catch (err) {
       console.error(err);
-      // If API fails, clear any coupon from UI and show error
-      clearCoupon();
-      showNotif({ type: 'error', message: 'Gagal apply diskon.' });
+      clearCoupon(); // Pastikan frontend di-reset jika API gagal
+      const errorMessage =
+        err instanceof Error ? err.message : 'Gagal apply diskon.';
+      showNotif({ type: 'error', message: errorMessage });
     } finally {
       setBusy(false);
     }
   }
-  // --- AKHIR PERBAIKAN DISKON ---
 
   async function handleCreatePaymentType(paymentName: string): Promise<void> {
     setBusy(true);
@@ -895,6 +875,7 @@ export default function AsideMock(): React.ReactElement {
       setBusy(false);
     }
   }
+  // ... (Sisa JSX tidak berubah) ...
 
   const asideBlur =
     paymentSheetOpen || statusSheetOpen
@@ -909,9 +890,6 @@ export default function AsideMock(): React.ReactElement {
   return (
     <div className='flex flex-col gap-4 h-full  overflow-hidden relative'>
       <div className={asideBlur}></div>
-
-      {/* ... (Bagian JSX lainnya tidak berubah) ... */}
-      {/* ... (Scroll ke bawah) ... */}
 
       <div className='flex items-center gap-3 h-6 flex-shrink-0'>
         <SmallPill
@@ -970,7 +948,10 @@ export default function AsideMock(): React.ReactElement {
             </span>
           </div>
         </div>
-        <BillOptionSection onVoid={handleVoidOrder} />
+        <BillOptionSection
+          onVoid={handleVoidOrder}
+          onCreateOrder={() => setPaymentSheetOpen(true)}
+        />
         <div className='flex justify-end'></div>
       </div>
 

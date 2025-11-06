@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useSession } from '../lib/context/session';
 import type { PosProduct } from '@/app/lib/types/pos';
-import { AlertTriangle, Loader2, Search, Pencil } from 'lucide-react';
+import { AlertTriangle, Loader2, Search } from 'lucide-react'; // Menghapus 'Pencil'
 import { useProducts } from '@/app/Hooks/useProducts';
 import { Button } from '@/components/ui/button';
 
@@ -16,13 +16,11 @@ const formatRupiah = (amount?: number) => {
   }).format(amount);
 };
 
-const ITEMS_PER_PAGE = 10;
+// PERUBAHAN: Diubah dari 10 menjadi 8
+const ITEMS_PER_PAGE = 12;
 
-export default function ProductsView({
-  onEdit,
-}: {
-  onEdit: (code: string) => void;
-}) {
+// Menghapus prop 'onEdit'
+export default function ProductsView() {
   const { session } = useSession();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,15 +92,18 @@ export default function ProductsView({
     );
 
   return (
-    <div className='h-full flex flex-col p-1'>
-      <header className='p-3'>
+    // Mengubah padding dan menambahkan bg-card untuk konsistensi
+    <div className='h-full flex flex-col bg-card'>
+      {/* Menggunakan padding-4 yang konsisten */}
+      <header className='p-4'>
         <h1 className='text-2xl font-bold text-foreground'>Products</h1>
         <p className='text-muted-foreground'>
-          Search and manage your product inventory.
+          Search and view your product inventory.
         </p>
       </header>
 
-      <div className='px-3 pb-3'>
+      {/* Menggunakan padding-4 horizontal dan padding-bottom */}
+      <div className='px-4 pb-4'>
         <div className='relative'>
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
           <input
@@ -113,28 +114,33 @@ export default function ProductsView({
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className='w-full pl-10 pr-4 py-2 border rounded-md bg-card focus:outline-none focus:ring-2 focus:ring-primary/50'
+            // Mengganti bg-card menjadi bg-background untuk kontras input
+            className='w-full pl-10 pr-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50'
           />
         </div>
       </div>
 
-      <div className='flex-1 overflow-y-auto px-3 pb-3'>
+      {/* Menggunakan px-4 untuk padding horizontal */}
+      <div className='flex-1 overflow-y-auto px-4'>
         <div className='border rounded-lg overflow-hidden'>
           <table className='w-full text-sm'>
-            <thead className='bg-muted'>
+            {/* Membuat header tabel sticky untuk UX yang lebih baik saat scrolling */}
+            <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
               <tr>
                 <th className='text-left font-medium p-3'>Product Name</th>
                 <th className='text-left font-medium p-3'>Product Code</th>
                 <th className='text-right font-medium p-3'>Price</th>
-                <th className='text-center font-medium p-3'>Actions</th>
+                {/* Menghapus kolom 'Actions' */}
               </tr>
             </thead>
-            <tbody className='bg-card'>
+            {/* Menggunakan divide-y for pemisah baris yang lebih bersih */}
+            <tbody className='divide-y divide-border'>
               {paginatedProducts.length > 0 ? (
                 paginatedProducts.map((item) => (
                   <tr
                     key={item.product_code}
-                    className='border-t hover:bg-accent/30 transition-colors'
+                    // Menghapus border-t dan memperbaiki hover
+                    className='hover:bg-accent transition-colors'
                   >
                     <td className='p-3 font-medium'>{item.product_name}</td>
                     <td className='text-muted-foreground p-3'>
@@ -143,23 +149,14 @@ export default function ProductsView({
                     <td className='p-3 text-right font-semibold'>
                       {formatRupiah(Number(item.price))}
                     </td>
-                    <td className='p-3 text-center'>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        onClick={() => item.product_code && onEdit(item.product_code)}
-                        disabled={!item.product_code}
-                      >
-                        <Pencil className='h-3 w-3 mr-2' />
-                        Edit
-                      </Button>
-                    </td>
+                    {/* Menghapus sel 'Actions' */}
                   </tr>
                 ))
               ) : (
                 <tr>
+                  {/* Mengubah colSpan from 4 menjadi 3 */}
                   <td
-                    colSpan={4}
+                    colSpan={3}
                     className='text-center p-6 text-muted-foreground'
                   >
                     No products found.
@@ -171,6 +168,7 @@ export default function ProductsView({
         </div>
       </div>
 
+      {/* Footer Paginasi (Tidak berubah, sudah baik) */}
       {totalPages > 1 && (
         <footer className='p-4 border-t flex items-center justify-between'>
           <span className='text-sm text-muted-foreground'>

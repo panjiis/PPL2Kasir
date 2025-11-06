@@ -18,6 +18,15 @@ import {
   addItemToCart,
   type AddItemPayload,
 } from '../lib/utils/pos-api';
+import type { ApiSyncedCartItem } from '../lib/types/pos';
+
+export type ApiCartSyncData = {
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  items: ApiSyncedCartItem[]; // <-- GUNAKAN TIPE DARI LANGKAH 1
+};
 
 export type CartItem = {
   id: string;
@@ -42,6 +51,14 @@ export type OrderItem = {
   status: 'In Queue' | 'In Process' | 'Waiting Payment' | 'Done';
   paymentType: 'cash' | 'credit' | 'qris';
   paymentBank?: string;
+  total: number;
+};
+
+// Tipe baru untuk data finansial dari API
+type ApiFinancials = {
+  subtotal: number;
+  tax: number;
+  discount: number;
   total: number;
 };
 
@@ -73,7 +90,7 @@ type CartContextValue = {
   voidOrder: () => void;
   clearCartState: () => void;
   appliedCoupon: Coupon | null;
-  applyCoupon: (c: Coupon) => void;
+  applyCoupon: (c: Coupon, syncData: ApiCartSyncData) => void;
   clearCoupon: () => void;
   setItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
   setSelectedItemId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -95,10 +112,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [orders, setOrders] = useState<OrderItem[]>([]);
 
+  // State untuk menyimpan SEMUA nilai dari API
+  const [apiSubtotal, setApiSubtotal] = useState<number | null>(null);
+  const [apiTax, setApiTax] = useState<number | null>(null);
+  const [apiDiscount, setApiDiscount] = useState<number | null>(null);
+  const [apiTotal, setApiTotal] = useState<number | null>(null);
+
   const [cartId, setCartId] = useState<string | null>(null);
   const { session } = useSession();
   const { showNotif } = useNotification();
 
+  // clearCartState me-reset semua state API
   const clearCartState = useCallback(() => {
     setItems([]);
     setSelectedItemId(null);
@@ -106,12 +130,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setPaymentSheetOpen(false);
     setLocked(false);
     setAppliedCoupon(null);
+    // Reset semua nilai API
+    setApiSubtotal(null);
+    setApiTax(null);
+    setApiDiscount(null);
+    setApiTotal(null);
     setCartId(null);
   }, []);
+
+  const resetApiFinancials = () => {
+    setApiSubtotal(null);
+    setApiTax(null);
+    setApiDiscount(null);
+    setApiTotal(null);
+    setAppliedCoupon(null);
+  };
 
   const addItem = useCallback(
     async (p: CartItem) => {
       if (locked) return;
+
+      // Saat item ditambah/diubah, perhitungan API lama tidak valid lagi
+      resetApiFinancials();
+
       const token = session?.token;
       if (!token) {
         showNotif({ type: 'error', message: 'Anda harus login' });
@@ -193,6 +234,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const adjustQuantity = (id: string, delta: number) => {
     if (locked || !adjustMode || selectedItemId !== id) return;
+
+    // Saat kuantitas diubah, perhitungan API lama tidak valid
+    resetApiFinancials();
+
     setItems((prev) => {
       const updated = prev
         .map((it) => (it.id === id ? { ...it, qty: it.qty + delta } : it))
@@ -208,6 +253,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const deleteSelected = () => {
     if (locked || !selectedItemId) return;
+
+    // Saat item dihapus, perhitungan API lama tidak valid
+    resetApiFinancials();
+
     setItems((prev) => prev.filter((it) => it.id !== selectedItemId));
     setSelectedItemId(null);
     setAdjustMode(false);
@@ -220,8 +269,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const applyCoupon = (c: Coupon) => setAppliedCoupon(c);
-  const clearCoupon = () => setAppliedCoupon(null);
+  const applyCoupon = (c: Coupon, financials: ApiFinancials) => {
+    setAppliedCoupon(c);
+    // Simpan semua nilai pasti dari API
+    setApiSubtotal(financials.subtotal);
+    setApiTax(financials.tax);
+    setApiDiscount(financials.discount);
+    setApiTotal(financials.total);
+  };
+
+  const clearCoupon = () => {
+    // Reset semua nilai API
+    resetApiFinancials();
+  };
 
   const products = useMemo(
     () => items.filter((it) => it.type === 'product'),
@@ -231,38 +291,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
     () => items.filter((it) => it.type === 'service'),
     [items]
   );
-  const subtotal = useMemo(
+
+  // --- Logika Kalkulasi ---
+
+  // 1. Hitung subtotal lokal (selalu dihitung)
+  const localSubtotal = useMemo(
     () => items.reduce((acc, it) => acc + it.price * it.qty, 0),
     [items]
   );
+  // 2. Hitung pajak lokal (selalu dihitung)
   const taxRate = 0.1;
-  const tax = useMemo(() => Math.round(subtotal * taxRate), [subtotal]);
+  const localTax = useMemo(
+    () => Math.round(localSubtotal * taxRate),
+    [localSubtotal]
+  );
 
-  const eligibleSubtotal = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    const filterType =
-      appliedCoupon.scope === 'all'
-        ? null
-        : (appliedCoupon.scope as 'product' | 'service');
-    const baseItems = filterType
-      ? items.filter((it) => it.type === filterType)
-      : items;
-    return baseItems.reduce((acc, it) => acc + it.price * it.qty, 0);
-  }, [items, appliedCoupon]);
+  // 3. Tentukan nilai yang akan ditampilkan
+  // Jika apiSubtotal ada (setelah panggil API), gunakan itu. Jika tidak (masih null), gunakan perhitungan lokal.
+  const subtotal = apiSubtotal !== null ? apiSubtotal : localSubtotal;
+  const tax = apiTax !== null ? apiTax : localTax;
+  // Jika tidak ada diskon API, diskon adalah 0
+  const discount = apiDiscount !== null ? apiDiscount : 0;
 
-  const discount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    let d = 0;
-    if (appliedCoupon.discountType === 'percent') {
-      d = Math.round((eligibleSubtotal * appliedCoupon.value) / 100);
-    } else {
-      d = Math.min(appliedCoupon.value, eligibleSubtotal);
-    }
-    if (appliedCoupon.maxDiscount) d = Math.min(d, appliedCoupon.maxDiscount);
-    return d;
-  }, [appliedCoupon, eligibleSubtotal]);
-
-  const total = Math.max(0, subtotal + tax - discount);
+  // +++ PERBAIKAN LOGIKA TOTAL +++
+  // Jika apiTotal ada (dari API diskon), gunakan itu.
+  // Jika tidak, hitung total secara lokal: (subtotal + tax - discount)
+  // Perhatikan: subtotal, tax, dan discount di sini adalah nilai yang sudah "diputuskan" (bisa lokal atau API)
+  const total = apiTotal !== null ? apiTotal : subtotal + tax - discount;
+  // --- AKHIR PERBAIKAN ---
 
   const repeatRound = () => {
     if (locked) return;
@@ -292,10 +348,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setEmployee,
     products,
     services,
-    subtotal,
-    tax,
-    discount,
-    total,
+    subtotal, // <-- Ini sekarang dinamis
+    tax, // <-- Ini sekarang dinamis
+    discount, // <-- Ini sekarang dinamis
+    total, // <-- Ini sekarang dinamis
     formatIDR,
     paymentSheetOpen,
     setPaymentSheetOpen,

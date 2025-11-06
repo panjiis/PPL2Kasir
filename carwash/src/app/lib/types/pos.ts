@@ -127,3 +127,33 @@ export interface ValidateDiscountPayload {
   product_code: string;
   quantity: number;
 }
+
+// +++ PERBAIKAN: TAMBAHKAN TIPE BARU DI BAWAH INI +++
+
+/**
+ * Mewakili objek 'product' yang ada di dalam ApiSyncedCartItem.
+ * Berdasarkan log JSON respons API.
+ */
+export interface ApiSyncedCartProduct {
+  product_code: string;
+  product_name: string;
+  product_price: string; // API mengirim harga sebagai string
+  cost_price?: string;
+  is_active?: boolean;
+  // created_at dan updated_at bisa ditambahkan jika perlu
+}
+
+/**
+ * Mewakili satu item di dalam array 'items' yang dikembalikan oleh
+ * endpoint API /pos/carts/discounts. Berdasarkan log JSON.
+ */
+export interface ApiSyncedCartItem {
+  item_id: string; // ID unik untuk baris item di keranjang (cth: "157")
+  product_code: string; // Kode produk (cth: "DRINK-0003")
+  quantity: number;
+  unit_price: string; // Harga per unit (cth: "10000")
+  discount_amount: string; // Jumlah diskon (cth: "0.00")
+  line_total: string; // Total baris (cth: "10000.00")
+  product: ApiSyncedCartProduct; // Objek produk yang di-nest
+  discount?: unknown; // Objek diskon opsional, 'unknown' lebih aman dari 'any'
+}
