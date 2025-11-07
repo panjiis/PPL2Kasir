@@ -12,8 +12,10 @@ import DynamicIsland from './DynamicIsland';
 import { useNotification } from './notification-context';
 import { usePreferences } from '../providers/preferences-context';
 import { useSession } from '../lib/context/session';
-import { fetchProducts } from '../lib/utils/pos-api';
-import type { PosProduct } from '../lib/types/pos';
+// --- Impor fetchProductGroups ---
+import { fetchProducts, fetchProductGroups } from '../lib/utils/pos-api';
+// --- Impor ProductGroup ---
+import type { PosProduct, ProductGroup } from '../lib/types/pos';
 import Image from 'next/image';
 
 // ============================ //
@@ -89,10 +91,10 @@ function ProductCard({
         type='button'
         onClick={onAdd}
         aria-label={`Tambah ${name} ke pesanan`}
-        // --- PERBAIKAN: Tambahkan disabled dan style-nya ---
+        // --- PERBAIKAIKAN: Tambahkan disabled dan style-nya ---
         disabled={isAdding}
         className='w-full flex flex-col flex-1 disabled:opacity-50 disabled:cursor-wait'
-        // --- AKHIR PERBAIKAN ---
+        // --- AKHIR PERBAIKAIKAN ---
       >
         <div className='grid place-items-center rounded-lg border border-border bg-secondary overflow-hidden'>
           <Image
@@ -182,13 +184,22 @@ export default function CenterMock() {
   const token = session?.token ?? '';
 
   const [apiProducts, setApiProducts] = useState<CartItem[]>([]);
+  // --- PERUBAHAN: State untuk Groups ---
+  const [apiGroups, setApiGroups] = useState<ProductGroup[]>([]);
   const [apiLoading, setApiLoading] = useState(true);
 
+  // --- PERUBAHAN: useEffect mengambil data products dan groups ---
   useEffect(() => {
-    const loadProducts = async () => {
+    const loadData = async () => {
       try {
-        const result = await fetchProducts(token);
-        const raw: PosProduct[] = Array.isArray(result.data) ? result.data : [];
+        setApiLoading(true); // Pindahkan ke atas
+        const [productResult, groupResult] = await Promise.all([
+          fetchProducts(token),
+          fetchProductGroups(token),
+        ]);
+
+        // Proses Products
+        const raw: PosProduct[] = Array.isArray(productResult.data) ? productResult.data : [];
 
         const mapped: CartItem[] = raw.map((p) => {
           const prefix = (p.product_code || '').split('-')[0] || '';
@@ -202,24 +213,31 @@ export default function CenterMock() {
             image: p.image_url || '/placeholder.svg',
             price: Number(p.product_price ?? p.price ?? 0),
             type: itemType, 
-            category: prefix, 
+            category: prefix, // Ini adalah group CODE (cth: "FOD")
+            product_group_id: p.product_group_id, // Ini adalah group ID (cth: 12)
             description: p.unit_of_measure ?? '',
             qty: 1, 
           };
         });
 
         setApiProducts(mapped);
+
+        // Proses Groups
+        const rawGroups: ProductGroup[] = Array.isArray(groupResult.data) ? groupResult.data : [];
+        setApiGroups(rawGroups);
+
       } catch (err) {
-        console.error('Failed to load products from API:', err);
+        console.error('Failed to load products or groups from API:', err);
       } finally {
         setApiLoading(false);
       }
     };
 
     if (token) {
-      loadProducts();
+      loadData();
     } else {
       setApiProducts([]);
+      setApiGroups([]); // <-- Reset groups
       setApiLoading(false);
     }
   }, [token]);
@@ -249,6 +267,85 @@ export default function CenterMock() {
       return typeFilterPassed && textFilterPassed;
     });
   }, [query, searchType, typeFilter, apiProducts]);
+
+  // --- PERUBAHAN: Memo baru untuk mengelompokkan produk yang sudah difilter ---
+  const groupedAndFilteredProducts = useMemo(() => {
+    // 1. Buat map dari group ID -> ProductGroup
+    const groupMap = new Map<number, ProductGroup>();
+    apiGroups.forEach(g => {
+      // --- PERBAIKAN: Pastikan ID ada sebelum di-set ---
+      if (g.id !== null && g.id !== undefined) {
+        groupMap.set(g.id, g);
+      }
+    });
+
+    // 2. Buat map dari group Code -> ProductGroup (untuk fallback)
+    const groupCodeMap = new Map<string, ProductGroup>();
+    apiGroups.forEach(g => {
+      if (g.product_group_code) {
+        groupCodeMap.set(g.product_group_code, g);
+      }
+    });
+
+    // 3. Kelompokkan produk yang sudah difilter
+    const productsByGroupId = new Map<number, CartItem[]>();
+    const ungroupedProducts: CartItem[] = [];
+
+    filteredProducts.forEach(p => {
+      let foundGroup = false;
+
+      // Prioritas 1: Gunakan product_group_id
+      // --- PERBAIKAN: Cek p.product_group_id ada DAN ada di map ---
+      if (p.product_group_id && groupMap.has(p.product_group_id)) {
+        const groupId = p.product_group_id; // Di sini, groupId pasti number
+        if (!productsByGroupId.has(groupId)) productsByGroupId.set(groupId, []);
+        productsByGroupId.get(groupId)!.push(p);
+        foundGroup = true;
+      } 
+      // Prioritas 2: Gunakan category (kode prefix)
+      else if (p.category && groupCodeMap.has(p.category)) {
+        const group = groupCodeMap.get(p.category)!;
+        const groupId = group.id; // Ini bisa jadi number | undefined
+        
+        // --- PERBAIKAN: Cek groupId ada sebelum dipakai ---
+        if (groupId !== null && groupId !== undefined) {
+          if (!productsByGroupId.has(groupId)) {
+            productsByGroupId.set(groupId, []);
+          }
+          productsByGroupId.get(groupId)!.push(p);
+          foundGroup = true;
+        }
+      }
+
+      if (!foundGroup) {
+        ungroupedProducts.push(p);
+      }
+    });
+
+    // 4. Ubah map menjadi array agar bisa di-render
+    const groupedList = apiGroups
+      .map(group => ({
+        group,
+        // --- PERBAIKAN: Cek group.id ada sebelum .get() ---
+        products: (group.id !== null && group.id !== undefined)
+          ? (productsByGroupId.get(group.id) || [])
+          : []
+      }))
+      .filter(g => g.products.length > 0); // Hanya tampilkan grup yang ada isinya
+
+    // 5. Tambahkan produk tanpa grup di akhir
+    if (ungroupedProducts.length > 0) {
+      groupedList.push({
+        // Grup dummy (pastikan id-nya unik, misal 0 atau -1)
+        group: { id: 0, product_group_name: 'Lain-lain', product_group_code: 'OTHER' }, 
+        products: ungroupedProducts
+      });
+    }
+    
+    return groupedList;
+
+  }, [filteredProducts, apiGroups]);
+
 
   // --- PERBAIKAN: Ambil 'addingItemId' dari useCart ---
   const { addItem, addingItemId } = useCart();
@@ -340,28 +437,39 @@ export default function CenterMock() {
       </div>
 
 
-      {/* PRODUCT LIST */}
-      <div className='flex-1 overflow-y-auto pr-1'>
+      {/* --- PERUBAHAN: PRODUCT LIST RENDER --- */}
+      <div className='flex-1 overflow-y-auto pr-1 space-y-6'>
         {apiLoading ? (
           <div className='text-muted-foreground text-sm p-4'>
             Loading products...
           </div>
-        ) : (
-          <div className='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
-            {filteredProducts.map((p) => (
-              <ProductCard
-                key={p.id}
-                id={p.id}
-                name={p.name}
-                image_url={p.image}
-                price={p.price}
-                type={p.type}
-                description={p.description}
-                onAdd={() => addItem(p)}
-                isAdding={addingItemId === p.id} // <-- TAMBAHKAN INI
-              />
-            ))}
+        ) : groupedAndFilteredProducts.length === 0 ? (
+          <div className='text-muted-foreground text-sm p-4 text-center'>
+            Tidak ada produk yang cocok dengan filter.
           </div>
+        ) : (
+          groupedAndFilteredProducts.map(({ group, products }) => (
+            <div key={group.id ?? group.product_group_code}>
+              <h2 className='text-xl font-bold text-foreground mb-3 capitalize'>
+                {group.product_group_name?.toLowerCase()}
+              </h2>
+              <div className='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
+                {products.map((p) => (
+                  <ProductCard
+                    key={p.id}
+                    id={p.id}
+                    name={p.name}
+                    image_url={p.image}
+                    price={p.price}
+                    type={p.type}
+                    description={p.description}
+                    onAdd={() => addItem(p)}
+                    isAdding={addingItemId === p.id} // <-- TAMBAHKAN INI
+                  />
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

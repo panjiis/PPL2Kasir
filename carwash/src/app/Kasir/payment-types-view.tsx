@@ -26,7 +26,8 @@ export default function PaymentTypesView() {
       (p): PaymentType => ({
         id: p.id,
         payment_name: p.payment_name ?? 'Unnamed',
-        processing_fee_rate: p.processing_fee_rate ?? '0%', // Dibiarkan, tidak dipakai
+        // --- PERBAIKAN: Pastikan 'processing_fee_rate' diambil ---
+        processing_fee_rate: p.processing_fee_rate ?? '0%', // Ini sudah benar
         is_active: Boolean(p.is_active),
       })
     );
@@ -34,9 +35,8 @@ export default function PaymentTypesView() {
 
   const filteredPayments = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return paymentTypes.filter(
-      (pt) => pt.payment_name.toLowerCase().includes(term)
-      // --- PERBAIKAN: Filter berdasarkan processing_fee_rate dihapus
+    return paymentTypes.filter((pt) =>
+      pt.payment_name.toLowerCase().includes(term)
     );
   }, [searchTerm, paymentTypes]);
 
@@ -91,7 +91,7 @@ export default function PaymentTypesView() {
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
           <input
             type='text'
-            placeholder='Search by payment name...' // --- PERBAIKAN: Placeholder
+            placeholder='Search by payment name...'
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -109,19 +109,21 @@ export default function PaymentTypesView() {
             <thead className='bg-muted'>
               <tr>
                 <th className='text-left font-medium p-3'>Name</th>
-                {/* --- PERBAIKAN: Kolom Processing Fee dihapus --- */}
+                {/* --- PERBAIKAN: Menambahkan kembali kolom Fee --- */}
+                <th className='text-left font-medium p-3'>Processing Fee</th>
                 <th className='text-center font-medium p-3'>Status</th>
               </tr>
             </thead>
             <tbody className='bg-card'>
-              {paginatedPayments.length > 0 ? ( // --- PERBAIKAN: Menggunakan paginatedPayments
+              {paginatedPayments.length > 0 ? (
                 paginatedPayments.map((pt) => (
                   <tr
                     key={pt.id ?? pt.payment_name}
                     className='border-t hover:bg-accent/30 transition-colors'
                   >
                     <td className='p-3 font-medium'>{pt.payment_name}</td>
-                    {/* --- PERBAIKAN: Kolom Processing Fee dihapus --- */}
+                    {/* --- PERBAIKAN: Menambahkan kembali data Fee --- */}
+                    <td className='p-3'>{pt.processing_fee_rate}</td>
                     <td className='p-3 text-center'>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -138,7 +140,7 @@ export default function PaymentTypesView() {
               ) : (
                 <tr>
                   <td
-                    colSpan={2} // --- PERBAIKAN: Colspan menjadi 2
+                    colSpan={3} // --- PERBAIKAN: Colspan menjadi 3
                     className='text-center p-6 text-muted-foreground'
                   >
                     No payment types found.

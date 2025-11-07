@@ -341,6 +341,8 @@ export async function createOrderFromCart(
     document_number: string;
     additional_info?: string;
     notes?: string;
+    subtotal?: number; 
+    total_amount?: number; 
   },
   token?: string
 ): Promise<{ data: PosOrder }> {

@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
   useCallback,
+  useEffect, // <-- Dibutuhkan
 } from 'react';
 import type { ProductType } from './dummy';
 import type { Coupon } from './dummy';
@@ -17,6 +18,7 @@ import {
   createCart,
   addItemToCart,
   type AddItemPayload,
+  deleteCart, // <-- Impor fungsi deleteCart
 } from '../lib/utils/pos-api';
 import type { ApiSyncedCartItem } from '../lib/types/pos';
 
@@ -25,7 +27,7 @@ export type ApiCartSyncData = {
   tax: number;
   discount: number;
   total: number;
-  items: ApiSyncedCartItem[]; // <-- GUNAKAN TIPE DARI LANGKAH 1
+  items: ApiSyncedCartItem[];
 };
 
 export type CartItem = {
@@ -39,9 +41,9 @@ export type CartItem = {
   category: string;
   description?: string;
   qty: number;
-
-  employeeId?: number; // <-- GANTI DENGAN INI
-  isApiSynced?: boolean; // <-- TAMBAH
+  employeeId?: number;
+  product_group_id?: number;
+  isApiSynced?: boolean;
 };
 
 export type OrderItem = {
@@ -90,7 +92,8 @@ type CartContextValue = {
   setLocked: (v: boolean) => void;
   repeatRound: () => void;
   voidOrder: () => void;
-  clearCartState: () => void;
+  // PERBAIKAN 1: Perbarui Tipe clearCartState
+  clearCartState: (options?: { deleteBackendCart?: boolean }) => void;
   appliedCoupon: Coupon | null;
   applyCoupon: (c: Coupon, syncData: ApiCartSyncData) => void;
   clearCoupon: () => void;
@@ -100,7 +103,7 @@ type CartContextValue = {
   orders: OrderItem[];
   addOrder: (order: OrderItem) => void;
   updateOrderStatus: (id: string, status: OrderItem['status']) => void;
-  addingItemId: string | null; // <-- TAMBAHKAN INI
+  addingItemId: string | null;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -124,45 +127,76 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartId, setCartId] = useState<string | null>(null);
   const { session } = useSession();
   const { showNotif } = useNotification();
-  
-  // --- STATE BARU UNTUK MENCEGAH KLIK GANDA ---
   const [addingItemId, setAddingItemId] = useState<string | null>(null);
 
-  // clearCartState me-reset semua state API
-  const clearCartState = useCallback(() => {
-    setItems([]);
-    setSelectedItemId(null);
-    setAdjustMode(false);
-    setPaymentSheetOpen(false);
-    setLocked(false);
-    setAppliedCoupon(null);
-    // Reset semua nilai API
+  // Buat resetApiFinancials stabil
+  const resetApiFinancials = useCallback(() => {
     setApiSubtotal(null);
     setApiTax(null);
     setApiDiscount(null);
     setApiTotal(null);
-    setCartId(null);
+    setAppliedCoupon(null);
   }, []);
 
-  const resetApiFinancials = () => {
-    setApiSubtotal(null);
-    setApiTax(null);
-    setApiDiscount(null);
-    setApiTotal(null);
-    setAppliedCoupon(null);
-  };
+  // Gabungkan SEMUA logika "clear" ke satu fungsi
+  const clearCartState = useCallback(
+    (options: { deleteBackendCart?: boolean } = {}) => {
+      const { deleteBackendCart = true } = options;
+      const token = session?.token;
+      const currentCartId = cartId; // Salin cartId sebelum di-reset
 
-  // --- FUNGSI 'addItem' DIPERBARUI ---
+      // 1. Reset state UI (Selalu lakukan ini)
+      setItems([]);
+      setSelectedItemId(null);
+      setAdjustMode(false);
+      setPaymentSheetOpen(false);
+      setLocked(false);
+      setApiSubtotal(null);
+      setApiTax(null);
+      setApiDiscount(null);
+      setApiTotal(null);
+      setAppliedCoupon(null);
+      setCartId(null); // <-- KUNCI UTAMA: Reset cartId
+
+      // 2. Hapus cart di backend (Opsional)
+      if (deleteBackendCart && currentCartId && token) {
+        console.log(`(clearCartState) Menghapus cartId: ${currentCartId} dari backend...`);
+        deleteCart(currentCartId, token)
+          .then(() => {
+            console.log(`(clearCartState) Cart ${currentCartId} berhasil dihapus.`);
+          })
+          .catch((err) => {
+            console.error(`(clearCartState) Gagal hapus cart ${currentCartId}:`, err);
+          });
+      } else {
+        console.log(`(clearCartState) Melakukan clear UI tanpa hapus backend.`);
+      }
+    },
+    [cartId, session?.token] // <-- Ambil cartId dan token terbaru
+  );
+
+  // useEffect untuk 'delete-to-empty'
+  // Ini akan menangani bug 'delete' dan 'adjustQuantity'
+  useEffect(() => {
+    // Jika items menjadi kosong TAPI cartId masih ada
+    if (items.length === 0 && cartId) {
+      console.log(
+        `(useEffect) Keranjang kosong, cartId ${cartId} akan dihapus.`,
+      );
+      // Panggil clearCartState, yang akan menghapus cartId di UI dan backend
+      clearCartState({ deleteBackendCart: true });
+    }
+  }, [items, cartId, clearCartState]); // Monitor perubahan di 'items'
+
+  // --- FUNGSI 'addItem' ---
   const addItem = useCallback(
     async (p: CartItem) => {
-      // 1. Cek apakah item ini sedang ditambahkan
       if (addingItemId === p.id) {
         showNotif({ type: 'info', message: 'Sedang diproses...' });
-        return; 
+        return;
       }
       if (locked) return;
-      
-      // 2. Set item ini sebagai 'adding'
+
       setAddingItemId(p.id);
 
       try {
@@ -173,14 +207,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 1. Pastikan Cart ID ada
         let currentCartId = cartId;
         if (!currentCartId) {
+          console.log("(addItem) Membuat cart baru...");
           try {
             const { data } = await createCart({ cashier_id: 1 }, token);
             currentCartId = String(data.cart_id);
             setCartId(currentCartId);
             localStorage.setItem('last_cart_id', currentCartId);
+            console.log(`(addItem) Cart baru dibuat: ${currentCartId}`);
           } catch (e) {
             console.error(e);
             showNotif({ type: 'error', message: 'Gagal membuat keranjang' });
@@ -188,21 +223,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // 2. Cek item sudah ada di state lokal
         const found = items.find((it) => it.id === p.id);
 
-        // 3. Logika Percabangan (Service vs Product)
         if (p.type === 'service') {
-          // --- JIKA SERVICE ---
           setItems((prev) => {
-            // Cek lagi 'found' di dalam setter untuk data paling baru
             const foundInSetter = prev.find((it) => it.id === p.id);
             if (foundInSetter) {
               showNotif({
                 type: 'info',
                 message: 'Layanan sudah ada. Pilih/ganti employee.',
               });
-              return prev; // Jangan ubah state jika sudah ada
+              return prev;
             }
             showNotif({
               type: 'info',
@@ -210,11 +241,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
             });
             return [
               ...prev,
-              { ...p, qty: 1, isApiSynced: false }, // Tambah dengan qty 1 dan tandai belum sinkron
+              { ...p, qty: 1, isApiSynced: false },
             ];
           });
         } else {
-          // --- JIKA PRODUCT ---
           const newQty = found ? found.qty + 1 : 1;
           const productCode = p.itemId ?? p.id;
 
@@ -232,10 +262,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
               type: 'error',
               message: `Gagal menambah ${p.name} ke keranjang`,
             });
-            return; // Penting: jangan update state jika API gagal
+            return;
           }
 
-          // Update state lokal
           setItems((prev) => {
             const foundInSetter = prev.find((it) => it.id === p.id);
             if (foundInSetter) {
@@ -249,61 +278,79 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch (err) {
-        console.error("Error in addItem:", err);
-        // Tangani error lain jika perlu
+        console.error('Error in addItem:', err);
       } finally {
-        // 3. Selalu unset 'adding' di finally
         setAddingItemId(null);
       }
     },
-    [cartId, items, locked, session?.token, showNotif, addingItemId] // <-- Tambahkan dependency
+    [
+      cartId,
+      items,
+      locked,
+      session?.token,
+      showNotif,
+      addingItemId,
+      resetApiFinancials,
+    ]
   );
   // --- AKHIR PERUBAHAN 'addItem' ---
 
-
-  const selectItem = (id: string | null) => {
+  // PERBAIKAN 2: Bungkus selectItem dengan useCallback
+  const selectItem = useCallback((id: string | null) => {
     if (locked) return;
     setSelectedItemId(id);
     if (!id) setAdjustMode(false);
-  };
+  }, [locked]);
 
-  const toggleAdjust = () => {
+  // PERBAIKAN 3: Bungkus toggleAdjust dengan useCallback
+  const toggleAdjust = useCallback(() => {
     if (locked || !selectedItemId) return;
     setAdjustMode((s) => !s);
-  };
+  }, [locked, selectedItemId]);
 
-  const adjustQuantity = (id: string, delta: number) => {
-    if (locked || !adjustMode || selectedItemId !== id) return;
+  // Bungkus adjustQuantity dengan useCallback
+  const adjustQuantity = useCallback(
+    (id: string, delta: number) => {
+      if (locked || !adjustMode || selectedItemId !== id) return;
 
-    resetApiFinancials();
+      resetApiFinancials(); 
 
-    setItems((prev) => {
-      const updated = prev
-        .map((it) => (it.id === id ? { ...it, qty: it.qty + delta } : it))
-        .filter((it) => it.qty > 0);
-      const stillThere = updated.find((it) => it.id === id);
-      if (!stillThere) {
-        setSelectedItemId(null);
-        setAdjustMode(false);
-      }
-      return updated;
-    });
-  };
+      setItems((prev) => {
+        const updated = prev
+          .map((it) =>
+            it.id === id ? { ...it, qty: Math.max(0, it.qty + delta) } : it,
+          )
+          .filter((it) => it.qty > 0); 
+        const stillThere = updated.find((it) => it.id === id);
+        if (!stillThere) {
+          setSelectedItemId(null);
+          setAdjustMode(false);
+        }
+        
+        return updated;
+      });
+    },
+    [locked, adjustMode, selectedItemId, resetApiFinancials],
+  );
 
-  const deleteSelected = () => {
+  // Bungkus deleteSelected dengan useCallback
+  const deleteSelected = useCallback(() => {
     if (locked || !selectedItemId) return;
 
-    resetApiFinancials();
+    resetApiFinancials(); 
 
-    setItems((prev) => prev.filter((it) => it.id !== selectedItemId));
+    setItems((prev) => {
+      const updated = prev.filter((it) => it.id !== selectedItemId);
+      return updated;
+    });
     setSelectedItemId(null);
     setAdjustMode(false);
-  };
+  }, [locked, selectedItemId, resetApiFinancials]);
 
+  // ... (fungsi setEmployee tetap sama)
   const setEmployee = useCallback(
     async (itemId: string, employeeId: number) => {
       if (locked) return;
-
       const token = session?.token;
       const currentCartId = cartId;
       const item = items.find((it) => it.id === itemId);
@@ -322,9 +369,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       const payload: AddItemPayload = {
         cart_id: currentCartId,
-        product_code: item.itemId, // Gunakan itemId (product_code)
-        quantity: item.qty, // Kirim kuantitas saat ini
-        serving_employee_id: employeeId, // <-- Kuncinya di sini
+        product_code: item.itemId, 
+        quantity: item.qty, 
+        serving_employee_id: employeeId, 
       };
 
       try {
@@ -347,6 +394,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     },
     [cartId, items, locked, session?.token, showNotif]
   );
+  
   const applyCoupon = (c: Coupon, financials: ApiFinancials) => {
     setAppliedCoupon(c);
     setApiSubtotal(financials.subtotal);
@@ -355,9 +403,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setApiTotal(financials.total);
   };
 
-  const clearCoupon = () => {
+  const clearCoupon = useCallback(() => {
     resetApiFinancials();
-  };
+  }, [resetApiFinancials]);
 
   const products = useMemo(
     () => items.filter((it) => it.type === 'product'),
@@ -383,59 +431,94 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const discount = apiDiscount !== null ? apiDiscount : 0;
   const total = apiTotal !== null ? apiTotal : subtotal + tax - discount;
 
-  const repeatRound = () => {
+  const repeatRound = useCallback(() => {
     if (locked) return;
     setItems((prev) => prev.map((it) => ({ ...it, qty: it.qty + 1 })));
-  };
+  }, [locked]);
 
-  const voidOrder = () => {
-    clearCartState();
-  };
+  // voidOrder sekarang memanggil clearCartState
+  const voidOrder = useCallback(() => {
+    clearCartState({ deleteBackendCart: true });
+  }, [clearCartState]);
 
   const formatIDR = (v: number) => `Rp${v.toLocaleString('id-ID')}`;
 
-  const addOrder = (order: OrderItem) => setOrders((prev) => [...prev, order]);
-  const updateOrderStatus = (id: string, status: OrderItem['status']) =>
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+  const addOrder = useCallback((order: OrderItem) => setOrders((prev) => [...prev, order]), []);
+  
+  const updateOrderStatus = useCallback((id: string, status: OrderItem['status']) =>
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o))), []);
 
-  const value: CartContextValue = {
-    items,
-    selectedItemId,
-    adjustMode,
-    cartId,
-    addItem,
-    selectItem,
-    toggleAdjust,
-    adjustQuantity,
-    deleteSelected,
-    setEmployee,
-    products,
-    services,
-    subtotal, 
-    tax, 
-    discount,
-    total, 
-    formatIDR,
-    paymentSheetOpen,
-    setPaymentSheetOpen,
-    billOption,
-    setBillOption,
-    locked,
-    setLocked,
-    repeatRound,
-    voidOrder,
-    clearCartState,
-    appliedCoupon,
-    applyCoupon,
-    clearCoupon,
-    setItems,
-    setSelectedItemId,
-    setAdjustMode,
-    orders,
-    addOrder,
-    updateOrderStatus,
-    addingItemId, // <-- TAMBAHKAN INI
-  };
+  // Pastikan clearCartState ada di 'value'
+  const value: CartContextValue = useMemo(
+    () => ({
+      items,
+      selectedItemId,
+      adjustMode,
+      cartId,
+      addItem,
+      selectItem,
+      toggleAdjust,
+      adjustQuantity,
+      deleteSelected,
+      setEmployee,
+      products,
+      services,
+      subtotal,
+      tax,
+      discount,
+      total,
+      formatIDR,
+      paymentSheetOpen,
+      setPaymentSheetOpen,
+      billOption,
+      setBillOption,
+      locked,
+      setLocked,
+      repeatRound,
+      voidOrder, 
+      clearCartState, 
+      appliedCoupon,
+      applyCoupon,
+      clearCoupon,
+      setItems,
+      setSelectedItemId,
+      setAdjustMode,
+      orders,
+      addOrder,
+      updateOrderStatus,
+      addingItemId,
+    }),
+    [ // PERBAIKAN 4: Tambahkan `selectItem` ke dependency array
+      items,
+      selectedItemId,
+      adjustMode,
+      cartId,
+      addItem,
+      selectItem, // <-- Ditambahkan
+      toggleAdjust, 
+      adjustQuantity,
+      deleteSelected,
+      setEmployee,
+      products,
+      services,
+      subtotal,
+      tax,
+      discount,
+      total,
+      paymentSheetOpen,
+      billOption,
+      locked,
+      repeatRound,
+      voidOrder,
+      clearCartState,
+      appliedCoupon,
+      clearCoupon,
+      orders,
+      addOrder,
+      updateOrderStatus,
+      addingItemId,
+    ]
+  );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

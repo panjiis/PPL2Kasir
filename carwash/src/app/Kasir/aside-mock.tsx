@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Trash,
   Columns3,
@@ -16,9 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 
-// Impor 'ApiCartSyncData' dari cart-content
 import { useCart, type ApiCartSyncData } from './cart-content';
-// Hapus 'employees' dummy, tapi pertahankan 'Coupon'
 import type { Coupon } from './dummy';
 import {
   Select,
@@ -34,16 +32,13 @@ import { useSession } from '../lib/context/session';
 import {
   createOrderFromCart,
   processPayment as processPaymentApi,
-  voidOrder as voidOrderApi,
+  voidOrder as voidOrderApi, // <-- Ini benar, kita panggil API void
   fetchDiscounts,
   applyDiscount as applyDiscountApi,
   fetchEmployees,
   fetchPaymentTypes,
 } from '../lib/utils/pos-api';
-// Impor Tipe Employee dan PaymentType
-import type { Employee, PaymentType } from '../lib/types/pos'; 
-
-// ... (Tipe ApiDiscount, DiscountPayload, SmallPill, LineItem tidak berubah) ...
+import type { Employee, PaymentType } from '../lib/types/pos';
 
 type ApiDiscount = {
   id?: number | string;
@@ -62,6 +57,18 @@ export interface DiscountPayload {
   cart_id: string;
   discount_id: number;
   item_ids: string[];
+}
+
+// ... (Fungsi calculateProcessingFee, SmallPill, LineItem, ProductSection, ServicesSection, CouponPanel... tidak ada perubahan) ...
+function calculateProcessingFee(rate: string, baseTotal: number): number {
+  if (!rate) return 0;
+
+  const rateStr = String(rate).trim().replace('%', '');
+
+  const percentage = parseFloat(rateStr);
+  if (isNaN(percentage)) return 0;
+
+  return (percentage / 100) * baseTotal;
 }
 
 function SmallPill({
@@ -260,7 +267,7 @@ function ServicesSection() {
     setEmployee,
     locked,
   } = useCart();
-  const { session } = useSession(); 
+  const { session } = useSession();
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
@@ -324,7 +331,7 @@ function ServicesSection() {
                         {employees.map((e) => (
                           <SelectItem
                             key={e.id}
-                            value={String(e.id)} 
+                            value={String(e.id)}
                             className='text-xs'
                           >
                             {e.employee_name}
@@ -520,6 +527,7 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
   );
 }
 
+
 function BillOptionSection({
   onVoid,
   onCreateOrder,
@@ -527,9 +535,11 @@ function BillOptionSection({
   onVoid: () => void;
   onCreateOrder: () => void;
 }) {
-  useCart();
   const { isCustomize, getButtonLabel, getButtonClasses, setButtonPref } =
     usePreferences();
+  
+  // Hapus `voidOrder` yang tidak terpakai dari sini
+  // const { voidOrder } = useCart();
 
   const options = [
     { key: 'create', label: 'Order', value: 'create' },
@@ -549,7 +559,7 @@ function BillOptionSection({
   return (
     <div className='grid grid-cols-2 gap-3 bg-secondary p-3 rounded-lg'>
       {options.map((opt) => {
-        const active = false; 
+        const active = false;
 
         const prefKey = `aside:bill:${opt.key}`;
         const shown = getButtonLabel(prefKey, opt.label);
@@ -568,11 +578,12 @@ function BillOptionSection({
           <div key={opt.value} className='rounded-lg'>
             <button
               type='button'
-              className={buttonClasses.join(' ')} 
+              className={buttonClasses.join(' ')}
               onClick={() => {
                 if (opt.value === 'create') {
                   onCreateOrder();
                 } else if (opt.value === 'void') {
+                  // Panggil 'onVoid' dari props (yang menunjuk ke handleVoidOrder)
                   if (window.confirm('Yakin void order ini?')) onVoid();
                 }
               }}
@@ -602,11 +613,8 @@ function BillOptionSection({
   );
 }
 
-/* =========================== */
-/* Main AsideMock component (full) */
-/* =========================== */
-
 export default function AsideMock(): React.ReactElement {
+  // PERBAIKAN 1: Hapus `voidOrder` dari sini untuk fix error "unused var"
   const {
     deleteSelected,
     toggleAdjust,
@@ -626,25 +634,23 @@ export default function AsideMock(): React.ReactElement {
     clearCoupon,
     cartId,
     clearCartState,
+    // voidOrder, // <-- HAPUS INI
   } = useCart();
 
   const { showNotif } = useNotification();
   const { session } = useSession();
   const token = session?.token ?? '';
 
-  // --- State Pembayaran ---
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
   const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(true);
   const [selectedPaymentType, setSelectedPaymentType] =
     useState<PaymentType | null>(null);
-  
-  // --- STATE BARU: Untuk Uang Tunai ---
+
   const [amountTendered, setAmountTendered] = useState<string>('');
 
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const statuses = ['In Queue', 'In Process', 'Waiting Payment'] as const;
 
-  // Ambil Payment Types saat komponen dimuat
   useEffect(() => {
     if (session?.token) {
       setLoadingPaymentTypes(true);
@@ -652,20 +658,18 @@ export default function AsideMock(): React.ReactElement {
         .then((res) => {
           const activeTypes = (res.data || []).filter((pt) => pt.is_active);
           setPaymentTypes(activeTypes);
-          // Set default payment ke 'cash' jika ada
-          const cashDefault = activeTypes.find(pt => pt.payment_name.toLowerCase().includes('cash'));
-          if(cashDefault) {
+          const cashDefault = activeTypes.find((pt) =>
+            pt.payment_name.toLowerCase().includes('cash')
+          );
+          if (cashDefault) {
             setSelectedPaymentType(cashDefault);
           }
         })
-        .catch((err) =>
-          console.error('Gagal mengambil payment types:', err)
-        )
+        .catch((err) => console.error('Gagal mengambil payment types:', err))
         .finally(() => setLoadingPaymentTypes(false));
     }
   }, [session?.token]);
 
-  // Helper untuk ikon pembayaran
   const getPaymentIcon = (name: string) => {
     const lowerName = name.toLowerCase();
     if (lowerName.includes('cash')) {
@@ -678,13 +682,17 @@ export default function AsideMock(): React.ReactElement {
   };
 
   function clearAll() {
-    clearCartState();
+    // Panggil clearCartState, tapi jangan hapus backend cart
+    // karena payment success sudah mengubah cartId menjadi order
+    clearCartState({ deleteBackendCart: false });
+
     setSelectedPaymentType(null);
-    setAmountTendered(''); // <-- RESET UANG TUNAI
-    
-    // Set default payment ke 'cash' lagi jika ada
-    const cashDefault = paymentTypes.find(pt => pt.payment_name.toLowerCase().includes('cash'));
-    if(cashDefault) {
+    setAmountTendered('');
+
+    const cashDefault = paymentTypes.find((pt) =>
+      pt.payment_name.toLowerCase().includes('cash')
+    );
+    if (cashDefault) {
       setSelectedPaymentType(cashDefault);
     }
   }
@@ -702,6 +710,21 @@ export default function AsideMock(): React.ReactElement {
     return () => clearInterval(interval);
   }, []);
 
+  const processingFee = useMemo(() => {
+    if (!selectedPaymentType || !selectedPaymentType.processing_fee_rate) {
+      return 0;
+    }
+    return calculateProcessingFee(
+      selectedPaymentType.processing_fee_rate,
+      total
+    );
+  }, [selectedPaymentType, total]);
+
+  const grandTotal = useMemo(
+    () => total + processingFee,
+    [total, processingFee]
+  );
+
   async function handleProcessPayment(): Promise<void> {
     if (!cartId || items.length === 0) {
       showNotif({
@@ -711,7 +734,6 @@ export default function AsideMock(): React.ReactElement {
       return;
     }
 
-    // Cek service yg belum di-assign
     const unassignedService = items.find(
       (it) => it.type === 'service' && !it.isApiSynced
     );
@@ -723,7 +745,6 @@ export default function AsideMock(): React.ReactElement {
       return;
     }
 
-    // Cek metode pembayaran
     if (!selectedPaymentType || !selectedPaymentType.id) {
       showNotif({
         type: 'error',
@@ -731,19 +752,21 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-    
-    // --- VALIDASI BARU UNTUK UANG TUNAI ---
-    const isCash = selectedPaymentType.payment_name.toLowerCase().includes('cash');
+
+    const isCash = selectedPaymentType.payment_name
+      .toLowerCase()
+      .includes('cash');
     const tendered = Number(amountTendered) || 0;
-    
-    if (isCash && tendered < total) {
+
+    if (isCash && tendered < grandTotal) {
       showNotif({
         type: 'error',
-        message: `Uang tunai (Rp${tendered.toLocaleString('id-ID')}) kurang dari total (Rp${total.toLocaleString('id-ID')}).`,
+        message: `Uang tunai (Rp${tendered.toLocaleString(
+          'id-ID'
+        )}) kurang dari total bayar (Rp${grandTotal.toLocaleString('id-ID')}).`,
       });
       return;
     }
-    // --- AKHIR VALIDASI UANG TUNAI ---
 
     setBusy(true);
     setLocked(true);
@@ -754,52 +777,58 @@ export default function AsideMock(): React.ReactElement {
       const paymentTypeId = selectedPaymentType.id;
       const paymentName = selectedPaymentType.payment_name;
 
-      const { data: order } = await createOrderFromCart(
-        {
-          cart_id: cartId,
-          document_number: `INV-${Date.now()}`,
-          additional_info: 'Generated by POS aside',
-          notes: `Payment type: ${paymentName}`, 
-        },
-        token
-      );
+      const orderPayload = {
+        cart_id: cartId,
+        document_number: `INV-${Date.now()}`,
+        total_amount: total,
+        subtotal: subtotal,
+        additional_info: `Payment Fee: ${processingFee} (Metode: ${paymentName}, Rate: ${selectedPaymentType.processing_fee_rate})`,
+        notes: `Payment type: ${paymentName}`,
+      };
+
+      console.log('Data yang "dilempar" ke createOrderFromCart:', orderPayload);
+
+      const { data: order } = await createOrderFromCart(orderPayload, token);
 
       const createdOrderId = order.id;
 
-      await processPaymentApi(
-        {
-          order_id: createdOrderId,
-          paid_amount: String(total), // API tetap dikirim TOTAL
-          payment_type_id: paymentTypeId, 
-          reference_number: `TRX-${Date.now()}`,
-        },
-        token
-      );
+      const paymentPayload = {
+        order_id: createdOrderId,
+        paid_amount: String(grandTotal),
+        payment_type_id: paymentTypeId,
+        reference_number: `TRX-${Date.now()}`,
+      };
+
+      console.log('Data yang "dilempar" ke processPaymentApi:', paymentPayload);
+
+      await processPaymentApi(paymentPayload, token);
 
       addOrder({
         id: String(createdOrderId),
         orderNo: order.document_number ?? `INV-${createdOrderId}`,
         createdAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
         items: [...items],
-        status: paymentName.toLowerCase().includes('cash') ? 'Done' : 'Waiting Payment',
-        paymentType: paymentName, 
-        paymentBank: undefined, 
-        total,
+        status: paymentName.toLowerCase().includes('cash')
+          ? 'Done'
+          : 'Waiting Payment',
+        paymentType: paymentName,
+        paymentBank: undefined,
+        total: grandTotal,
       });
 
       showNotif({
         type: 'success',
         message: `Order ${createdOrderId} processed. Payment OK`,
-        amount: total,
-        method: paymentName, 
+        amount: grandTotal,
+        method: paymentName,
       });
 
-      // --- PERBAIKAN: Pindahkan navigasi ke sini ---
       window.dispatchEvent(
         new CustomEvent('navigate-kasir-view', { detail: { view: 'orders' } })
       );
 
       clearAll();
+      
     } catch (err) {
       console.error('Payment processing failed:', err);
       const errorMessage =
@@ -816,12 +845,12 @@ export default function AsideMock(): React.ReactElement {
     }
   }
 
+  // PERBAIKAN 2: Ini adalah fungsi yang Anda tanyakan.
+  // Ini adalah tempat `voidOrderApi` dipanggil, dan ini sudah BENAR.
   async function handleVoidOrder(): Promise<void> {
-    const confirmVoid = window.confirm(
-      'Yakin void order ini? (Ini akan tercatat sebagai order "Void")'
-    );
-    if (!confirmVoid) return;
-
+    // Cek konfirmasi dulu
+    // (Pengecekan konfirmasi sudah dipindah ke BillOptionSection)
+    
     if (!cartId || items.length === 0) {
       showNotif({
         type: 'info',
@@ -834,11 +863,14 @@ export default function AsideMock(): React.ReactElement {
     setLocked(true);
 
     try {
+      // 1. Buat order dulu dari cartId
       const { data: createdOrder } = await createOrderFromCart(
         {
           cart_id: cartId,
           document_number: `VOID-${Date.now()}`,
           notes: 'Dibatalkan oleh kasir sebelum pembayaran',
+          total_amount: total,
+          subtotal: subtotal,
         },
         token
       );
@@ -848,10 +880,12 @@ export default function AsideMock(): React.ReactElement {
         throw new Error('Gagal membuat entry order untuk di-void.');
       }
 
+      // 2. Panggil API untuk mem-void order yang baru dibuat
+      //    Ini adalah `voidOrderApi` yang Anda tanyakan
       await voidOrderApi(
         {
           id: newOrderId,
-          voided_by: 1, 
+          voided_by: 1, // Ganti dengan ID user asli jika ada
           reason: 'Voided from cart by user',
         },
         token
@@ -862,17 +896,19 @@ export default function AsideMock(): React.ReactElement {
         message: `Order ${createdOrder.document_number} berhasil di-void.`,
       });
 
-      clearAll();
+      // 3. PENTING: Panggil clearCartState untuk reset UI
+      //    DAN hapus cart "237" (atau cartId yg nyangkut) dari backend.
+      clearCartState({ deleteBackendCart: true });
+
     } catch (err) {
       console.error(err);
       const errorMessage =
         err instanceof Error ? err.message : 'Gagal memproses void order.';
       showNotif({ type: 'error', message: errorMessage });
+      setLocked(false); // Hanya unlock jika error
     } finally {
       setBusy(false);
-      if (locked) {
-        setLocked(false);
-      }
+      // 'locked' akan di-reset oleh clearCartState
     }
   }
 
@@ -884,7 +920,7 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-    
+
     const unassignedService = items.find(
       (it) => it.type === 'service' && !it.isApiSynced
     );
@@ -914,7 +950,7 @@ export default function AsideMock(): React.ReactElement {
       const discountPayload: DiscountPayload = {
         cart_id: cartId,
         discount_id: discountIdToApply,
-        item_ids: items.map((it) => String(it.itemId)),
+        item_ids: items.map((it) => String(it.itemId)), // Kirim ID item
       };
 
       const result = await applyDiscountApi(discountPayload, token);
@@ -930,7 +966,7 @@ export default function AsideMock(): React.ReactElement {
         tax: parseFloat(result.tax_amount ?? '0'),
         discount: parseFloat(result.discount_amount ?? '0'),
         total: parseFloat(result.total_amount ?? '0'),
-        items: result.items || [], 
+        items: result.items || [],
       };
 
       applyCoupon(coupon, syncData);
@@ -938,7 +974,7 @@ export default function AsideMock(): React.ReactElement {
       showNotif({ type: 'success', message: 'Diskon diterapkan.' });
     } catch (err) {
       console.error(err);
-      clearCoupon(); 
+      clearCoupon();
       const errorMessage =
         err instanceof Error ? err.message : 'Gagal apply diskon.';
       showNotif({ type: 'error', message: errorMessage });
@@ -946,7 +982,7 @@ export default function AsideMock(): React.ReactElement {
       setBusy(false);
     }
   }
-  
+
   const asideBlur =
     paymentSheetOpen || statusSheetOpen
       ? 'filter blur-md pointer-events-none'
@@ -956,17 +992,20 @@ export default function AsideMock(): React.ReactElement {
     console.log(`Status changed to: ${status}`);
   };
 
-  // --- LOGIKA BARU UNTUK PAYMENT SHEET ---
-  const isCashPayment = selectedPaymentType?.payment_name.toLowerCase().includes('cash');
+  const isCashPayment = selectedPaymentType?.payment_name
+    .toLowerCase()
+    .includes('cash');
   const tenderedAmountNum = Number(amountTendered) || 0;
-  const changeDue = (isCashPayment && tenderedAmountNum > 0) ? tenderedAmountNum - total : 0;
-  
-  // Logika baru untuk menonaktifkan tombol "Process"
-  const isProcessDisabled = 
-    busy || 
-    !selectedPaymentType || 
-    (isCashPayment && tenderedAmountNum < total);
-  // --- AKHIR LOGIKA BARU ---
+
+  const changeDue =
+    isCashPayment && tenderedAmountNum > 0 && tenderedAmountNum >= grandTotal
+      ? tenderedAmountNum - grandTotal
+      : 0;
+
+  const isProcessDisabled =
+    busy ||
+    !selectedPaymentType ||
+    (isCashPayment && tenderedAmountNum < grandTotal);
 
   return (
     <div className='flex flex-col gap-4 h-full  overflow-hidden relative'>
@@ -1018,7 +1057,7 @@ export default function AsideMock(): React.ReactElement {
               -{formatIDR(discount)}
             </div>
           </div>
-          <div className='flex justify-between border-t border-border/30 pt-2 font-rubik font-semibold'>
+          <div className='flex justify-between border-t border-border/30 pt-2 font-rubik font-semibold text-lg'>
             <div className='text-foreground'>Total</div>
             <div className='text-foreground'>{formatIDR(total)}</div>
           </div>
@@ -1029,21 +1068,22 @@ export default function AsideMock(): React.ReactElement {
             </span>
           </div>
         </div>
+        {/* PERBAIKAN 3: Panggil handleVoidOrder lokal di sini */}
         <BillOptionSection
-          onVoid={handleVoidOrder}
+          onVoid={handleVoidOrder} 
           onCreateOrder={() => setPaymentSheetOpen(true)}
         />
         <div className='flex justify-end'></div>
       </div>
 
-      {/* --- PAYMENT SHEET DIPERBARUI --- */}
+      {/* ... (Payment Sheet dan Status Sheet tidak berubah) ... */}
       {paymentSheetOpen && (
         <div className='absolute inset-0 z-50 flex items-end justify-center'>
           <div
             className='absolute inset-0 bg-black/30 backdrop-blur-sm z-0'
             onClick={() => {
               setPaymentSheetOpen(false);
-              setAmountTendered(''); // <-- RESET
+              setAmountTendered('');
             }}
           />
           <div className='relative w-full max-w-md h-auto bg-secondary rounded-t-2xl shadow-lg p-6 flex flex-col gap-4 min-h-[480px] z-10'>
@@ -1051,11 +1091,24 @@ export default function AsideMock(): React.ReactElement {
             <div className='text-center font-bold font-rubik text-foreground text-lg mb-2'>
               Calculation
             </div>
-            <div className='rounded-lg border border-border bg-primary p-3 text-primary-foreground text-center font-rubik font-semibold'>
-              Total: {formatIDR(total)}
+
+            <div className='rounded-lg border border-border bg-card p-3 text-foreground space-y-1'>
+              <div className='flex justify-between text-sm'>
+                <span className='text-muted-foreground'>Total Pesanan</span>
+                <span className='font-medium'>{formatIDR(total)}</span>
+              </div>
+              <div className='flex justify-between text-sm'>
+                <span className='text-muted-foreground'>
+                  Biaya Layanan ({selectedPaymentType?.payment_name || '...'})
+                </span>
+                <span className='font-medium'>{formatIDR(processingFee)}</span>
+              </div>
+              <div className='flex justify-between text-lg font-bold font-rubik mt-2 border-t border-border/30 pt-2'>
+                <span>Total Bayar</span>
+                <span>{formatIDR(grandTotal)}</span>
+              </div>
             </div>
 
-            {/* --- Payment Type Selection (DINAMIS) --- */}
             <div>
               <div className='font-medium mb-1'>Tipe Pembayaran:</div>
               <div className='flex flex-wrap gap-2 mb-3'>
@@ -1084,11 +1137,13 @@ export default function AsideMock(): React.ReactElement {
               </div>
             </div>
 
-            {/* --- BLOK BARU: UANG TUNAI & KEMBALIAN --- */}
             {isCashPayment && (
               <div className='space-y-3'>
                 <div>
-                  <label htmlFor='amountTendered' className='font-medium mb-1 text-sm'>
+                  <label
+                    htmlFor='amountTendered'
+                    className='font-medium mb-1 text-sm'
+                  >
                     Nominal Uang (Rp)
                   </label>
                   <input
@@ -1100,9 +1155,8 @@ export default function AsideMock(): React.ReactElement {
                     className='w-full px-3 py-2 rounded border bg-card text-foreground text-lg'
                   />
                 </div>
-                {/* Tampilkan kembalian hanya jika uang cukup */}
-                {tenderedAmountNum >= total && (
-                   <div className='text-right font-medium text-lg'>
+                {tenderedAmountNum >= grandTotal && (
+                  <div className='text-right font-medium text-lg'>
                     Kembalian:{' '}
                     <span className='font-bold text-primary'>
                       {formatIDR(changeDue)}
@@ -1111,16 +1165,13 @@ export default function AsideMock(): React.ReactElement {
                 )}
               </div>
             )}
-            {/* --- AKHIR BLOK BARU --- */}
 
-
-            {/* --- Payment Buttons --- */}
             <div className='mt-auto flex gap-3'>
               <button
                 className='flex-1 px-6 py-2 bg-muted text-foreground rounded-lg font-rubik font-semibold'
                 onClick={() => {
                   setPaymentSheetOpen(false);
-                  setAmountTendered(''); // <-- RESET
+                  setAmountTendered('');
                 }}
               >
                 Back
@@ -1128,7 +1179,7 @@ export default function AsideMock(): React.ReactElement {
               <button
                 className='flex-1 px-6 py-2 bg-primary text-primary-foreground rounded-lg font-rubik font-semibold disabled:opacity-50'
                 onClick={handleProcessPayment}
-                disabled={isProcessDisabled} // <-- Logika disabled diperbarui
+                disabled={isProcessDisabled}
               >
                 {busy ? 'Processing...' : 'Process'}
               </button>
@@ -1136,9 +1187,7 @@ export default function AsideMock(): React.ReactElement {
           </div>
         </div>
       )}
-      {/* --- AKHIR PERUBAHAN PAYMENT SHEET --- */}
 
-      {/* Status sheet */}
       {statusSheetOpen && (
         <div className='absolute inset-0 z-50 flex items-end justify-center'>
           <div
