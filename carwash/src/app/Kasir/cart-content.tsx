@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
   type ReactNode,
+  useRef, // PERBAIKAN: Impor useRef
   useCallback,
   useEffect, // <-- Dibutuhkan
 } from 'react';
@@ -175,29 +176,58 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [cartId, session?.token] // <-- Ambil cartId dan token terbaru
   );
 
+  // PERBAIKAN: Lacak cartId sebelumnya untuk mencegah 'useEffect'
+  // berjalan saat cart baru dibuat.
+  const prevCartIdRef = useRef<string | null>(cartId);
+
   // useEffect untuk 'delete-to-empty'
   // Ini akan menangani bug 'delete' dan 'adjustQuantity'
   useEffect(() => {
     // Jika items menjadi kosong TAPI cartId masih ada
     if (items.length === 0 && cartId) {
-      console.log(
-        `(useEffect) Keranjang kosong, cartId ${cartId} akan dihapus.`,
-      );
-      // Panggil clearCartState, yang akan menghapus cartId di UI dan backend
-      clearCartState({ deleteBackendCart: true });
+      // PERBAIKAN: Cek apakah cartId ini BARU SAJA dibuat.
+      // Jika cartId sebelumnya null DAN cartId sekarang ada,
+      // artinya kita sedang dalam proses 'addItem'. JANGAN HAPUS.
+      const wasJustCreated = prevCartIdRef.current === null && cartId !== null;
+
+      if (wasJustCreated) {
+        console.log(`(useEffect) Cart ${cartId} baru dibuat, skip hapus.`);
+      } else {
+        // Ini adalah kasus yang sah: pengguna menghapus item terakhir.
+        console.log(
+          `(useEffect) Keranjang kosong, cartId ${cartId} akan dihapus.`,
+        );
+        // Panggil clearCartState, yang akan menghapus cartId di UI dan backend
+        clearCartState({ deleteBackendCart: false });
+      }
     }
+
+    // PERBAIKAN: Selalu update ref di *akhir* effect
+    // agar nilainya benar untuk render berikutnya.
+    prevCartIdRef.current = cartId;
   }, [items, cartId, clearCartState]); // Monitor perubahan di 'items'
+
+  // --- PERBAIKAN: Gunakan useRef untuk menghindari race condition ---
+  // Ref untuk lock item yang sedang ditambah
+  const addingItemIdRef = useRef<string | null>(null);
+  // Ref untuk menyimpan cartId terbaru secara sinkron
+  const cartIdRef = useRef<string | null>(cartId);
+  useEffect(() => {
+    cartIdRef.current = cartId;
+  }, [cartId]);
 
   // --- FUNGSI 'addItem' ---
   const addItem = useCallback(
     async (p: CartItem) => {
-      if (addingItemId === p.id) {
+      // PERBAIKAN: Cek menggunakan Ref (sinkron)
+      if (addingItemIdRef.current === p.id) {
         showNotif({ type: 'info', message: 'Sedang diproses...' });
         return;
       }
       if (locked) return;
 
-      setAddingItemId(p.id);
+      addingItemIdRef.current = p.id; // PERBAIKAN: Set Ref (sinkron)
+      setAddingItemId(p.id); // Set State (untuk UI)
 
       try {
         resetApiFinancials();
@@ -207,14 +237,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        let currentCartId = cartId;
+        // PERBAIKAN: Baca cartId dari Ref (sinkron)
+        let currentCartId = cartIdRef.current;
         if (!currentCartId) {
           console.log("(addItem) Membuat cart baru...");
           try {
             const { data } = await createCart({ cashier_id: 1 }, token);
             currentCartId = String(data.cart_id);
-            setCartId(currentCartId);
             localStorage.setItem('last_cart_id', currentCartId);
+            cartIdRef.current = currentCartId; // PERBAIKAN: Set Ref (sinkron)
+            setCartId(currentCartId); // Set State (untuk UI)
             console.log(`(addItem) Cart baru dibuat: ${currentCartId}`);
           } catch (e) {
             console.error(e);
@@ -280,16 +312,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('Error in addItem:', err);
       } finally {
+        addingItemIdRef.current = null; // PERBAIKAN: Lepas lock di Ref
         setAddingItemId(null);
       }
     },
-    [
-      cartId,
+    [ // PERBAIKAN: Hapus cartId dan addingItemId dari dependencies
       items,
       locked,
       session?.token,
       showNotif,
-      addingItemId,
       resetApiFinancials,
     ]
   );
@@ -438,7 +469,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // voidOrder sekarang memanggil clearCartState
   const voidOrder = useCallback(() => {
-    clearCartState({ deleteBackendCart: true });
+    clearCartState({ deleteBackendCart: false });
   }, [clearCartState]);
 
   const formatIDR = (v: number) => `Rp${v.toLocaleString('id-ID')}`;
@@ -488,7 +519,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       updateOrderStatus,
       addingItemId,
     }),
-    [ // PERBAIKAN 4: Tambahkan `selectItem` ke dependency array
+    [ // PERBAIKAN 4: Tambahkan `selectItem` dll ke dependency array
       items,
       selectedItemId,
       adjustMode,

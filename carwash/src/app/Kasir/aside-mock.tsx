@@ -898,7 +898,7 @@ export default function AsideMock(): React.ReactElement {
 
       // 3. PENTING: Panggil clearCartState untuk reset UI
       //    DAN hapus cart "237" (atau cartId yg nyangkut) dari backend.
-      clearCartState({ deleteBackendCart: true });
+      clearCartState({ deleteBackendCart: false });
 
     } catch (err) {
       console.error(err);
