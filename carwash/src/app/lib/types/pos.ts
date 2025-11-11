@@ -86,6 +86,7 @@ export interface PosOrder {
   notes?: string;
   created_at?: string;
   updated_at?: string;
+  
 }
 
 export interface DetailedPosOrder {
@@ -101,6 +102,10 @@ export interface DetailedPosOrder {
   order_items: DetailedCartItem[];
   notes?: string;
   additional_info?: string;
+  // --- PERBAIKAN: Tambahkan field ini dari API ---
+  tax_amount?: string | number;
+  discount_amount?: string | number;
+  // --- AKHIR PERBAIKAN ---
 }
 
 export interface DetailedCartItem {
@@ -165,11 +170,22 @@ export interface ApiSyncedCartItem {
   discount?: unknown; // Objek diskon opsional, 'unknown' lebih aman dari 'any'
 }
 
-
 export interface Employee {
   id: number;
   employee_name: string;
   base_salary?: string;
   commission_rate?: string;
   commission_type?: number;
+}
+
+export interface ApiCartResponse {
+  cart_id: string;
+  cashier_id: number;
+  items: ApiSyncedCartItem[]; // <-- Kuncinya di sini
+  subtotal: string;
+  tax_amount: string;
+  discount_amount: string;
+  total_amount: string;
+  created_at?: unknown;
+  updated_at?: unknown;
 }

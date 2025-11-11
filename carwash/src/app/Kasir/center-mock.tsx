@@ -1,23 +1,15 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import {
-  Search,
-  Tag,
-  Tags,
-  Wrench,
-  Box,
-} from 'lucide-react';
+import { Search, Tag, Tags, Wrench, Box } from 'lucide-react';
 import { useCart, type CartItem } from './cart-content';
 import DynamicIsland from './DynamicIsland';
 import { useNotification } from './notification-context';
 import { usePreferences } from '../providers/preferences-context';
 import { useSession } from '../lib/context/session';
-// --- Impor fetchProductGroups ---
 import { fetchProducts, fetchProductGroups } from '../lib/utils/pos-api';
-// --- Impor ProductGroup ---
 import type { PosProduct, ProductGroup } from '../lib/types/pos';
 import Image from 'next/image';
-import { useTranslation } from 'react-i18next'; // <-- 1. Impor hook
+import { useTranslation } from 'react-i18next'; 
 
 // ============================ //
 // ===== Helper Type/Utils ===== //
@@ -305,8 +297,7 @@ export default function CenterMock() {
       // --- PERBAIKAN: Cek p.product_group_id ada DAN ada di map ---
       if (p.product_group_id && groupMap.has(p.product_group_id)) {
         const groupId = p.product_group_id; // Di sini, groupId pasti number
-        if (!productsByGroupId.has(groupId))
-          productsByGroupId.set(groupId, []);
+        if (!productsByGroupId.has(groupId)) productsByGroupId.set(groupId, []);
         productsByGroupId.get(groupId)!.push(p);
         foundGroup = true;
       }
@@ -458,7 +449,6 @@ export default function CenterMock() {
           onSubmit={() => {}}
         />
       </div>
-
 
       {/* --- PERUBAHAN: PRODUCT LIST RENDER --- */}
       <div className='flex-1 overflow-y-auto pr-1 space-y-6'>

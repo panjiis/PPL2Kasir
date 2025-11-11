@@ -130,7 +130,7 @@ export default function ProductsView() {
         <div className='border rounded-lg overflow-hidden'>
           <table className='w-full text-sm'>
             <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
-              {/* --- PERBAIKAN DI BAWAH --- */}
+              {/* --- PERBAIKAN HIDRASI --- */}
               <tr>
                 <th className='text-left font-medium p-3'>
                   {t('ProductsView.colName')}
@@ -142,7 +142,7 @@ export default function ProductsView() {
                   {t('ProductsView.colPrice')}
                 </th>
               </tr>
-              {/* --- AKHIR PERBAIKAN (menghapus {' '}) --- */}
+              {/* --- AKHIR PERBAIKAN HIDRASI --- */}
             </thead>
             <tbody className='divide-y divide-border'>
               {paginatedProducts.length > 0 ? (

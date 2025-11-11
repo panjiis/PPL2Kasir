@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dialog';
 // Import Button component
 import { Button } from '@/components/ui/button';
-import { useTranslation } from 'react-i18next'; // <-- 1. Impor hook
+import { useTranslation } from 'react-i18next';
 
 // --- Utility functions --- (Tidak berubah)
 const formatDate = (seconds?: number) => {
@@ -61,11 +61,17 @@ const ITEMS_PER_PAGE = 8;
 
 /**
  * PrintableReceipt
- * (Komponen ini berisi perbaikan)
  */
 const PrintableReceipt = ({
   order,
   products,
+  // --- PERBAIKAN: Terima props baru ---
+  taxAmount,
+  discountAmount,
+  processingFee,
+  paymentMethodName,
+  grandTotal,
+  // ---
   storeName = 'EZEL CARWASH CILODONG',
   storeAddress = 'Jl. Raya Bogor KM. 34,5, Cilodong, Depok',
   storePhone = '(0812) 3456-7890',
@@ -73,12 +79,19 @@ const PrintableReceipt = ({
 }: {
   order: DetailedPosOrder;
   products: PosProduct[];
+  // --- PERBAIKAN: Definisikan tipe props baru ---
+  taxAmount: number;
+  discountAmount: number;
+  processingFee: number;
+  paymentMethodName: string;
+  grandTotal: number;
+  // ---
   storeName?: string;
   storeAddress?: string;
   storePhone?: string;
   paperWidth?: string;
 }) => {
-  const { t } = useTranslation(); // <-- 2. Panggil hook
+  const { t } = useTranslation();
   const [isClient, setIsClient] = useState(false);
 
   // print CSS (thermal friendly)
@@ -220,23 +233,40 @@ const PrintableReceipt = ({
             </td>
           </tr>
 
-          {/* --- KOMENTAR PENYEBAB ERROR SUDAH DIHAPUS --- */}
-          {'discount_amount' in order && (
+          {/* --- PERBAIKAN: Tambah baris Pajak --- */}
+          <tr>
+            <td>{t('Aside.totals.tax')} (10%)</td>
+            <td style={{ textAlign: 'right' }}>{formatRupiah(taxAmount)}</td>
+          </tr>
+
+          {/* --- PERBAIKAN: Tambah baris Diskon --- */}
+          <tr>
+            <td>{t('Aside.totals.discount')}</td>
+            <td style={{ textAlign: 'right' }}>
+              - {formatRupiah(discountAmount)}
+            </td>
+          </tr>
+
+          {/* --- PERBAIKAN: Tambah baris Biaya Layanan --- */}
+          {processingFee > 0 && (
             <tr>
-              <td>{t('Aside.totals.discount')}</td>
+              <td>
+                {t('Aside.paymentSheet.serviceFee', {
+                  paymentName: paymentMethodName,
+                })}
+              </td>
               <td style={{ textAlign: 'right' }}>
-                {formatRupiah(
-                  (order as { discount_amount?: number }).discount_amount ?? 0
-                )}
+                {formatRupiah(processingFee)}
               </td>
             </tr>
           )}
-          {/* --- KOMENTAR PENYEBAB ERROR SUDAH DIHAPUS --- */}
+          {/* --- AKHIR PERBAIKAN --- */}
 
           <tr className='total'>
             <td>{t('OrdersView.receipt.grandtotal')}</td>
             <td style={{ textAlign: 'right' }}>
-              {formatRupiah(order.total_amount)}
+              {/* --- PERBAIKAN: Gunakan grandTotal --- */}
+              {formatRupiah(grandTotal)}
             </td>
           </tr>
 
@@ -269,7 +299,7 @@ const PrintableReceipt = ({
 // --- end PrintableReceipt ---
 
 export default function OrdersView() {
-  const { t } = useTranslation(); // <-- 2. Panggil hook
+  const { t } = useTranslation();
   const { session } = useSession();
   const { showNotif } = useNotification();
 
@@ -286,7 +316,6 @@ export default function OrdersView() {
     error: errorProducts,
   } = useProducts(session?.token ?? '');
 
-  // ... (state lokal tidak berubah) ...
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<DetailedPosOrder | null>(
@@ -294,6 +323,55 @@ export default function OrdersView() {
   );
   const [busy, setBusy] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+
+  // --- PERBAIKAN: Hitung Pajak SECARA MANUAL dari Subtotal ---
+  const discountAmount = useMemo(() => {
+    if (!selectedOrder) return 0;
+    // Baca dari API, konversi ke number, default ke 0
+    return Number(selectedOrder.discount_amount ?? 0);
+  }, [selectedOrder]);
+
+  const taxAmount = useMemo(() => {
+    if (!selectedOrder) return 0;
+    // --- INI PERBAIKANNYA ---
+    // Jangan baca dari API. Hitung 10% dari Subtotal.
+    return Math.round(Number(selectedOrder.subtotal ?? 0) * 0.1);
+    // --- AKHIR PERBAIKAN ---
+  }, [selectedOrder]);
+
+  // --- PERBAIKAN: Parse Biaya Layanan (Fee) dari Info Tambahan ---
+  const { processingFee, paymentMethodName } = useMemo(() => {
+    if (!selectedOrder?.additional_info) {
+      return { processingFee: 0, paymentMethodName: '' };
+    }
+    // Regex untuk mencari "Payment Fee: 5000"
+    const feeMatch = selectedOrder.additional_info.match(/Payment Fee: (\d+)/);
+    // Regex untuk mencari "Metode: Qris"
+    const methodMatch =
+      selectedOrder.additional_info.match(/Metode: ([\w\s]+),/);
+
+    const fee = feeMatch && feeMatch[1] ? Number(feeMatch[1]) : 0;
+    const name =
+      methodMatch && methodMatch[1]
+        ? methodMatch[1].trim()
+        : selectedOrder.payment_type?.payment_name ?? '';
+
+    return { processingFee: fee, paymentMethodName: name };
+  }, [selectedOrder]);
+
+  // --- PERBAIKAN: Hitung Grand Total baru ---
+  const grandTotal = useMemo(() => {
+    if (!selectedOrder) return 0;
+    // Kita hitung secara eksplisit:
+    // grandTotal = (subtotal + tax - discount) + processingFee
+    const subtotalNum = Number(selectedOrder.subtotal ?? 0);
+    const discountNum = Number(selectedOrder.discount_amount ?? 0);
+    const taxNum = Math.round(subtotalNum * 0.1);
+    // Karena ada kemungkinan API memberikan total_amount yang lain (mis. preprocessed),
+    // kita pakai perhitungan lokal agar tampilan sesuai kebutuhan:
+    return subtotalNum + taxNum - discountNum + processingFee;
+  }, [selectedOrder, processingFee]);
+  // --- AKHIR PERBAIKAN ---
 
   const handleReturnOrder = async () => {
     const token = session?.token;
@@ -306,7 +384,11 @@ export default function OrdersView() {
     }
     setBusy(true);
     try {
-      const allItemIds = selectedOrder.order_items.map((item) => item.id);
+      // API return membutuhkan 'id' dari order_items yang merupakan ID di database
+      const allItemIds = selectedOrder.order_items
+        .map((item) => item.id)
+        .filter((id) => id != null) as number[];
+
       if (allItemIds.length === 0) {
         throw new Error(t('OrdersView.errors.noReturnItems'));
       }
@@ -364,7 +446,7 @@ export default function OrdersView() {
 
   const handleNextPage = () =>
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev, 1));
 
   const loading = loadingOrders || loadingProducts;
   const error = errorOrders || errorProducts;
@@ -395,7 +477,6 @@ export default function OrdersView() {
 
   return (
     <div className='h-full flex flex-col bg-card print:hidden'>
-      {/* ... (Header, Search, Table tidak berubah) ... */}
       <header className='p-4'>
         <h1 className='text-2xl font-bold text-foreground'>
           {t('OrdersView.title')}
@@ -423,7 +504,6 @@ export default function OrdersView() {
         <div className='border rounded-lg overflow-hidden'>
           <table className='w-full text-sm'>
             <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
-              {/* --- PERBAIKAN DI BAWAH --- */}
               <tr>
                 <th className='text-left font-medium p-3'>
                   {t('OrdersView.colOrder')}
@@ -441,7 +521,6 @@ export default function OrdersView() {
                   {t('OrdersView.colActions')}
                 </th>
               </tr>
-              {/* --- AKHIR PERBAIKAN (menghapus {' '}) --- */}
             </thead>
             <tbody className='divide-y divide-border'>
               {paginatedOrders.length > 0 ? (
@@ -488,7 +567,6 @@ export default function OrdersView() {
         </div>
       </div>
 
-      {/* ... (Pagination tidak berubah) ... */}
       {totalPages > 1 && (
         <footer className='p-4 border-t flex items-center justify-between'>
           <span className='text-sm text-muted-foreground'>
@@ -522,6 +600,13 @@ export default function OrdersView() {
           <PrintableReceipt
             order={selectedOrder}
             products={products}
+            taxAmount={taxAmount}
+            discountAmount={discountAmount}
+            // --- PERBAIKAN: Kirim props baru ke struk ---
+            processingFee={processingFee}
+            paymentMethodName={paymentMethodName}
+            grandTotal={grandTotal}
+            // --- AKHIR PERBAIKAN ---
             paperWidth='58mm'
           />
 
@@ -530,7 +615,6 @@ export default function OrdersView() {
             onOpenChange={(open) => !open && setSelectedOrder(null)}
           >
             <DialogContent className='max-w-3xl max-h-[90vh] flex flex-col bg-card text-foreground print:hidden'>
-              {/* ... (DialogHeader dan info detail tidak berubah) ... */}
               <DialogHeader>
                 <DialogTitle>
                   {t('OrdersView.modal.title', {
@@ -562,11 +646,43 @@ export default function OrdersView() {
                         </td>
                         <td>{formatRupiah(selectedOrder.subtotal)}</td>
                       </tr>
+
+                      {/* --- PERBAIKAN: Tampilkan Pajak & Diskon --- */}
+                      <tr>
+                        <td className='font-medium pr-2 py-1'>
+                          {t('Aside.totals.tax')} (10%)
+                        </td>
+                        {/* Baca dari variabel 'taxAmount' yang sudah di-parse */}
+                        <td>{formatRupiah(taxAmount)}</td>
+                      </tr>
+                      <tr>
+                        <td className='font-medium pr-2 py-1'>
+                          {t('Aside.totals.discount')}
+                        </td>
+                        {/* Tampilkan sebagai angka negatif, atau 'Rp 0' jika 0 */}
+                        <td>- {formatRupiah(discountAmount)}</td>
+                      </tr>
+                      {/* --- AKHIR PERBAIKAN --- */}
+
+                      {/* --- PERBAIKAN: Tampilkan Biaya Layanan --- */}
+                      {processingFee > 0 && (
+                        <tr>
+                          <td className='font-medium pr-2 py-1'>
+                            {t('Aside.paymentSheet.serviceFee', {
+                              paymentName: paymentMethodName,
+                            })}
+                          </td>
+                          <td>{formatRupiah(processingFee)}</td>
+                        </tr>
+                      )}
+                      {/* --- AKHIR PERBAIKAN --- */}
+
                       <tr>
                         <td className='font-medium pr-2 py-1'>
                           {t('OrdersView.modal.total')}
                         </td>
-                        <td>{formatRupiah(selectedOrder.total_amount)}</td>
+                        {/* --- PERBAIKAN: Tampilkan Grand Total --- */}
+                        <td>{formatRupiah(grandTotal)}</td>
                       </tr>
                       <tr>
                         <td className='font-medium pr-2 py-1'>
@@ -643,7 +759,6 @@ export default function OrdersView() {
                 </div>
               </div>
 
-              {/* ... (DialogFooter dan tombol-tombol tidak berubah) ... */}
               <DialogFooter className='mt-4 gap-2'>
                 <Dialog
                   open={isReturnDialogOpen}
@@ -701,4 +816,5 @@ export default function OrdersView() {
       )}
     </div>
   );
+
 }

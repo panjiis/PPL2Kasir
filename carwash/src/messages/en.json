@@ -1,6 +1,7 @@
+
 {
   "DashboardView": {
-    "welcome": "Welcome back, {name}!",
+    "welcome": "Welcome back, {{name}}!",
     "prompt": "Select an option from the sidebar to get started."
   },
   "Sidebar": {
@@ -27,10 +28,10 @@
       "logout": "Logout"
     },
     "apiPopup": {
-      "noApi": "No API mapped for {key}",
+      "noApi": "No API mapped for {{key}}",
       "sessionExpired": "Session expired, please login again.",
       "noData": "No data.",
-      "dataTitle": "{key} Data",
+      "dataTitle": "{{key}} Data",
       "loading": "Loading...",
       "result": "API Result",
       "close": "Close"
@@ -56,7 +57,7 @@
     "card": {
       "service": "Service",
       "product": "Product",
-      "ariaAdd": "Add {name} to order",
+      "ariaAdd": "Add {{name}} to order",
       "customizeLabel": "Product image:",
       "customizePlaceholder": "Product image URL...",
       "customizeButton": "Change"
@@ -108,7 +109,7 @@
     "paymentSheet": {
       "title": "Calculation",
       "orderTotal": "Order Total",
-      "serviceFee": "Service Fee ({paymentName})",
+      "serviceFee": "Service Fee ({{paymentName}})",
       "grandTotal": "Grand Total",
       "paymentType": "Payment Type:",
       "loadingMethods": "Loading payment methods...",
@@ -127,9 +128,9 @@
     },
     "errors": {
       "emptyCart": "Cart is empty, nothing to process.",
-      "unassignedService": "Please assign an employee to \"{name}\" to proceed.",
+      "unassignedService": "Please assign an employee to \"{{name}}\" to proceed.",
       "noPaymentMethod": "Please select a payment method.",
-      "cashInsufficient": "Cash (Rp{tendered}) is less than total (Rp{grandTotal}).",
+      "cashInsufficient": "Cash (Rp{{tendered}}) is less than total (Rp{{grandTotal}}).",
       "paymentFailed": "Failed to process payment. Please try again.",
       "voidFailed": "Failed to process void order.",
       "discountCartEmpty": "Cart is empty, cannot apply discount.",
@@ -144,8 +145,8 @@
     "loginRequired": "You must be logged in",
     "createCartFailed": "Failed to create cart",
     "serviceExists": "Service already added. Select/change employee.",
-    "serviceAdded": "{name} added. Please select an employee.",
-    "addItemFailed": "Failed to add {name} to cart",
+    "serviceAdded": "{{name}} added. Please select an employee.",
+    "addItemFailed": "Failed to add {{name}} to cart",
     "itemNotFound": "Cart or item not found.",
     "employeeAssigned": "Employee assigned.",
     "assignEmployeeFailed": "Failed to assign employee."
@@ -168,7 +169,7 @@
     "loading": "Loading Data...",
     "errorTitle": "Failed to load data",
     "title": "Product Groups",
-    "subtitle": "Products in category {groupName}",
+    "subtitle": "Products in category {{groupName}}",
     "prompt": "Select a category to see products.",
     "emptyGroups": "No product groups found.",
     "emptyProducts": "No products found in this group.",
@@ -204,7 +205,7 @@
     "viewDetails": "View Details",
     "empty": "No orders found.",
     "modal": {
-      "title": "Order #{orderNumber}",
+      "title": "Order {{orderNumber}}",
       "id": "ID",
       "date": "Date",
       "subtotal": "Subtotal",
@@ -221,7 +222,7 @@
       "print": "Print Receipt",
       "close": "Close",
       "returnTitle": "Confirm Order Return",
-      "returnConfirm": "Are you sure you want to return order #{orderNumber}?",
+      "returnConfirm": "Are you sure you want to return order {{orderNumber}}?",
       "returnCancel": "Cancel",
       "returnYes": "Yes, Return"
     },
@@ -229,7 +230,7 @@
       "missingDetails": "Order details or token are missing.",
       "noReturnItems": "No valid item IDs to return.",
       "returnFailed": "Failed to create return.",
-      "returnSuccess": "Return created for order {orderNumber}."
+      "returnSuccess": "Return created for order {{orderNumber}}."
     },
     "receipt": {
       "order": "Order #",
@@ -243,8 +244,8 @@
     }
   },
   "Pagination": {
-    "pageOf": "Page {currentPage} of {totalPages}",
-    "showingOf": "(Showing {startItem}–{endItem} of {totalItems} products)",
+    "pageOf": "Page {{currentPage}} of {{totalPages}}",
+    "showingOf": "(Showing {{startItem}}–{{endItem}} of {{totalItems}} products)",
     "previous": "Previous",
     "next": "Next"
   }

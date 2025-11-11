@@ -1,6 +1,7 @@
+
 {
   "DashboardView": {
-    "welcome": "Selamat datang kembali, {name}!",
+    "welcome": "Selamat datang kembali, {{name}}!",
     "prompt": "Pilih opsi dari sidebar untuk memulai."
   },
   "Sidebar": {
@@ -27,10 +28,10 @@
       "logout": "Keluar"
     },
     "apiPopup": {
-      "noApi": "Tidak ada API yang dipetakan untuk {key}",
+      "noApi": "Tidak ada API yang dipetakan untuk {{key}}",
       "sessionExpired": "Sesi berakhir, silakan login kembali.",
       "noData": "Tidak ada data.",
-      "dataTitle": "Data {key}",
+      "dataTitle": "Data {{key}}",
       "loading": "Memuat...",
       "result": "Hasil API",
       "close": "Tutup"
@@ -56,7 +57,7 @@
     "card": {
       "service": "Layanan",
       "product": "Produk",
-      "ariaAdd": "Tambah {name} ke pesanan",
+      "ariaAdd": "Tambah {{name}} ke pesanan",
       "customizeLabel": "Gambar produk:",
       "customizePlaceholder": "URL gambar produk...",
       "customizeButton": "Ubah"
@@ -108,7 +109,7 @@
     "paymentSheet": {
       "title": "Kalkulasi",
       "orderTotal": "Total Pesanan",
-      "serviceFee": "Biaya Layanan ({paymentName})",
+      "serviceFee": "Biaya Layanan ({{paymentName}})",
       "grandTotal": "Total Bayar",
       "paymentType": "Tipe Pembayaran:",
       "loadingMethods": "Memuat metode pembayaran...",
@@ -127,9 +128,9 @@
     },
     "errors": {
       "emptyCart": "Keranjang kosong, tidak ada yang diproses.",
-      "unassignedService": "Pilih karyawan untuk \"{name}\" sebelum proses.",
+      "unassignedService": "Pilih karyawan untuk \"{{name}}\" sebelum proses.",
       "noPaymentMethod": "Silakan pilih metode pembayaran.",
-      "cashInsufficient": "Uang tunai (Rp{tendered}) kurang dari total bayar (Rp{grandTotal}).",
+      "cashInsufficient": "Uang tunai (Rp{{tendered}}) kurang dari total bayar (Rp{{grandTotal}}).",
       "paymentFailed": "Gagal memproses pembayaran. Silakan coba lagi.",
       "voidFailed": "Gagal memproses void order.",
       "discountCartEmpty": "Keranjang kosong, tidak bisa menerapkan diskon.",
@@ -144,8 +145,8 @@
     "loginRequired": "Anda harus login",
     "createCartFailed": "Gagal membuat keranjang",
     "serviceExists": "Layanan sudah ada. Pilih/ganti karyawan.",
-    "serviceAdded": "{name} ditambah. Silakan pilih karyawan.",
-    "addItemFailed": "Gagal menambah {name} ke keranjang",
+    "serviceAdded": "{{name}} ditambah. Silakan pilih karyawan.",
+    "addItemFailed": "Gagal menambah {{name}} ke keranjang",
     "itemNotFound": "Keranjang atau item tidak ditemukan.",
     "employeeAssigned": "Karyawan di-assign.",
     "assignEmployeeFailed": "Gagal assign karyawan."
@@ -168,7 +169,7 @@
     "loading": "Memuat Data...",
     "errorTitle": "Gagal memuat data",
     "title": "Grup Produk",
-    "subtitle": "Produk dalam kategori {groupName}",
+    "subtitle": "Produk dalam kategori {{groupName}}",
     "prompt": "Pilih kategori untuk melihat produk.",
     "emptyGroups": "Grup produk tidak ditemukan.",
     "emptyProducts": "Tidak ada produk di grup ini.",
@@ -204,7 +205,7 @@
     "viewDetails": "Lihat Detail",
     "empty": "Pesanan tidak ditemukan.",
     "modal": {
-      "title": "Pesanan #{orderNumber}",
+      "title": "Pesanan {{orderNumber}}",
       "id": "ID",
       "date": "Tanggal",
       "subtotal": "Subtotal",
@@ -221,7 +222,7 @@
       "print": "Cetak Struk",
       "close": "Tutup",
       "returnTitle": "Konfirmasi Pengembalian Pesanan",
-      "returnConfirm": "Apakah Anda yakin ingin mengembalikan pesanan #{orderNumber}?",
+      "returnConfirm": "Apakah Anda yakin ingin mengembalikan pesanan {{orderNumber}}?",
       "returnCancel": "Batal",
       "returnYes": "Ya, Kembalikan"
     },
@@ -229,7 +230,7 @@
       "missingDetails": "Detail pesanan atau token hilang.",
       "noReturnItems": "Tidak ada item ID yang valid untuk dikembalikan.",
       "returnFailed": "Gagal membuat pengembalian.",
-      "returnSuccess": "Pengembalian untuk pesanan {orderNumber} berhasil dibuat."
+      "returnSuccess": "Pengembalian untuk pesanan {{orderNumber}} berhasil dibuat."
     },
     "receipt": {
       "order": "Pesanan #",
@@ -243,8 +244,8 @@
     }
   },
   "Pagination": {
-    "pageOf": "Halaman {currentPage} dari {totalPages}",
-    "showingOf": "(Menampilkan {startItem}–{endItem} dari {totalItems} produk)",
+    "pageOf": "Halaman {{currentPage}} dari {{totalPages}}",
+    "showingOf": "(Menampilkan {{startItem}}–{{endItem}} dari {{totalItems}} produk)",
     "previous": "Sebelumnya",
     "next": "Berikutnya"
   }

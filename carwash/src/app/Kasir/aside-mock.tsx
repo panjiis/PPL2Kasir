@@ -1,3 +1,5 @@
+// Kasir/aside-mock.tsx
+
 'use client';
 
 import type React from 'react';
@@ -83,19 +85,10 @@ function SmallPill({
 }) {
   const { isCustomize, getButtonLabel, setButtonPref, getButtonClasses } =
     usePreferences();
-  
-  // --- INI PERBAIKANNYA ---
-  // Tentukan key mana yang akan digunakan untuk mengambil *label* kustomisasi.
-  // Jika forceColorFrom ada, gunakan key itu. Jika tidak, gunakan prefKey.
+
   const labelKey = forceColorFrom || prefKey;
-  
-  // Ambil label menggunakan 'labelKey' yang sudah benar
   const label = getButtonLabel(labelKey, defaultLabel);
-  
-  // getButtonClasses() tidak mengambil argumen, jadi panggil seperti biasa.
-  // Warna akan tetap diambil dari tema aktif.
   const color = getButtonClasses();
-  // --- SELESAI PERBAIKAN ---
 
   return (
     <div className='flex flex-col items-start gap-1'>
@@ -119,8 +112,6 @@ function SmallPill({
             className='w-24 rounded border border-border bg-card text-xs px-2 py-0.5'
             defaultValue={label}
             onBlur={(e) =>
-              // Saat mengedit, kita tetap menyimpan ke prefKey asli,
-              // bukan ke key 'forceColorFrom'.
               setButtonPref(prefKey, { label: e.currentTarget.value })
             }
           />
@@ -169,15 +160,32 @@ function LineItem({
     setInputQty(val);
   };
 
+  const commitQty = () => {
+    if (onSetQty && allowAdjust && selected) {
+      // Izinkan 0 untuk memicu delete. Fallback ke 0, bukan 'qty'
+      const newQty = Math.max(0, Number(inputQty) || 0);
+
+      if (newQty !== qty) {
+        onSetQty(newQty); // Panggil onSetQty (ini akan memanggil adjustQuantity)
+      } else {
+        // Jika tidak ada perubahan (misal: input "0" saat qty sudah 1, lalu dibatalkan jadi 1)
+        // atau input sama dengan qty, reset input
+        setInputQty(qty.toString());
+      }
+    } else {
+      // Jika tidak dalam mode adjust, reset ke qty
+      setInputQty(qty.toString());
+    }
+  };
+
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && onSetQty && allowAdjust && selected) {
-      const newQty = Math.max(1, Number(inputQty) || qty);
-      if (newQty !== qty) onSetQty(newQty);
+    if (e.key === 'Enter') {
+      commitQty(); // <-- Panggil fungsi 'commit'
     }
   };
 
   const handleBlur = () => {
-    setInputQty(qty.toString());
+    commitQty(); // <-- Panggil fungsi 'commit'
   };
 
   return (
@@ -192,9 +200,7 @@ function LineItem({
         className='grid h-8 w-8 place-items-center text-foreground text-xl'
         aria-pressed={selected}
         aria-label={
-          selected
-            ? t('Aside.lineItem.deselect')
-            : t('Aside.lineItem.select')
+          selected ? t('Aside.lineItem.deselect') : t('Aside.lineItem.select')
         }
       >
         {selected ? '✓' : '□'}
@@ -213,7 +219,7 @@ function LineItem({
       <div className='ml-auto flex items-center gap-2'>
         <input
           type='number'
-          min={1}
+          min={0}
           className='w-14 h-6 rounded-md border border-border px-1 text-center text-xs outline-none disabled:bg-muted disabled:opacity-60'
           value={inputQty}
           disabled={!allowAdjust || !selected}
@@ -263,7 +269,7 @@ function ProductSection() {
                 adjustMode &&
                 !locked &&
                 selectedItemId === it.id &&
-                newQty > 0 &&
+                // newQty > 0 && // <--- INI BUG-NYA (SUDAH DIHAPUS)
                 adjustQuantity(it.id, newQty - it.qty)
               }
             />
@@ -327,7 +333,7 @@ function ServicesSection() {
                 adjustMode &&
                 !locked &&
                 selectedItemId === it.id &&
-                newQty > 0 &&
+                // newQty > 0 && // <--- INI BUG-NYA (SUDAH DIHAPUS)
                 adjustQuantity(it.id, newQty - it.qty)
               }
               extraRight={
@@ -736,16 +742,19 @@ export default function AsideMock(): React.ReactElement {
     return () => clearInterval(interval);
   }, []);
 
+  // --- PERBAIKAN: Hitung 'baseForFee' dari (subtotal + tax) ---
+  const baseForFee = useMemo(() => subtotal + tax, [subtotal, tax]);
+
   const processingFee = useMemo(() => {
-    if (!selectedPaymentType || !selectedPaymentType.processing_fee_rate) {
+    if (!selectedPaymentType || !selectedPaymentType.processing_fee_rate)
       return 0;
-    }
     return calculateProcessingFee(
       selectedPaymentType.processing_fee_rate,
-      total
+      baseForFee // <-- Gunakan 'baseForFee'
     );
-  }, [selectedPaymentType, total]);
+  }, [selectedPaymentType, baseForFee]); // <-- Gunakan 'baseForFee'
 
+  // Grand total adalah total akhir + fee
   const grandTotal = useMemo(
     () => total + processingFee,
     [total, processingFee]
@@ -804,11 +813,14 @@ export default function AsideMock(): React.ReactElement {
       setPaymentSheetOpen(false);
       const paymentTypeId = selectedPaymentType.id;
       const paymentName = selectedPaymentType.payment_name;
+
       const orderPayload = {
         cart_id: cartId,
         document_number: `INV-${Date.now()}`,
-        total_amount: total,
+        total_amount: grandTotal,
         subtotal: subtotal,
+        tax_amount: tax,
+        discount_amount: discount,
         additional_info: `Payment Fee: ${processingFee} (Metode: ${paymentName}, Rate: ${selectedPaymentType.processing_fee_rate})`,
         notes: `Payment type: ${paymentName}`,
       };
@@ -816,6 +828,7 @@ export default function AsideMock(): React.ReactElement {
       console.log('Data yang "dilempar" ke createOrderFromCart:', orderPayload);
       const { data: order } = await createOrderFromCart(orderPayload, token);
       const createdOrderId = order.id;
+
       const paymentPayload = {
         order_id: createdOrderId,
         paid_amount: String(grandTotal),
@@ -881,10 +894,12 @@ export default function AsideMock(): React.ReactElement {
       const { data: createdOrder } = await createOrderFromCart(
         {
           cart_id: cartId,
-          document_number: `VOID-${Date.now()}`,
+          document_number: `INV-${Date.now()}`,
           notes: 'Dibatalkan oleh kasir sebelum pembayaran',
           total_amount: total,
           subtotal: subtotal,
+          tax_amount: tax,
+          discount_amount: discount,
         },
         token
       );
@@ -897,7 +912,7 @@ export default function AsideMock(): React.ReactElement {
       await voidOrderApi(
         {
           id: newOrderId,
-          voided_by: 1, // Ganti dengan ID user asli jika ada
+          voided_by: 1,
           reason: 'Voided from cart by user',
         },
         token
@@ -986,7 +1001,9 @@ export default function AsideMock(): React.ReactElement {
       console.error(err);
       clearCoupon();
       const errorMessage =
-        err instanceof Error ? err.message : t('Aside.errors.discountApiFailed');
+        err instanceof Error
+          ? err.message
+          : t('Aside.errors.discountApiFailed');
       showNotif({ type: 'error', message: errorMessage });
     } finally {
       setBusy(false);
@@ -1058,9 +1075,7 @@ export default function AsideMock(): React.ReactElement {
             </div>
           </div>
           <div className='flex justify-between'>
-            <div className='text-muted-foreground'>
-              {t('Aside.totals.tax')}
-            </div>
+            <div className='text-muted-foreground'>{t('Aside.totals.tax')}</div>
             <div className='font-medium font-rubik text-foreground'>
               {formatIDR(tax)}
             </div>

@@ -4,7 +4,6 @@ import type {
   ProductGroup,
   ProductType,
   Cart,
-  CartItem as ApiCartItem, // Ubah nama import agar tidak konflik
   Discount,
   PosOrder,
   PaymentType,
@@ -12,7 +11,8 @@ import type {
   ValidateDiscountPayload,
   DetailedPosOrder,
   DiscountPayload,
-  ApiSyncedCartItem, // +++ PERBAIKAN: IMPOR TIPE BARU +++
+  ApiSyncedCartItem,
+  ApiCartResponse, 
   Employee,
 } from '../types/pos';
 
@@ -227,7 +227,7 @@ export async function fetchCartById(
 export async function addItemToCart(
   body: AddItemPayload, // <-- Tipe payload yang benar
   token?: string
-): Promise<{ data: ApiCartItem }> {
+): Promise<{ data: ApiCartResponse }> {
   console.log('Adding item to cart with body:', body);
   const res = await fetch(`${BASE_URL}/pos/carts/items`, {
     method: 'POST',
@@ -241,11 +241,11 @@ export async function addItemToCart(
 
 export async function removeItemFromCart(
   cart_id: string,
-  item_code: string,
+  item_id: string,
   token?: string
 ): Promise<{ success: boolean }> {
   const res = await fetch(
-    `${BASE_URL}/pos/carts/${cart_id}/items/${item_code}`,
+    `${BASE_URL}/pos/carts/${cart_id}/items/${item_id}`,
     {
       method: 'DELETE',
       headers: defaultHeaders(token),
@@ -336,14 +336,18 @@ export async function createOrder(
 }
 
 export async function createOrderFromCart(
+  // --- PERBAIKAN TIPE DI BAWAH INI ---
   body: {
     cart_id: string;
     document_number: string;
     additional_info?: string;
     notes?: string;
-    subtotal?: number; 
-    total_amount?: number; 
+    subtotal?: number;
+    total_amount?: number;
+    tax_amount?: number; // <-- TAMBAHKAN INI
+    discount_amount?: number; // <-- TAMBAHKAN INI
   },
+  // --- AKHIR PERBAIKAN TIPE ---
   token?: string
 ): Promise<{ data: PosOrder }> {
   const res = await fetch(`${BASE_URL}/pos/orders/from-cart`, {
@@ -505,7 +509,6 @@ export async function validateDiscount(
   if (!res.ok) throw new Error(await safeReadText(res));
   return res.json();
 }
-
 
 export async function fetchEmployees(
   token?: string
