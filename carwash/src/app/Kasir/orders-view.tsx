@@ -165,17 +165,14 @@ const PrintableReceipt = ({
       <div className='rcpt-meta'>
         <p>
           {t('OrdersView.receipt.order')}: {order.document_number}
-        </p>{' '}
-        {/* <-- 3. Ganti teks */}
+        </p>
         <p>
           {t('OrdersView.modal.date')}: {formatDate(order.orders_date?.seconds)}
-        </p>{' '}
-        {/* <-- 3. Ganti teks */}
+        </p>
         <p>
           {t('OrdersView.receipt.kasir')}:{' '}
           {sessionStorage.getItem('username') ?? t('OrdersView.receipt.kasir')}
-        </p>{' '}
-        {/* <-- 3. Ganti teks */}
+        </p>
       </div>
 
       <div className='rcpt-divider' />
@@ -183,16 +180,13 @@ const PrintableReceipt = ({
       <table className='rcpt-items' role='table' aria-label='items'>
         <thead>
           <tr>
-            <th style={{ width: '55%' }}>{t('OrdersView.receipt.item')}</th>{' '}
-            {/* <-- 3. Ganti teks */}
+            <th style={{ width: '55%' }}>{t('OrdersView.receipt.item')}</th>
             <th style={{ width: '15%', textAlign: 'center' }}>
               {t('OrdersView.receipt.qty')}
-            </th>{' '}
-            {/* <-- 3. Ganti teks */}
+            </th>
             <th style={{ width: '30%', textAlign: 'right' }}>
               {t('OrdersView.receipt.total')}
-            </th>{' '}
-            {/* <-- 3. Ganti teks */}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -220,31 +214,27 @@ const PrintableReceipt = ({
       <table className='rcpt-summary' role='table' aria-label='summary'>
         <tbody>
           <tr>
-            <td>{t('OrdersView.modal.subtotal')}</td> {/* <-- 3. Ganti teks */}
+            <td>{t('OrdersView.modal.subtotal')}</td>
             <td style={{ textAlign: 'right' }}>
               {formatRupiah(order.subtotal)}
             </td>
           </tr>
 
-          {/* --- PERBAIKAN ESLINT DI SINI --- */}
+          {/* --- KOMENTAR PENYEBAB ERROR SUDAH DIHAPUS --- */}
           {'discount_amount' in order && (
             <tr>
-              <td>{t('Aside.totals.discount')}</td> {/* <-- 3. Ganti teks */}
+              <td>{t('Aside.totals.discount')}</td>
               <td style={{ textAlign: 'right' }}>
-                {/* Kita memberi tahu TypeScript bahwa 'order' di sini 
-                  adalah objek yang mungkin memiliki 'discount_amount' 
-                */}
                 {formatRupiah(
                   (order as { discount_amount?: number }).discount_amount ?? 0
                 )}
               </td>
             </tr>
           )}
-          {/* --- AKHIR PERBAIKAN --- */}
+          {/* --- KOMENTAR PENYEBAB ERROR SUDAH DIHAPUS --- */}
 
           <tr className='total'>
-            <td>{t('OrdersView.receipt.grandtotal')}</td>{' '}
-            {/* <-- 3. Ganti teks */}
+            <td>{t('OrdersView.receipt.grandtotal')}</td>
             <td style={{ textAlign: 'right' }}>
               {formatRupiah(order.total_amount)}
             </td>
@@ -252,8 +242,7 @@ const PrintableReceipt = ({
 
           {order.payment_type && (
             <tr>
-              <td>{t('OrdersView.modal.paymentMethod')}</td>{' '}
-              {/* <-- 3. Ganti teks */}
+              <td>{t('OrdersView.modal.paymentMethod')}</td>
               <td style={{ textAlign: 'right' }}>
                 {order.payment_type.payment_name ?? '-'}
               </td>
@@ -268,12 +257,10 @@ const PrintableReceipt = ({
         <div style={{ marginBottom: 4 }}>{order.notes ?? ''}</div>
         <div style={{ fontSize: 10, marginTop: 6 }}>
           {t('OrdersView.receipt.thankyou')}
-        </div>{' '}
-        {/* <-- 3. Ganti teks */}
+        </div>
         <div style={{ fontSize: 9 }}>
           {t('OrdersView.receipt.comeagain')}
-        </div>{' '}
-        {/* <-- 3. Ganti teks */}
+        </div>
       </div>
     </div>,
     document.body
@@ -314,14 +301,14 @@ export default function OrdersView() {
       showNotif({
         type: 'error',
         message: t('OrdersView.errors.missingDetails'),
-      }); // <-- 3. Ganti teks
+      });
       return;
     }
     setBusy(true);
     try {
       const allItemIds = selectedOrder.order_items.map((item) => item.id);
       if (allItemIds.length === 0) {
-        throw new Error(t('OrdersView.errors.noReturnItems')); // <-- 3. Ganti teks
+        throw new Error(t('OrdersView.errors.noReturnItems'));
       }
       await returnOrderApi(
         {
@@ -337,7 +324,7 @@ export default function OrdersView() {
         message: t('OrdersView.errors.returnSuccess', {
           orderNumber: selectedOrder.document_number,
         }),
-      }); // <-- 3. Ganti teks
+      });
       setIsReturnDialogOpen(false);
       setSelectedOrder(null);
       refetchOrders();
@@ -346,7 +333,7 @@ export default function OrdersView() {
       const errorMessage =
         err instanceof Error
           ? err.message
-          : t('OrdersView.errors.returnFailed'); // <-- 3. Ganti teks
+          : t('OrdersView.errors.returnFailed');
       showNotif({ type: 'error', message: errorMessage });
     } finally {
       setBusy(false);
@@ -391,7 +378,7 @@ export default function OrdersView() {
     return (
       <div className='flex items-center justify-center h-full text-muted-foreground'>
         <Loader2 className='h-8 w-8 animate-spin mr-2' />
-        <span>{t('OrdersView.loading')}</span> {/* <-- 3. Ganti teks */}
+        <span>{t('OrdersView.loading')}</span>
       </div>
     );
   }
@@ -400,8 +387,7 @@ export default function OrdersView() {
     return (
       <div className='flex flex-col items-center justify-center h-full text-destructive'>
         <AlertTriangle className='h-10 w-10 mb-2' />
-        <span className='font-semibold'>{t('OrdersView.errorTitle')}</span>{' '}
-        {/* <-- 3. Ganti teks */}
+        <span className='font-semibold'>{t('OrdersView.errorTitle')}</span>
         <p className='text-sm'>{errorMessage}</p>
       </div>
     );
@@ -413,12 +399,10 @@ export default function OrdersView() {
       <header className='p-4'>
         <h1 className='text-2xl font-bold text-foreground'>
           {t('OrdersView.title')}
-        </h1>{' '}
-        {/* <-- 3. Ganti teks */}
+        </h1>
         <p className='text-muted-foreground'>
           {t('OrdersView.description')}
-        </p>{' '}
-        {/* <-- 3. Ganti teks */}
+        </p>
       </header>
       <div className='px-4 pb-4'>
         <div className='relative'>
@@ -439,28 +423,25 @@ export default function OrdersView() {
         <div className='border rounded-lg overflow-hidden'>
           <table className='w-full text-sm'>
             <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
+              {/* --- PERBAIKAN DI BAWAH --- */}
               <tr>
                 <th className='text-left font-medium p-3'>
                   {t('OrdersView.colOrder')}
-                </th>{' '}
-                {/* <-- 3. Ganti teks */}
+                </th>
                 <th className='text-left font-medium p-3'>
                   {t('OrdersView.colDate')}
-                </th>{' '}
-                {/* <-- 3. Ganti teks */}
+                </th>
                 <th className='text-left font-medium p-3'>
                   {t('OrdersView.colPayment')}
-                </th>{' '}
-                {/* <-- 3. Ganti teks */}
+                </th>
                 <th className='text-right font-medium p-3'>
                   {t('OrdersView.colSubtotal')}
-                </th>{' '}
-                {/* <-- 3. Ganti teks */}
+                </th>
                 <th className='text-center font-medium p-3'>
                   {t('OrdersView.colActions')}
-                </th>{' '}
-                {/* <-- 3. Ganti teks */}
+                </th>
               </tr>
+              {/* --- AKHIR PERBAIKAN (menghapus {' '}) --- */}
             </thead>
             <tbody className='divide-y divide-border'>
               {paginatedOrders.length > 0 ? (
@@ -487,7 +468,7 @@ export default function OrdersView() {
                         size='sm'
                         onClick={() => setSelectedOrder(order)}
                       >
-                        {t('OrdersView.viewDetails')} {/* <-- 3. Ganti teks */}
+                        {t('OrdersView.viewDetails')}
                       </Button>
                     </td>
                   </tr>
@@ -498,7 +479,7 @@ export default function OrdersView() {
                     colSpan={5}
                     className='text-center p-6 text-muted-foreground'
                   >
-                    {t('OrdersView.empty')} {/* <-- 3. Ganti teks */}
+                    {t('OrdersView.empty')}
                   </td>
                 </tr>
               )}
@@ -514,8 +495,7 @@ export default function OrdersView() {
             {t('Pagination.pageOf', {
               currentPage: currentPage,
               totalPages: totalPages,
-            })}{' '}
-            {/* <-- 3. Ganti teks */}
+            })}
           </span>
           <div className='flex items-center gap-2'>
             <Button
@@ -523,14 +503,14 @@ export default function OrdersView() {
               onClick={handlePrevPage}
               disabled={currentPage === 1}
             >
-              {t('Pagination.previous')} {/* <-- 3. Ganti teks */}
+              {t('Pagination.previous')}
             </Button>
             <Button
               variant='outline'
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
             >
-              {t('Pagination.next')} {/* <-- 3. Ganti teks */}
+              {t('Pagination.next')}
             </Button>
           </div>
         </footer>
@@ -555,8 +535,7 @@ export default function OrdersView() {
                 <DialogTitle>
                   {t('OrdersView.modal.title', {
                     orderNumber: selectedOrder.document_number,
-                  })}{' '}
-                  {/* <-- 3. Ganti teks */}
+                  })}
                 </DialogTitle>
               </DialogHeader>
               <div className='flex-1 overflow-y-auto p-1'>
@@ -566,15 +545,13 @@ export default function OrdersView() {
                       <tr>
                         <td className='font-medium pr-2 py-1'>
                           {t('OrdersView.modal.id')}
-                        </td>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </td>
                         <td>{selectedOrder.id}</td>
                       </tr>
                       <tr>
                         <td className='font-medium pr-2 py-1'>
                           {t('OrdersView.modal.date')}
-                        </td>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </td>
                         <td>
                           {formatDate(selectedOrder.orders_date?.seconds)}
                         </td>
@@ -582,22 +559,19 @@ export default function OrdersView() {
                       <tr>
                         <td className='font-medium pr-2 py-1'>
                           {t('OrdersView.modal.subtotal')}
-                        </td>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </td>
                         <td>{formatRupiah(selectedOrder.subtotal)}</td>
                       </tr>
                       <tr>
                         <td className='font-medium pr-2 py-1'>
                           {t('OrdersView.modal.total')}
-                        </td>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </td>
                         <td>{formatRupiah(selectedOrder.total_amount)}</td>
                       </tr>
                       <tr>
                         <td className='font-medium pr-2 py-1'>
                           {t('OrdersView.modal.paymentMethod')}
-                        </td>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </td>
                         <td>
                           {selectedOrder.payment_type?.payment_name ?? '-'}
                         </td>
@@ -606,8 +580,7 @@ export default function OrdersView() {
                         <tr>
                           <td className='font-medium pr-2 py-1'>
                             {t('OrdersView.modal.notes')}
-                          </td>{' '}
-                          {/* <-- 3. Ganti teks */}
+                          </td>
                           <td>{selectedOrder.notes}</td>
                         </tr>
                       )}
@@ -615,8 +588,7 @@ export default function OrdersView() {
                         <tr>
                           <td className='font-medium pr-2 py-1'>
                             {t('OrdersView.modal.additionalInfo')}
-                          </td>{' '}
-                          {/* <-- 3. Ganti teks */}
+                          </td>
                           <td>{selectedOrder.additional_info}</td>
                         </tr>
                       )}
@@ -626,23 +598,20 @@ export default function OrdersView() {
 
                 <div className='border rounded-lg bg-muted shadow-sm'>
                   <div className='font-semibold text-sm px-4 py-2 bg-muted border-b'>
-                    {t('OrdersView.modal.itemsTitle')} {/* <-- 3. Ganti teks */}
+                    {t('OrdersView.modal.itemsTitle')}
                   </div>
                   <table className='w-full text-sm'>
                     <thead>
                       <tr className='bg-muted'>
                         <th className='border px-2 py-1 text-left'>
                           {t('OrdersView.modal.itemProduct')}
-                        </th>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </th>
                         <th className='border px-2 py-1 text-center'>
                           {t('OrdersView.modal.itemQty')}
-                        </th>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </th>
                         <th className='border px-2 py-1 text-right'>
                           {t('OrdersView.modal.itemTotal')}
-                        </th>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -684,29 +653,25 @@ export default function OrdersView() {
                     <Button variant='destructive' disabled={busy}>
                       {busy
                         ? t('OrdersView.modal.processing')
-                        : t('OrdersView.modal.return')}{' '}
-                      {/* <-- 3. Ganti teks */}
+                        : t('OrdersView.modal.return')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>
                         {t('OrdersView.modal.returnTitle')}
-                      </DialogTitle>{' '}
-                      {/* <-- 3. Ganti teks */}
+                      </DialogTitle>
                       <DialogDescription className='py-4 text-base text-center'>
                         {t('OrdersView.modal.returnConfirm', {
                           orderNumber: selectedOrder.document_number,
-                        })}{' '}
-                        {/* <-- 3. Ganti teks */}
+                        })}
                       </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className='gap-2'>
                       <DialogClose asChild>
                         <Button variant='outline'>
                           {t('OrdersView.modal.returnCancel')}
-                        </Button>{' '}
-                        {/* <-- 3. Ganti teks */}
+                        </Button>
                       </DialogClose>
                       <Button
                         variant='destructive'
@@ -715,23 +680,20 @@ export default function OrdersView() {
                       >
                         {busy
                           ? t('OrdersView.modal.processing')
-                          : t('OrdersView.modal.returnYes')}{' '}
-                        {/* <-- 3. Ganti teks */}
+                          : t('OrdersView.modal.returnYes')}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
                 <Button variant='outline' onClick={handlePrintReceipt}>
                   {t('OrdersView.modal.print')}
-                </Button>{' '}
-                {/* <-- 3. Ganti teks */}
+                </Button>
                 <Button
                   variant='outline'
                   onClick={() => setSelectedOrder(null)}
                 >
                   {t('OrdersView.modal.close')}
-                </Button>{' '}
-                {/* <-- 3. Ganti teks */}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

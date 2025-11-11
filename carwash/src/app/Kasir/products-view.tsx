@@ -104,12 +104,10 @@ export default function ProductsView() {
       <header className='p-4'>
         <h1 className='text-2xl font-bold text-foreground'>
           {t('ProductsView.title')}
-        </h1>{' '}
-        {/* <-- Ganti ClassName */}
+        </h1>
         <p className='text-muted-foreground'>
           {t('ProductsView.description')}
-        </p>{' '}
-        {/* <-- Ganti ClassName */}
+        </p>
       </header>
 
       <div className='px-4 pb-4'>
@@ -132,20 +130,19 @@ export default function ProductsView() {
         <div className='border rounded-lg overflow-hidden'>
           <table className='w-full text-sm'>
             <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
+              {/* --- PERBAIKAN DI BAWAH --- */}
               <tr>
                 <th className='text-left font-medium p-3'>
                   {t('ProductsView.colName')}
-                </th>{' '}
-                {/* <-- Ganti Teks */}
+                </th>
                 <th className='text-left font-medium p-3'>
                   {t('ProductsView.colCode')}
-                </th>{' '}
-                {/* <-- Ganti Teks */}
+                </th>
                 <th className='text-right font-medium p-3'>
                   {t('ProductsView.colPrice')}
-                </th>{' '}
-                {/* <-- Ganti Teks */}
+                </th>
               </tr>
+              {/* --- AKHIR PERBAIKAN (menghapus {' '}) --- */}
             </thead>
             <tbody className='divide-y divide-border'>
               {paginatedProducts.length > 0 ? (
@@ -169,7 +166,7 @@ export default function ProductsView() {
                     colSpan={3}
                     className='text-center p-6 text-muted-foreground'
                   >
-                    {t('ProductsView.empty')} {/* <-- Ganti Teks */}
+                    {t('ProductsView.empty')}
                   </td>
                 </tr>
               )}
@@ -184,13 +181,11 @@ export default function ProductsView() {
           {/* Membungkus info di sebelah kiri */}
           <div className='flex items-center gap-4'>
             <span className='text-sm text-muted-foreground'>
-              {t('Pagination.pageOf', { currentPage, totalPages })}{' '}
-              {/* <-- Ganti Teks */}
+              {t('Pagination.pageOf', { currentPage, totalPages })}
             </span>
             {/* Info spesifik baru, disembunyikan di layar kecil (sm:) */}
             <span className='text-sm text-muted-foreground hidden sm:block'>
-              {t('Pagination.showingOf', { startItem, endItem, totalItems })}{' '}
-              {/* <-- Ganti Teks */}
+              {t('Pagination.showingOf', { startItem, endItem, totalItems })}
             </span>
           </div>
 
@@ -201,14 +196,14 @@ export default function ProductsView() {
               onClick={handlePrevPage}
               disabled={currentPage === 1}
             >
-              {t('Pagination.previous')} {/* <-- Ganti Teks */}
+              {t('Pagination.previous')}
             </Button>
             <Button
               variant='outline'
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
             >
-              {t('Pagination.next')} {/* <-- Ganti Teks */}
+              {t('Pagination.next')}
             </Button>
           </div>
         </footer>
