@@ -288,9 +288,7 @@ const PrintableReceipt = ({
         <div style={{ fontSize: 10, marginTop: 6 }}>
           {t('OrdersView.receipt.thankyou')}
         </div>
-        <div style={{ fontSize: 9 }}>
-          {t('OrdersView.receipt.comeagain')}
-        </div>
+        <div style={{ fontSize: 9 }}>{t('OrdersView.receipt.comeagain')}</div>
       </div>
     </div>,
     document.body
@@ -333,11 +331,10 @@ export default function OrdersView() {
 
   const taxAmount = useMemo(() => {
     if (!selectedOrder) return 0;
-    // --- INI PERBAIKANNYA ---
-    // Jangan baca dari API. Hitung 10% dari Subtotal.
-    return Math.round(Number(selectedOrder.subtotal ?? 0) * 0.1);
-    // --- AKHIR PERBAIKAN ---
-  }, [selectedOrder]);
+
+    const baseForTax = Number(selectedOrder.subtotal ?? 0) - discountAmount;
+    return Math.round(baseForTax * 0.1);
+  }, [selectedOrder, discountAmount]);
 
   // --- PERBAIKAN: Parse Biaya Layanan (Fee) dari Info Tambahan ---
   const { processingFee, paymentMethodName } = useMemo(() => {
@@ -362,15 +359,11 @@ export default function OrdersView() {
   // --- PERBAIKAN: Hitung Grand Total baru ---
   const grandTotal = useMemo(() => {
     if (!selectedOrder) return 0;
-    // Kita hitung secara eksplisit:
-    // grandTotal = (subtotal + tax - discount) + processingFee
+
     const subtotalNum = Number(selectedOrder.subtotal ?? 0);
-    const discountNum = Number(selectedOrder.discount_amount ?? 0);
-    const taxNum = Math.round(subtotalNum * 0.1);
-    // Karena ada kemungkinan API memberikan total_amount yang lain (mis. preprocessed),
-    // kita pakai perhitungan lokal agar tampilan sesuai kebutuhan:
-    return subtotalNum + taxNum - discountNum + processingFee;
-  }, [selectedOrder, processingFee]);
+
+    return subtotalNum - discountAmount + taxAmount + processingFee;
+  }, [selectedOrder, discountAmount, taxAmount, processingFee]);
   // --- AKHIR PERBAIKAN ---
 
   const handleReturnOrder = async () => {
@@ -481,9 +474,7 @@ export default function OrdersView() {
         <h1 className='text-2xl font-bold text-foreground'>
           {t('OrdersView.title')}
         </h1>
-        <p className='text-muted-foreground'>
-          {t('OrdersView.description')}
-        </p>
+        <p className='text-muted-foreground'>{t('OrdersView.description')}</p>
       </header>
       <div className='px-4 pb-4'>
         <div className='relative'>
@@ -816,5 +807,4 @@ export default function OrdersView() {
       )}
     </div>
   );
-
 }

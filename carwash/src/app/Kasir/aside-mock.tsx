@@ -83,15 +83,15 @@ function SmallPill({
 }) {
   const { isCustomize, getButtonLabel, setButtonPref, getButtonClasses } =
     usePreferences();
-  
+
   // --- INI PERBAIKANNYA ---
   // Tentukan key mana yang akan digunakan untuk mengambil *label* kustomisasi.
   // Jika forceColorFrom ada, gunakan key itu. Jika tidak, gunakan prefKey.
   const labelKey = forceColorFrom || prefKey;
-  
+
   // Ambil label menggunakan 'labelKey' yang sudah benar
   const label = getButtonLabel(labelKey, defaultLabel);
-  
+
   // getButtonClasses() tidak mengambil argumen, jadi panggil seperti biasa.
   // Warna akan tetap diambil dari tema aktif.
   const color = getButtonClasses();
@@ -192,9 +192,7 @@ function LineItem({
         className='grid h-8 w-8 place-items-center text-foreground text-xl'
         aria-pressed={selected}
         aria-label={
-          selected
-            ? t('Aside.lineItem.deselect')
-            : t('Aside.lineItem.select')
+          selected ? t('Aside.lineItem.deselect') : t('Aside.lineItem.select')
         }
       >
         {selected ? '✓' : '□'}
@@ -986,7 +984,9 @@ export default function AsideMock(): React.ReactElement {
       console.error(err);
       clearCoupon();
       const errorMessage =
-        err instanceof Error ? err.message : t('Aside.errors.discountApiFailed');
+        err instanceof Error
+          ? err.message
+          : t('Aside.errors.discountApiFailed');
       showNotif({ type: 'error', message: errorMessage });
     } finally {
       setBusy(false);
@@ -1032,7 +1032,14 @@ export default function AsideMock(): React.ReactElement {
           prefKey='aside:pill:quantity'
           defaultLabel={t('Aside.pills.quantity')}
           icon={<Columns3 className='h-3 w-3' />}
-          onClick={!locked ? toggleAdjust : undefined}
+          onClick={
+            !locked
+              ? async () => {
+                  clearCoupon(); // reset memo discount manual
+                  toggleAdjust();
+                }
+              : undefined
+          }
           forceColorFrom='aside:pill:delete'
         />
         <div className='h-6 flex-1 rounded-md bg-primary flex items-center text-primary-foreground justify-center font-rubik font-bold tracking-wide text-base'>
@@ -1058,9 +1065,7 @@ export default function AsideMock(): React.ReactElement {
             </div>
           </div>
           <div className='flex justify-between'>
-            <div className='text-muted-foreground'>
-              {t('Aside.totals.tax')}
-            </div>
+            <div className='text-muted-foreground'>{t('Aside.totals.tax')}</div>
             <div className='font-medium font-rubik text-foreground'>
               {formatIDR(tax)}
             </div>
