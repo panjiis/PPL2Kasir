@@ -49,7 +49,7 @@ export type CartItem = {
   employeeId?: number;
   product_group_id?: number;
   isApiSynced?: boolean;
-  apiLineItemId?: string; // <--- (Ini dari perbaikan delete, biarkan saja)
+  apiLineItemId?: string; // <--- ID unik dari baris item API (cth: "157")
 };
 
 export type OrderItem = {
@@ -64,16 +64,7 @@ export type OrderItem = {
   total: number;
 };
 
-// --- PERBAIKAN: Hapus tipe 'ApiFinancials' yang tidak terpakai ---
-/*
-type ApiFinancials = {
-  subtotal: number;
-  tax: number;
-  discount: number;
-  total: number;
-};
-*/
-// --- AKHIR PERBAIKAN ---
+// --- (Tipe ApiFinancials dihapus karena tidak terpakai) ---
 
 type CartContextValue = {
   items: CartItem[];
@@ -83,8 +74,8 @@ type CartContextValue = {
   addItem: (p: CartItem) => Promise<void>;
   selectItem: (id: string | null) => void;
   toggleAdjust: () => void;
-  adjustQuantity: (id: string, delta: number) => Promise<void>; // <-- PERBAIKAN: Dibuat async
-  deleteSelected: () => Promise<void>; // <-- PERBAIKAN: Dibuat async
+  adjustQuantity: (id: string, delta: number) => Promise<void>; // <-- Dibuat async
+  deleteSelected: () => Promise<void>; // <-- Dibuat async
   setEmployee: (itemId: string, employeeId: number) => Promise<void>;
   products: CartItem[];
   services: CartItem[];
@@ -129,20 +120,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [orders, setOrders] = useState<OrderItem[]>([]);
 
-  // --- (State apiSubtotal, apiTax, etc. tidak berubah) ---
-  // --- PERBAIKAN: Komentari state yang tidak terpakai ---
+  // --- State API finansial yang tidak terpakai bisa dikomentari ---
   // const [apiSubtotal, setApiSubtotal] = useState<number | null>(null);
   // const [apiTax, setApiTax] = useState<number | null>(null);
   const [apiDiscount, setApiDiscount] = useState<number | null>(null);
   // const [apiTotal, setApiTotal] = useState<number | null>(null);
-  // --- AKHIR PERBAIKAN ---
 
   const [cartId, setCartId] = useState<string | null>(null);
   const { session } = useSession();
   const { showNotif } = useNotification();
   const [addingItemId, setAddingItemId] = useState<string | null>(null);
 
-  // --- +++ AWAL: STATE & FETCH KARYAWAN (Dipindah ke sini) +++ ---
+  // --- AWAL: STATE & FETCH KARYAWAN ---
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
 
@@ -159,16 +148,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       )
       .finally(() => setLoadingEmployees(false));
   }, [session?.token]);
-  // --- +++ AKHIR: STATE & FETCH KARYAWAN +++ ---
+  // --- AKHIR: STATE & FETCH KARYAWAN ---
 
-  // --- (Fungsi resetApiFinancials, clearCartState, useEffects... tidak berubah) ---
   const resetApiFinancials = useCallback(() => {
-    // --- PERBAIKAN: Komentari setter yang tidak terpakai ---
     // setApiSubtotal(null);
     // setApiTax(null);
     setApiDiscount(null);
     // setApiTotal(null);
-    // --- AKHIR PERBAIKAN ---
     setAppliedCoupon(null);
   }, []);
 
@@ -183,12 +169,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setAdjustMode(false);
       setPaymentSheetOpen(false);
       setLocked(false);
-      // --- PERBAIKAN: Komentari setter yang tidak terpakai ---
       // setApiSubtotal(null);
       // setApiTax(null);
       setApiDiscount(null);
       // setApiTotal(null);
-      // --- AKHIR PERBAIKAN ---
       setAppliedCoupon(null);
       setCartId(null); // <-- KUNCI UTAMA: Reset cartId
 
@@ -309,17 +293,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
           cart_id: currentCartId,
           product_code: productCode,
           quantity: newQty,
-          // Ini sekarang akan memiliki ID karyawan default untuk service baru,
-          // ID karyawan yang ada untuk service lama, atau undefined untuk produk.
           serving_employee_id: employeeId,
         };
 
         try {
           // --- 2. PERBAIKAN: Tangkap respons API ---
-          // Selalu panggil API untuk produk DAN service
           const response = await addItemToCart(payload, token); // API update/upsert
-
-          // 'response.data' adalah seluruh keranjang: { items: [...] }
           const returnedCart = response.data;
 
           // Cari item yang baru saja kita perbarui di dalam array 'items'
@@ -327,7 +306,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             (item) => item.product.product_code === payload.product_code
           );
 
-          // Sekarang kita bisa dapatkan item_id ("81") yang benar!
+          // Sekarang kita bisa dapatkan item_id (cth: "81") yang benar!
           const apiLineItemId = returnedItem?.item_id;
           // --- AKHIR PERBAIKAN ---
 
@@ -349,8 +328,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
               );
             }
             // --- 2. PERBAIKAN: Simpan ID unik untuk item baru ---
-            // Item baru, selalu set isApiSynced ke true
-            // 'p' sudah memiliki employeeId default jika itu adalah service
             return [
               ...prev,
               { ...p, qty: 1, isApiSynced: true, apiLineItemId: apiLineItemId },
@@ -358,7 +335,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
           });
         } catch (e) {
           console.error(e);
-          // Tangani pesan error spesifik dari server
           const errMsg =
             e instanceof Error
               ? e.message
@@ -389,7 +365,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     ]
   );
 
-  // --- (Fungsi selectItem, toggleAdjust... tidak berubah) ---
   const selectItem = useCallback(
     (id: string | null) => {
       if (locked) return;
@@ -431,10 +406,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         if (newQty === 0) {
           // --- 5. PERBAIKAN: Gunakan ID unik untuk menghapus ---
-          // Prioritaskan ID baris item dari API, fallback ke ID produk jika tidak ada
           const idToDelete = item.apiLineItemId ?? item.itemId;
           if (!idToDelete) {
-            // Ini seharusnya tidak terjadi, tapi sebagai pengaman
             throw new Error('Item cannot be deleted, missing ID.');
           }
           await removeItemFromCart(currentCartId, idToDelete, token); // <-- Gunakan idToDelete
@@ -453,15 +426,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
           };
 
           const response = await addItemToCart(payload, token);
-
           const returnedCart = response.data;
-
-          // Cari item yang baru saja kita tambahkan di dalam array 'items'
           const returnedItem = returnedCart.items?.find(
             (item) => item.product.product_code === payload.product_code
           );
-
-          // Sekarang kita bisa dapatkan item_id ("81") yang benar!
           const apiLineItemId = returnedItem?.item_id;
           // --- AKHIR PERBAIKAN ---
 
@@ -524,14 +492,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const token = session?.token;
       const currentCartId = cartIdRef.current;
 
-      // Hapus dari API jika itemnya disinkronkan (sekarang harusnya semua)
       if (item.isApiSynced && token && currentCartId) {
         // --- 5. PERBAIKAN: Ini adalah inti perbaikannya ---
-        // Prioritaskan ID baris item dari API ('157'),
-        // fallback ke ID produk ('ITM-0001') jika tidak (seharusnya tidak terjadi).
         const idToDelete = item.apiLineItemId ?? item.itemId;
         if (!idToDelete) {
-          // Ini seharusnya tidak terjadi, tapi sebagai pengaman
           throw new Error('Item cannot be deleted, missing ID.');
         }
 
@@ -563,7 +527,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     t,
   ]);
 
-  // --- (Fungsi setEmployee... tidak berubah) ---
   const setEmployee = useCallback(
     async (itemId: string, employeeId: number) => {
       if (locked) return;
@@ -615,24 +578,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const applyCoupon = (c: Coupon, financials: ApiCartSyncData) => {
     setAppliedCoupon(c);
     setApiDiscount(financials.discount);
-    // --- PERBAIKAN: Komentari setter yang tidak terpakai ---
     // setApiSubtotal(financials.subtotal);
     // setApiTax(financials.tax);
     // setApiTotal(financials.total);
-    // --- AKHIR PERBAIKAN ---
 
     // --- 4. PERBAIKAN: Tambahkan blok ini untuk sinkronisasi ID ---
     if (financials.items) {
       setItems((prevItems) => {
-        // Buat Peta (Map) dari product_code -> apiItem
         const apiItemMap = new Map<string, ApiSyncedCartItem>();
         financials.items.forEach((apiItem) => {
           apiItemMap.set(apiItem.product.product_code, apiItem); // Gunakan product_code dari objek nested 'product'
         });
 
-        // Perbarui state lokal 'items'
         return prevItems.map((localItem) => {
-          // Cari item API berdasarkan product_code (yang disimpan di localItem.itemId)
           const apiItem = apiItemMap.get(localItem.itemId);
           if (apiItem) {
             return {
@@ -641,7 +599,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               isApiSynced: true,
             };
           }
-          return localItem; // Kembalikan item lokal jika tidak ditemukan (seharusnya tidak terjadi)
+          return localItem;
         });
       });
     }
@@ -676,7 +634,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const discount = apiDiscount !== null ? apiDiscount : 0;
   const total = subtotal + tax - discount;
 
-  // --- (Fungsi repeatRound, voidOrder, formatIDR, addOrder, updateOrderStatus... tidak berubah) ---
   const repeatRound = useCallback(() => {
     if (locked) return;
     setItems((prev) => prev.map((it) => ({ ...it, qty: it.qty + 1 })));
