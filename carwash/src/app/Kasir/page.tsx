@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ShoppingCart } from 'lucide-react'; // <-- PERBAIKAN: Impor ikon keranjang
+import { useTranslation } from 'react-i18next'; // <-- 1. Impor hook
 
 import SidebarMock from './sidebar-mock';
 import CenterMock from './center-mock';
@@ -11,7 +12,7 @@ import AsideMock from './aside-mock';
 // Pastikan useCart diimpor dari cart-content, bukan lib/context/cart-content
 import { CartProvider, useCart, type CartItem } from './cart-content';
 import { NotificationProvider } from './notification-context';
-import { AuthProvider } from '../providers/auth-context';
+
 import {
   PreferencesProvider,
   usePreferences,
@@ -23,18 +24,18 @@ import ProductsView from './products-view';
 import GroupsView from './groups-view';
 import PaymentTypesView from './payment-types-view';
 import OrdersView from './orders-view';
+import '@/app/lib/il8n';
 
 const queryClient = new QueryClient();
 
 function KasirInnerPage() {
+  const { t } = useTranslation(); // <-- 2. Panggil hook
   const { addItem } = useCart();
   const { getBackgroundClass } = usePreferences();
   // 'surface' akan didefinisikan nanti setelah 'isMounted' true
 
   const [currentView, setCurrentView] = useState('dashboard');
-  const [editingProductCode] = useState<string | null>(
-    null
-  );
+  const [editingProductCode] = useState<string | null>(null);
   // <-- PERBAIKAN: State untuk mengontrol drawer keranjang di tablet
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
 
@@ -85,8 +86,6 @@ function KasirInnerPage() {
       addItem(cartItem);
     }
   };
-
-
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -182,7 +181,7 @@ function KasirInnerPage() {
                   type='button'
                   onClick={() => setIsCartDrawerOpen(true)}
                   className='rounded-full bg-primary text-primary-foreground p-4 shadow-lg active:scale-95 transition-transform'
-                  aria-label='Buka Keranjang'
+                  aria-label={t('Aside.openCartLabel')} // <-- 3. Ganti teks
                 >
                   <ShoppingCart className='h-6 w-6' />
                 </button>
@@ -262,7 +261,7 @@ export default function KasirPage() {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
-        <AuthProvider>
+        {/* <AuthProvider> */} {/* AuthProvider tidak ada di file Anda */}
           <PreferencesProvider>
             <NotificationProvider>
               <CartProvider>
@@ -270,7 +269,7 @@ export default function KasirPage() {
               </CartProvider>
             </NotificationProvider>
           </PreferencesProvider>
-        </AuthProvider>
+        {/* </AuthProvider> */}
       </SessionProvider>
     </QueryClientProvider>
   );

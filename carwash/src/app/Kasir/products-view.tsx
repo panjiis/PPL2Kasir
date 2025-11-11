@@ -5,6 +5,7 @@ import type { PosProduct } from '@/app/lib/types/pos';
 import { AlertTriangle, Loader2, Search } from 'lucide-react';
 import { useProducts } from '@/app/Hooks/useProducts';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const formatRupiah = (amount?: number) => {
   if (amount === undefined || amount === null) return 'N/A';
@@ -22,7 +23,7 @@ export default function ProductsView() {
   const { session } = useSession();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-
+  const { t } = useTranslation();
   const {
     data: products = [],
     isLoading: loading,
@@ -75,14 +76,14 @@ export default function ProductsView() {
   const errorMessage = error
     ? error instanceof Error
       ? error.message
-      : 'An unknown error occurred.'
+      : t('ProductsView.errorUnknown') // <-- Menggunakan fallback key
     : null;
 
   if (loading)
     return (
       <div className='flex items-center justify-center h-full text-muted-foreground'>
         <Loader2 className='h-8 w-8 animate-spin mr-2' />
-        <span>Loading Products...</span>
+        <span>{t('ProductsView.loading')}</span>
       </div>
     );
 
@@ -90,7 +91,10 @@ export default function ProductsView() {
     return (
       <div className='flex flex-col items-center justify-center h-full text-destructive'>
         <AlertTriangle className='h-10 w-10 mb-2' />
-        <span className='font-semibold'>Failed to load data</span>
+        <span className='font-semibold'>
+          {t('ProductsView.errorTitle')}
+        </span>{' '}
+        {/* <-- Judul Error */}
         <p className='text-sm'>{errorMessage}</p>
       </div>
     );
@@ -98,10 +102,14 @@ export default function ProductsView() {
   return (
     <div className='h-full flex flex-col bg-card'>
       <header className='p-4'>
-        <h1 className='text-2xl font-bold text-foreground'>Products</h1>
+        <h1 className='text-2xl font-bold text-foreground'>
+          {t('ProductsView.title')}
+        </h1>{' '}
+        {/* <-- Ganti ClassName */}
         <p className='text-muted-foreground'>
-          Search and view your product inventory.
-        </p>
+          {t('ProductsView.description')}
+        </p>{' '}
+        {/* <-- Ganti ClassName */}
       </header>
 
       <div className='px-4 pb-4'>
@@ -109,7 +117,7 @@ export default function ProductsView() {
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
           <input
             type='text'
-            placeholder='Search by product name or code...'
+            placeholder={t('ProductsView.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -125,9 +133,18 @@ export default function ProductsView() {
           <table className='w-full text-sm'>
             <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
               <tr>
-                <th className='text-left font-medium p-3'>Product Name</th>
-                <th className='text-left font-medium p-3'>Product Code</th>
-                <th className='text-right font-medium p-3'>Price</th>
+                <th className='text-left font-medium p-3'>
+                  {t('ProductsView.colName')}
+                </th>{' '}
+                {/* <-- Ganti Teks */}
+                <th className='text-left font-medium p-3'>
+                  {t('ProductsView.colCode')}
+                </th>{' '}
+                {/* <-- Ganti Teks */}
+                <th className='text-right font-medium p-3'>
+                  {t('ProductsView.colPrice')}
+                </th>{' '}
+                {/* <-- Ganti Teks */}
               </tr>
             </thead>
             <tbody className='divide-y divide-border'>
@@ -152,7 +169,7 @@ export default function ProductsView() {
                     colSpan={3}
                     className='text-center p-6 text-muted-foreground'
                   >
-                    No products found.
+                    {t('ProductsView.empty')} {/* <-- Ganti Teks */}
                   </td>
                 </tr>
               )}
@@ -167,11 +184,13 @@ export default function ProductsView() {
           {/* Membungkus info di sebelah kiri */}
           <div className='flex items-center gap-4'>
             <span className='text-sm text-muted-foreground'>
-              Page {currentPage} of {totalPages}
+              {t('Pagination.pageOf', { currentPage, totalPages })}{' '}
+              {/* <-- Ganti Teks */}
             </span>
             {/* Info spesifik baru, disembunyikan di layar kecil (sm:) */}
             <span className='text-sm text-muted-foreground hidden sm:block'>
-              (Showing {startItem}–{endItem} of {totalItems} products)
+              {t('Pagination.showingOf', { startItem, endItem, totalItems })}{' '}
+              {/* <-- Ganti Teks */}
             </span>
           </div>
 
@@ -182,14 +201,14 @@ export default function ProductsView() {
               onClick={handlePrevPage}
               disabled={currentPage === 1}
             >
-              Previous
+              {t('Pagination.previous')} {/* <-- Ganti Teks */}
             </Button>
             <Button
               variant='outline'
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
             >
-              Next
+              {t('Pagination.next')} {/* <-- Ganti Teks */}
             </Button>
           </div>
         </footer>

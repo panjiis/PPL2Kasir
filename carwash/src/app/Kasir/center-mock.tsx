@@ -17,6 +17,7 @@ import { fetchProducts, fetchProductGroups } from '../lib/utils/pos-api';
 // --- Impor ProductGroup ---
 import type { PosProduct, ProductGroup } from '../lib/types/pos';
 import Image from 'next/image';
+import { useTranslation } from 'react-i18next'; // <-- 1. Impor hook
 
 // ============================ //
 // ===== Helper Type/Utils ===== //
@@ -82,6 +83,7 @@ function ProductCard({
   onAdd,
   isAdding, // <-- TAMBAHKAN INI
 }: ProductCardProps) {
+  const { t } = useTranslation(); // <-- 2. Panggil hook
   const { isCustomize, getProductImage, setProductImage } = usePreferences();
   const finalImage = id ? getProductImage(id, image_url) : image_url;
 
@@ -90,7 +92,7 @@ function ProductCard({
       <button
         type='button'
         onClick={onAdd}
-        aria-label={`Tambah ${name} ke pesanan`}
+        aria-label={t('Center.card.ariaAdd', { name: name })} // <-- 3. Ganti teks
         // --- PERBAIKAIKAN: Tambahkan disabled dan style-nya ---
         disabled={isAdding}
         className='w-full flex flex-col flex-1 disabled:opacity-50 disabled:cursor-wait'
@@ -121,7 +123,10 @@ function ProductCard({
               {name}
             </div>
             <div className='text-[11px] text-muted-foreground'>
-              {type === 'service' ? 'Service' : 'Product'} • Rp
+              {type === 'service'
+                ? t('Center.card.service') // <-- 3. Ganti teks
+                : t('Center.card.product')}{' '}
+              • Rp
               {price.toLocaleString('id-ID')}
             </div>
           </div>
@@ -136,14 +141,14 @@ function ProductCard({
       {isCustomize && id && (
         <div className='mt-3 flex flex-col gap-1.5'>
           <label className='text-[11px] text-muted-foreground font-medium'>
-            Gambar produk:
+            {t('Center.card.customizeLabel')} {/* <-- 3. Ganti teks */}
           </label>
           <div className='flex gap-2 w-full overflow-hidden'>
             <input
               className='flex-1 min-w-0 rounded-md border border-border bg-card text-foreground text-xs px-2 py-1 
                    focus:outline-none focus:ring-1 focus:ring-primary 
                    overflow-hidden text-ellipsis break-all'
-              placeholder='URL gambar produk...'
+              placeholder={t('Center.card.customizePlaceholder')} // <-- 3. Ganti teks
               defaultValue={finalImage}
               onBlur={(ev) => setProductImage(id, ev.currentTarget.value)}
             />
@@ -152,13 +157,13 @@ function ProductCard({
               className='px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs hover:opacity-90 whitespace-nowrap'
               onClick={() => {
                 const url = prompt(
-                  'Masukkan URL gambar untuk produk ini',
+                  t('Center.card.customizePlaceholder'), // <-- 3. Ganti teks
                   finalImage || ''
                 );
                 if (url !== null) setProductImage(id, url);
               }}
             >
-              Ubah
+              {t('Center.card.customizeButton')} {/* <-- 3. Ganti teks */}
             </button>
           </div>
         </div>
@@ -172,8 +177,7 @@ function ProductCard({
 // ============================ //
 
 export default function CenterMock() {
-  // const [selectedTiles] = useState<Set<string>>(new Set());
-  
+  const { t } = useTranslation(); // <-- 2. Panggil hook
   const [searchType, setSearchType] = useState<'name' | 'id'>('name');
   const [typeFilter, setTypeFilter] = useState<'service' | 'nonService' | null>(
     null
@@ -199,7 +203,9 @@ export default function CenterMock() {
         ]);
 
         // Proses Products
-        const raw: PosProduct[] = Array.isArray(productResult.data) ? productResult.data : [];
+        const raw: PosProduct[] = Array.isArray(productResult.data)
+          ? productResult.data
+          : [];
 
         const mapped: CartItem[] = raw.map((p) => {
           const prefix = (p.product_code || '').split('-')[0] || '';
@@ -212,20 +218,21 @@ export default function CenterMock() {
             name: p.product_name,
             image: p.image_url || '/placeholder.svg',
             price: Number(p.product_price ?? p.price ?? 0),
-            type: itemType, 
+            type: itemType,
             category: prefix, // Ini adalah group CODE (cth: "FOD")
             product_group_id: p.product_group_id, // Ini adalah group ID (cth: 12)
             description: p.unit_of_measure ?? '',
-            qty: 1, 
+            qty: 1,
           };
         });
 
         setApiProducts(mapped);
 
         // Proses Groups
-        const rawGroups: ProductGroup[] = Array.isArray(groupResult.data) ? groupResult.data : [];
+        const rawGroups: ProductGroup[] = Array.isArray(groupResult.data)
+          ? groupResult.data
+          : [];
         setApiGroups(rawGroups);
-
       } catch (err) {
         console.error('Failed to load products or groups from API:', err);
       } finally {
@@ -246,7 +253,7 @@ export default function CenterMock() {
     const q = query.trim().toLowerCase();
 
     return apiProducts.filter((p) => {
-      let typeFilterPassed = true; 
+      let typeFilterPassed = true;
       if (typeFilter === 'service') {
         typeFilterPassed = p.type === 'service';
       } else if (typeFilter === 'nonService') {
@@ -254,14 +261,14 @@ export default function CenterMock() {
       }
 
       if (!q) {
-        return typeFilterPassed; 
+        return typeFilterPassed;
       }
 
       const hay =
         searchType === 'id'
           ? p.itemId?.toLowerCase() || ''
           : p.name.toLowerCase();
-      
+
       const textFilterPassed = hay.includes(q);
 
       return typeFilterPassed && textFilterPassed;
@@ -272,7 +279,7 @@ export default function CenterMock() {
   const groupedAndFilteredProducts = useMemo(() => {
     // 1. Buat map dari group ID -> ProductGroup
     const groupMap = new Map<number, ProductGroup>();
-    apiGroups.forEach(g => {
+    apiGroups.forEach((g) => {
       // --- PERBAIKAN: Pastikan ID ada sebelum di-set ---
       if (g.id !== null && g.id !== undefined) {
         groupMap.set(g.id, g);
@@ -281,7 +288,7 @@ export default function CenterMock() {
 
     // 2. Buat map dari group Code -> ProductGroup (untuk fallback)
     const groupCodeMap = new Map<string, ProductGroup>();
-    apiGroups.forEach(g => {
+    apiGroups.forEach((g) => {
       if (g.product_group_code) {
         groupCodeMap.set(g.product_group_code, g);
       }
@@ -291,22 +298,23 @@ export default function CenterMock() {
     const productsByGroupId = new Map<number, CartItem[]>();
     const ungroupedProducts: CartItem[] = [];
 
-    filteredProducts.forEach(p => {
+    filteredProducts.forEach((p) => {
       let foundGroup = false;
 
       // Prioritas 1: Gunakan product_group_id
       // --- PERBAIKAN: Cek p.product_group_id ada DAN ada di map ---
       if (p.product_group_id && groupMap.has(p.product_group_id)) {
         const groupId = p.product_group_id; // Di sini, groupId pasti number
-        if (!productsByGroupId.has(groupId)) productsByGroupId.set(groupId, []);
+        if (!productsByGroupId.has(groupId))
+          productsByGroupId.set(groupId, []);
         productsByGroupId.get(groupId)!.push(p);
         foundGroup = true;
-      } 
+      }
       // Prioritas 2: Gunakan category (kode prefix)
       else if (p.category && groupCodeMap.has(p.category)) {
         const group = groupCodeMap.get(p.category)!;
         const groupId = group.id; // Ini bisa jadi number | undefined
-        
+
         // --- PERBAIKAN: Cek groupId ada sebelum dipakai ---
         if (groupId !== null && groupId !== undefined) {
           if (!productsByGroupId.has(groupId)) {
@@ -324,28 +332,31 @@ export default function CenterMock() {
 
     // 4. Ubah map menjadi array agar bisa di-render
     const groupedList = apiGroups
-      .map(group => ({
+      .map((group) => ({
         group,
         // --- PERBAIKAN: Cek group.id ada sebelum .get() ---
-        products: (group.id !== null && group.id !== undefined)
-          ? (productsByGroupId.get(group.id) || [])
-          : []
+        products:
+          group.id !== null && group.id !== undefined
+            ? productsByGroupId.get(group.id) || []
+            : [],
       }))
-      .filter(g => g.products.length > 0); // Hanya tampilkan grup yang ada isinya
+      .filter((g) => g.products.length > 0); // Hanya tampilkan grup yang ada isinya
 
     // 5. Tambahkan produk tanpa grup di akhir
     if (ungroupedProducts.length > 0) {
       groupedList.push({
         // Grup dummy (pastikan id-nya unik, misal 0 atau -1)
-        group: { id: 0, product_group_name: 'Lain-lain', product_group_code: 'OTHER' }, 
-        products: ungroupedProducts
+        group: {
+          id: 0,
+          product_group_name: t('Center.list.otherGroup'), // <-- 3. Ganti teks
+          product_group_code: 'OTHER',
+        },
+        products: ungroupedProducts,
       });
     }
-    
+
     return groupedList;
-
-  }, [filteredProducts, apiGroups]);
-
+  }, [filteredProducts, apiGroups, t]); // <-- 4. Tambahkan 't' ke dependencies
 
   // --- PERBAIKAN: Ambil 'addingItemId' dari useCart ---
   const { addItem, addingItemId } = useCart();
@@ -371,7 +382,7 @@ export default function CenterMock() {
       />
 
       <div className='h-12 text-3xl font-bold font-rubik text-foreground tracking-wide'>
-        Main Menu
+        {t('Center.title')} {/* <-- 3. Ganti teks */}
       </div>
 
       <div className='flex items-center gap-2'>
@@ -386,7 +397,9 @@ export default function CenterMock() {
           <div className='grid h-5 w-5 place-items-center text-muted-foreground'>
             <Wrench className='h-5 w-5' />
           </div>
-          <span className='mt-1 text-xs text-foreground'>Service</span>
+          <span className='mt-1 text-xs text-foreground'>
+            {t('Center.filters.service')} {/* <-- 3. Ganti teks */}
+          </span>
         </button>
         <button
           type='button'
@@ -399,14 +412,24 @@ export default function CenterMock() {
           <div className='grid h-5 w-5 place-items-center text-muted-foreground'>
             <Box className='h-5 w-5' />
           </div>
-          <span className='mt-1 text-xs text-foreground'>Non-Service</span>
+          <span className='mt-1 text-xs text-foreground'>
+            {t('Center.filters.nonService')} {/* <-- 3. Ganti teks */}
+          </span>
         </button>
 
         <div className='h-8 w-px bg-border mx-2' />
 
         {[
-          { type: 'name', icon: <Tag className='h-5 w-5' />, label: 'Name' },
-          { type: 'id', icon: <Tags className='h-5 w-5' />, label: 'ID' },
+          {
+            type: 'name',
+            icon: <Tag className='h-5 w-5' />,
+            label: t('Center.filters.name'), // <-- 3. Ganti teks
+          },
+          {
+            type: 'id',
+            icon: <Tags className='h-5 w-5' />,
+            label: t('Center.filters.id'), // <-- 3. Ganti teks
+          },
         ].map((btn) => (
           <button
             key={btn.type}
@@ -429,8 +452,8 @@ export default function CenterMock() {
           setQuery={setQuery}
           placeholder={
             searchType === 'id'
-              ? 'Cari berdasarkan Item ID...'
-              : 'Cari berdasarkan nama...'
+              ? t('Center.search.placeholderId') // <-- 3. Ganti teks
+              : t('Center.search.placeholderName') // <-- 3. Ganti teks
           }
           onSubmit={() => {}}
         />
@@ -441,11 +464,11 @@ export default function CenterMock() {
       <div className='flex-1 overflow-y-auto pr-1 space-y-6'>
         {apiLoading ? (
           <div className='text-muted-foreground text-sm p-4'>
-            Loading products...
+            {t('Center.list.loading')} {/* <-- 3. Ganti teks */}
           </div>
         ) : groupedAndFilteredProducts.length === 0 ? (
           <div className='text-muted-foreground text-sm p-4 text-center'>
-            Tidak ada produk yang cocok dengan filter.
+            {t('Center.list.empty')} {/* <-- 3. Ganti teks */}
           </div>
         ) : (
           groupedAndFilteredProducts.map(({ group, products }) => (

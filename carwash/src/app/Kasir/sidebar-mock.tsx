@@ -41,6 +41,7 @@ import {
   fetchPaymentTypes,
   fetchOrders,
 } from '../lib/utils/pos-api';
+import { useTranslation } from 'react-i18next'; // <-- 1. Impor hook
 
 interface NavItem {
   key: string;
@@ -48,6 +49,7 @@ interface NavItem {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }
 
+// Ini adalah label default (fallback)
 const defaultNavItems: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'products', label: 'Products', icon: Boxes },
@@ -57,11 +59,10 @@ const defaultNavItems: NavItem[] = [
 ];
 
 /* =========================
-   ThemeSwitcher (Versi B - ramping)
-   - even more compact, uses smaller icon & text
-   - overflow-x-auto to avoid cutting
+   ThemeSwitcher
    ========================= */
 function ThemeSwitcher() {
+  const { t } = useTranslation(); // <-- 't' adalah FUNGSI
   const { setActiveThemeKey } = usePreferences();
   const [theme, setTheme] = useState<'system' | 'dark' | 'light'>('system');
   const [isMounted, setIsMounted] = useState(false);
@@ -146,35 +147,98 @@ function ThemeSwitcher() {
     return <Monitor className='w-3.5 h-3.5' />;
   };
 
+  const themes = ['system', 'light', 'dark'] as const;
+
   return (
     <div className='mt-2 w-full flex justify-center overflow-x-auto px-1'>
       <div className='inline-flex rounded-md border border-border bg-secondary p-1'>
-        {(['system', 'light', 'dark'] as const).map((t) => (
-          <button
-            key={t}
-            type='button'
-            onClick={() => handleThemeChange(t)}
-            aria-pressed={theme === t}
-            className={[
-              'flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
-              theme === t
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'bg-transparent text-foreground hover:bg-muted',
-            ].join(' ')}
-            title={t === 'system' ? 'Follow system (Windows) setting' : t}
-          >
-            {getIcon(t)}
-            <span className='capitalize'>{t === 'system' ? 'System' : t}</span>
-          </button>
-        ))}
+        {/* --- PERBAIKAN DI SINI --- */}
+        {themes.map(
+          (
+            themeKey // <-- 't' diubah menjadi 'themeKey'
+          ) => (
+            <button
+              key={themeKey} // <-- Gunakan themeKey
+              type='button'
+              onClick={() => handleThemeChange(themeKey)} // <-- Gunakan themeKey
+              aria-pressed={theme === themeKey} // <-- Gunakan themeKey
+              className={[
+                'flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
+                theme === themeKey // <-- Gunakan themeKey
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-transparent text-foreground hover:bg-muted',
+              ].join(' ')}
+              title={
+                themeKey === 'system' // <-- Gunakan themeKey
+                  ? t('Sidebar.theme.systemTitle') // <-- 't' di sini adalah FUNGSI
+                  : t('Sidebar.theme.'+themeKey) // <-- 't' di sini adalah FUNGSI
+              }
+            >
+              {getIcon(themeKey)} {/* <-- Gunakan themeKey */}
+              <span className='capitalize'>
+                {t('Sidebar.theme.'+themeKey)}{' '}
+                {/* <-- 't' di sini adalah FUNGSI */}
+              </span>
+            </button>
+          )
+        )}
+        {/* --- AKHIR PERBAIKAN --- */}
       </div>
     </div>
   );
 }
 
 /* =========================
-   SidebarTileButton (Versi B - ramping)
-   - smaller tiles, truncate label (no wrapping)
+   LanguageSwitcher (BARU)
+   ========================= */
+function LanguageSwitcher() {
+  const { i18n } = useTranslation();
+  const currentLang = i18n.language;
+  const isId = currentLang.startsWith('id');
+  const isEn = currentLang.startsWith('en');
+
+  return (
+    <div className='mt-2 w-full flex justify-center overflow-x-auto px-1'>
+      <div className='inline-flex rounded-md border border-border bg-secondary p-1'>
+        <button
+          key='id'
+          type='button'
+          onClick={() => i18n.changeLanguage('id')}
+          aria-pressed={isId}
+          disabled={isId}
+          className={[
+            'flex items-center gap-1 px-3 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
+            isId
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'bg-transparent text-foreground hover:bg-muted',
+            'disabled:opacity-50',
+          ].join(' ')}
+        >
+          ID
+        </button>
+        <button
+          key='en'
+          type='button'
+          onClick={() => i18n.changeLanguage('en')}
+          aria-pressed={isEn}
+          disabled={isEn}
+          className={[
+            'flex items-center gap-1 px-3 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
+            isEn
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'bg-transparent text-foreground hover:bg-muted',
+            'disabled:opacity-50',
+          ].join(' ')}
+        >
+          EN
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================
+   SidebarTileButton
    ========================= */
 function SidebarTileButton({
   icon: Icon,
@@ -191,14 +255,25 @@ function SidebarTileButton({
   isActive: boolean;
   isDragging?: boolean;
 }) {
+  // --- 1. PANGGIL HOOK i18n ---
+  const { i18n } = useTranslation();
+
   const { isCustomize, getButtonLabel, setButtonPref, getButtonClasses } =
     usePreferences();
-  const key = `sidebar:${itemKey}`;
+
+  // --- 2. BUAT KEY SPESIFIK BAHASA ---
+  const lang = i18n.language.split('-')[0]; // Hasilnya 'id' atau 'en'
+  const key = `sidebar:${itemKey}:${lang}`;  // Contoh: 'sidebar:dashboard:id'
+  // --- AKHIR PERBAIKAN ---
+  
   const color = getButtonClasses();
 
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
+  // 'label' (fallback) yang masuk sudah diterjemahkan (cth: "Dasbor")
+  // 'getButtonLabel' sekarang akan mencari 'sidebar:dashboard:id' di localStorage
+  // Jika tidak ada, ia akan 'return label' ("Dasbor")
   const shownLabel = isMounted ? getButtonLabel(key, label) : label;
 
   return (
@@ -224,8 +299,8 @@ function SidebarTileButton({
 
         {isCustomize ? (
           <input
-            defaultValue={shownLabel}
-            onBlur={(e) => setButtonPref(key, { label: e.currentTarget.value })}
+            defaultValue={shownLabel} // Ini akan menampilkan 'Dasbor' atau kustomisasi 'id'
+            onBlur={(e) => setButtonPref(key, { label: e.currentTarget.value })} // Akan menyimpan ke 'sidebar:dashboard:id'
             className='text-[10px] text-center w-full rounded-md border border-border bg-card text-foreground px-1 py-0.5'
           />
         ) : (
@@ -239,7 +314,7 @@ function SidebarTileButton({
 }
 
 /* =========================
-   SortableNavItem (same logic)
+   SortableNavItem
    ========================= */
 function SortableNavItem({
   id,
@@ -272,7 +347,7 @@ function SortableNavItem({
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <SidebarTileButton
         icon={item.icon}
-        label={item.label}
+        label={item.label} // Label yang sudah diterjemahkan
         itemKey={item.key}
         onClick={() => {
           onNavigate(item.key);
@@ -285,9 +360,7 @@ function SortableNavItem({
 }
 
 /* =========================
-   Main Sidebar (Versi B - ramping)
-   - narrower look: smaller paddings, truncated labels
-   - functionality preserved
+   Main Sidebar
    ========================= */
 export default function SidebarMock({
   activeView,
@@ -296,6 +369,7 @@ export default function SidebarMock({
   activeView: string;
   onNavigate: (view: string) => void;
 }) {
+  const { t } = useTranslation(); // <-- 't' adalah FUNGSI
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -316,13 +390,27 @@ export default function SidebarMock({
   const globalBg = getBackgroundClass();
   const router = useRouter();
   const [company, setCompany] = useState({
-    name: 'Ezel Carwash Cilodong',
+    name: 'Ezel Carwash Cilodong', // Sesuai aturan: tidak menerjemahkan nama
     logo: '/logo.png',
   });
 
+  // Gunakan state untuk navItems agar bisa di-drag
   const [navItems, setNavItems] = useState<NavItem[]>(defaultNavItems);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
+
+  // EFEK UNTUK MENERJEMAHKAN NAV ITEMS SAAT BAHASA BERUBAH
+  useEffect(() => {
+    setNavItems((currentItems) =>
+      currentItems.map((item) => {
+        // Cari label default (Inggris) dari defaultNavItems
+        const defaultItem = defaultNavItems.find(d => d.key === item.key);
+        // Terjemahkan menggunakan 't', fallback ke label Inggris jika tidak ketemu
+        const translatedLabel = t(`Sidebar.nav.${item.key}`, defaultItem ? defaultItem.label : '');
+        return { ...item, label: translatedLabel };
+      })
+    );
+  }, [t]); // Jalankan ini setiap kali 't' (bahasa) berubah
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -373,23 +461,25 @@ export default function SidebarMock({
   const handleNavClickFetch = async (key: string) => {
     const apiFn = apiMap[key];
     if (!apiFn) {
-      setPopupContent(<div>No API mapped for {key}</div>);
+      setPopupContent(<div>{t('Sidebar.apiPopup.noApi', { key })}</div>);
       return;
     }
     if (!session?.token) {
-      setPopupContent(<div>Session expired, please login again.</div>);
+      setPopupContent(<div>{t('Sidebar.apiPopup.sessionExpired')}</div>);
       return;
     }
     setLoadingApi(true);
     try {
       const res = await apiFn(session.token);
-      let content: React.ReactNode = <div>Tidak ada data.</div>;
+      let content: React.ReactNode = <div>{t('Sidebar.apiPopup.noData')}</div>;
       const data = (res as { data?: unknown[] })?.data ?? res;
 
       if (Array.isArray(data) && data.length > 0) {
         content = (
           <div>
-            <h2 className='font-bold mb-3 capitalize'>{key} Data</h2>
+            <h2 className='font-bold mb-3 capitalize'>
+              {t('Sidebar.apiPopup.dataTitle', { key })}
+            </h2>
             <div className='grid gap-3'>
               {data.map((row: unknown, idx: number) => {
                 const item = row as Record<string, unknown>;
@@ -464,7 +554,6 @@ export default function SidebarMock({
             unoptimized
           />
         </div>
-
         {isCustomize ? (
           <input
             defaultValue={company.name}
@@ -478,38 +567,29 @@ export default function SidebarMock({
             {company.name}
           </div>
         )}
-
         <div className='text-[10px] text-muted-foreground mt-1 whitespace-nowrap'>
           Powered by{' '}
           <span className='font-semibold text-primary uppercase'>SYNTRA</span>
         </div>
-
         <ThemeSwitcher />
+        <LanguageSwitcher /> {/* <-- Tombol Bahasa Ditambahkan di Sini */}
       </div>
 
       <div className='grid grid-cols-2 gap-2'>
-        {/* <div
-          className={[ 'col-span-2 rounded-lg border p-2 cursor-pointer text-center', globalBtn.bg, globalBtn.text, !billOption ? 'opacity-40 cursor-not-allowed' : '' ].join(' ')}
-          onClick={() => billOption && setPaymentSheetOpen(true)}
-        >
-          <div className="flex items-center gap-2 justify-center">
-            <Plus className="h-4 w-4" />
-            <span className="text-[13px] font-medium">Create order</span>
-          </div>
-        </div> */}
-
+        {/* Blok !isMounted (fallback) */}
         {!isMounted &&
-          navItems.map((item) => (
+          defaultNavItems.map((item) => (
             <SidebarTileButton
               key={item.key}
               icon={item.icon}
-              label={item.label}
+              label={item.label} // Akan menampilkan bahasa Inggris
               itemKey={item.key}
               onClick={() => onNavigate(item.key)}
               isActive={activeView === item.key}
             />
           ))}
 
+        {/* Blok isMounted (client-side) */}
         {isMounted && (
           <DndContext
             sensors={sensors}
@@ -524,7 +604,7 @@ export default function SidebarMock({
                 <SortableNavItem
                   key={item.key}
                   id={item.key}
-                  item={item}
+                  item={item} // 'item' dari state 'navItems' sudah diterjemahkan
                   onNavigate={onNavigate}
                   isActive={activeView === item.key}
                   onFetch={handleNavClickFetch}
@@ -538,9 +618,11 @@ export default function SidebarMock({
       {isCustomize && (
         <div className='mt-3 px-1'>
           <div className='rounded-lg border border-border bg-card p-2'>
-            <h3 className='font-semibold text-sm mb-2'>Customize Theme</h3>
+            <h3 className='font-semibold text-sm mb-2'>
+              {t('Sidebar.customize.title')}
+            </h3>
 
-            <div className='text-xs mb-1'>Theme Package</div>
+            <div className='text-xs mb-1'>{t('Sidebar.customize.package')}</div>
             <div className='flex flex-wrap gap-2'>
               {themePackages.map(
                 (opt: { key: string; label: string; bg: string }) => (
@@ -574,7 +656,9 @@ export default function SidebarMock({
         >
           <LayoutDashboard className='h-4 w-4' />
           <span className='text-[13px]'>
-            {isCustomize ? 'Done' : 'Customize'}
+            {isCustomize
+              ? t('Sidebar.customize.done')
+              : t('Sidebar.customize.customize')}
           </span>
         </button>
 
@@ -623,7 +707,7 @@ export default function SidebarMock({
                   }}
                   className='w-full text-left text-sm px-3 py-2 hover:bg-accent hover:text-destructive transition'
                 >
-                  Logout
+                  {t('Sidebar.profile.logout')}
                 </button>
               </div>
             )}
@@ -636,14 +720,16 @@ export default function SidebarMock({
           <div className='bg-white dark:bg-card rounded-lg shadow-lg p-6 max-w-lg w-[min(95vw,640px)]'>
             <div className='mt-4 flex justify-between items-center'>
               <div className='text-sm text-muted-foreground'>
-                {loadingApi ? 'Loading...' : 'API result'}
+                {loadingApi
+                  ? t('Sidebar.apiPopup.loading')
+                  : t('Sidebar.apiPopup.result')}
               </div>
               <div className='text-right'>
                 <button
                   className='px-4 py-2 rounded bg-primary text-primary-foreground'
                   onClick={() => setPopupContent(null)}
                 >
-                  Close
+                  {t('Sidebar.apiPopup.close')}
                 </button>
               </div>
             </div>

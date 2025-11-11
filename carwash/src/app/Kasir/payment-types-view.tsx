@@ -6,10 +6,12 @@ import type { PaymentType } from '@/app/lib/types/pos';
 import { AlertTriangle, Loader2, Search } from 'lucide-react';
 import { usePaymentTypes } from '@/app/Hooks/usePaymentTypes'; // FIX: Menggunakan hook
 import { Button } from '@/components/ui/button'; // +++ Tambahan: Impor Button
+import { useTranslation } from 'react-i18next'; // <-- 1. Impor hook
 
 const ITEMS_PER_PAGE = 10; // +++ Tambahan: Paginasi
 
 export default function PaymentTypesView() {
+  const { t } = useTranslation(); // <-- 2. Panggil hook
   const { session } = useSession();
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1); // +++ Tambahan: Paginasi
@@ -56,14 +58,14 @@ export default function PaymentTypesView() {
   const errorMessage = error
     ? error instanceof Error
       ? error.message
-      : 'An unknown error occurred.'
+      : t('PaymentTypesView.errorUnknown') // <-- 3. Ganti teks
     : null;
 
   if (loading)
     return (
       <div className='flex items-center justify-center h-full text-muted-foreground'>
         <Loader2 className='h-8 w-8 animate-spin mr-2' />
-        <span>Loading Payment Types...</span>
+        <span>{t('PaymentTypesView.loading')}</span> {/* <-- 3. Ganti teks */}
       </div>
     );
 
@@ -71,7 +73,9 @@ export default function PaymentTypesView() {
     return (
       <div className='flex flex-col items-center justify-center h-full text-destructive'>
         <AlertTriangle className='h-10 w-10 mb-2' />
-        <span className='font-semibold'>Failed to load data</span>
+        <span className='font-semibold'>
+          {t('PaymentTypesView.errorTitle')} {/* <-- 3. Ganti teks */}
+        </span>
         <p className='text-sm'>{errorMessage}</p>
       </div>
     );
@@ -79,9 +83,11 @@ export default function PaymentTypesView() {
   return (
     <div className='h-full flex flex-col p-1'>
       <header className='p-3'>
-        <h1 className='text-2xl font-bold text-foreground'>Payment Types</h1>
+        <h1 className='text-2xl font-bold text-foreground'>
+          {t('PaymentTypesView.title')} {/* <-- 3. Ganti teks */}
+        </h1>
         <p className='text-muted-foreground'>
-          View and manage available payment methods.
+          {t('PaymentTypesView.description')} {/* <-- 3. Ganti teks */}
         </p>
       </header>
 
@@ -91,7 +97,7 @@ export default function PaymentTypesView() {
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground' />
           <input
             type='text'
-            placeholder='Search by payment name...'
+            placeholder={t('PaymentTypesView.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -108,10 +114,16 @@ export default function PaymentTypesView() {
           <table className='w-full text-sm'>
             <thead className='bg-muted'>
               <tr>
-                <th className='text-left font-medium p-3'>Name</th>
+                <th className='text-left font-medium p-3'>
+                  {t('PaymentTypesView.colName')} {/* <-- 3. Ganti teks */}
+                </th>
                 {/* --- PERBAIKAN: Menambahkan kembali kolom Fee --- */}
-                <th className='text-left font-medium p-3'>Processing Fee</th>
-                <th className='text-center font-medium p-3'>Status</th>
+                <th className='text-left font-medium p-3'>
+                  {t('PaymentTypesView.colFee')} {/* <-- 3. Ganti teks */}
+                </th>
+                <th className='text-center font-medium p-3'>
+                  {t('PaymentTypesView.colStatus')} {/* <-- 3. Ganti teks */}
+                </th>
               </tr>
             </thead>
             <tbody className='bg-card'>
@@ -132,7 +144,10 @@ export default function PaymentTypesView() {
                             : 'bg-gray-300 text-gray-700'
                         }`}
                       >
-                        {pt.is_active ? 'Active' : 'Inactive'}
+                        {pt.is_active
+                          ? t('PaymentTypesView.statusActive') // <-- 3. Ganti teks
+                          : t('PaymentTypesView.statusInactive')}{' '}
+                        {/* <-- 3. Ganti teks */}
                       </span>
                     </td>
                   </tr>
@@ -143,7 +158,7 @@ export default function PaymentTypesView() {
                     colSpan={3} // --- PERBAIKAN: Colspan menjadi 3
                     className='text-center p-6 text-muted-foreground'
                   >
-                    No payment types found.
+                    {t('PaymentTypesView.empty')} {/* <-- 3. Ganti teks */}
                   </td>
                 </tr>
               )}
@@ -156,7 +171,11 @@ export default function PaymentTypesView() {
       {totalPages > 1 && (
         <footer className='p-4 border-t flex items-center justify-between'>
           <span className='text-sm text-muted-foreground'>
-            Page {currentPage} of {totalPages}
+            {t('Pagination.pageOf', {
+              currentPage: currentPage,
+              totalPages: totalPages,
+            })}{' '}
+            {/* <-- 3. Ganti teks */}
           </span>
           <div className='flex items-center gap-2'>
             <Button
@@ -164,14 +183,14 @@ export default function PaymentTypesView() {
               onClick={handlePrevPage}
               disabled={currentPage === 1}
             >
-              Previous
+              {t('Pagination.previous')} {/* <-- 3. Ganti teks */}
             </Button>
             <Button
               variant='outline'
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
             >
-              Next
+              {t('Pagination.next')} {/* <-- 3. Ganti teks */}
             </Button>
           </div>
         </footer>

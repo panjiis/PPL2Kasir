@@ -1,0 +1,251 @@
+{
+  "DashboardView": {
+    "welcome": "Selamat datang kembali, {name}!",
+    "prompt": "Pilih opsi dari sidebar untuk memulai."
+  },
+  "Sidebar": {
+    "nav": {
+      "dashboard": "Dasbor",
+      "products": "Produk",
+      "groups": "Grup",
+      "paymentTypes": "Tipe Bayar",
+      "orders": "Pesanan"
+    },
+    "theme": {
+      "system": "Sistem",
+      "light": "Terang",
+      "dark": "Gelap",
+      "systemTitle": "Ikuti pengaturan sistem"
+    },
+    "customize": {
+      "title": "Kustomisasi Tema",
+      "package": "Paket Tema",
+      "done": "Selesai",
+      "customize": "Kustomisasi"
+    },
+    "profile": {
+      "logout": "Keluar"
+    },
+    "apiPopup": {
+      "noApi": "Tidak ada API yang dipetakan untuk {key}",
+      "sessionExpired": "Sesi berakhir, silakan login kembali.",
+      "noData": "Tidak ada data.",
+      "dataTitle": "Data {key}",
+      "loading": "Memuat...",
+      "result": "Hasil API",
+      "close": "Tutup"
+    }
+  },
+  "Center": {
+    "title": "Menu Utama",
+    "filters": {
+      "service": "Layanan",
+      "nonService": "Produk",
+      "name": "Nama",
+      "id": "ID"
+    },
+    "search": {
+      "placeholderId": "Cari berdasarkan Item ID...",
+      "placeholderName": "Cari berdasarkan nama..."
+    },
+    "list": {
+      "loading": "Memuat produk...",
+      "empty": "Tidak ada produk yang cocok dengan filter.",
+      "otherGroup": "Lain-lain"
+    },
+    "card": {
+      "service": "Layanan",
+      "product": "Produk",
+      "ariaAdd": "Tambah {name} ke pesanan",
+      "customizeLabel": "Gambar produk:",
+      "customizePlaceholder": "URL gambar produk...",
+      "customizeButton": "Ubah"
+    }
+  },
+  "Aside": {
+    "pills": {
+      "delete": "Hapus",
+      "quantity": "Kuantitas"
+    },
+    "lineItem": {
+      "deselect": "Batal pilih item",
+      "select": "Pilih item"
+    },
+    "products": {
+      "title": "Produk",
+      "empty": "Belum ada produk."
+    },
+    "services": {
+      "title": "Layanan",
+      "empty": "Belum ada layanan.",
+      "loadingEmployee": "Memuat...",
+      "selectEmployee": "Pilih Karyawan"
+    },
+    "coupons": {
+      "filterAll": "Semua",
+      "filterProduct": "Produk",
+      "filterService": "Layanan",
+      "placeholder": "Masukkan kode",
+      "loading": "Memuat Diskon...",
+      "empty": "Tidak ada kupon.",
+      "remove": "Hapus",
+      "noCoupon": "Belum ada kupon diterapkan."
+    },
+    "billOptions": {
+      "order": "Pesan",
+      "void": "Batal",
+      "voidConfirm": "Yakin void order ini?"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "tax": "Pajak (10%)",
+      "discount": "Diskon",
+      "total": "Total",
+      "adjustMode": "Mode Adjust:",
+      "adjustOn": "NYALA",
+      "adjustOff": "MATI"
+    },
+    "paymentSheet": {
+      "title": "Kalkulasi",
+      "orderTotal": "Total Pesanan",
+      "serviceFee": "Biaya Layanan ({paymentName})",
+      "grandTotal": "Total Bayar",
+      "paymentType": "Tipe Pembayaran:",
+      "loadingMethods": "Memuat metode pembayaran...",
+      "amountTendered": "Nominal Uang (Rp)",
+      "changeDue": "Kembalian:",
+      "back": "Kembali",
+      "processing": "Memproses...",
+      "process": "Proses"
+    },
+    "statusSheet": {
+      "title": "Pilih Status Order",
+      "queue": "Dalam Antrian",
+      "process": "Dalam Proses",
+      "waiting": "Menunggu Pembayaran",
+      "cancel": "Batal"
+    },
+    "errors": {
+      "emptyCart": "Keranjang kosong, tidak ada yang diproses.",
+      "unassignedService": "Pilih karyawan untuk \"{name}\" sebelum proses.",
+      "noPaymentMethod": "Silakan pilih metode pembayaran.",
+      "cashInsufficient": "Uang tunai (Rp{tendered}) kurang dari total bayar (Rp{grandTotal}).",
+      "paymentFailed": "Gagal memproses pembayaran. Silakan coba lagi.",
+      "voidFailed": "Gagal memproses void order.",
+      "discountCartEmpty": "Keranjang kosong, tidak bisa menerapkan diskon.",
+      "discountNoCartId": "Keranjang belum ada. Tambah item terlebih dahulu.",
+      "discountInvalidId": "Coupon ID tidak valid.",
+      "discountApiFailed": "Gagal menerapkan diskon dari API."
+    },
+    "openCartLabel": "Buka Keranjang"
+  },
+  "Cart": {
+    "processing": "Sedang diproses...",
+    "loginRequired": "Anda harus login",
+    "createCartFailed": "Gagal membuat keranjang",
+    "serviceExists": "Layanan sudah ada. Pilih/ganti karyawan.",
+    "serviceAdded": "{name} ditambah. Silakan pilih karyawan.",
+    "addItemFailed": "Gagal menambah {name} ke keranjang",
+    "itemNotFound": "Keranjang atau item tidak ditemukan.",
+    "employeeAssigned": "Karyawan di-assign.",
+    "assignEmployeeFailed": "Gagal assign karyawan."
+  },
+  "ProductsView": {
+    "loading": "Memuat Produk...",
+    "errorTitle": "Gagal memuat data",
+    "errorUnknown": "Terjadi kesalahan tidak diketahui.",
+    "title": "Produk",
+    "description": "Cari dan lihat inventaris produk Anda.",
+    "searchPlaceholder": "Cari berdasarkan nama atau kode produk...",
+    "colName": "Nama Produk",
+    "colCode": "Kode Produk",
+    "colPrice": "Harga",
+    "empty": "Produk tidak ditemukan."
+  },
+  "GroupsView": {
+    "errorSession": "Sesi tidak ditemukan. Silakan login kembali.",
+    "errorUnknown": "Terjadi kesalahan tidak diketahui.",
+    "loading": "Memuat Data...",
+    "errorTitle": "Gagal memuat data",
+    "title": "Grup Produk",
+    "subtitle": "Produk dalam kategori {groupName}",
+    "prompt": "Pilih kategori untuk melihat produk.",
+    "emptyGroups": "Grup produk tidak ditemukan.",
+    "emptyProducts": "Tidak ada produk di grup ini.",
+    "productCode": "Kode:",
+    "unnamedGroup": "Grup Tanpa Nama",
+    "groupCategory": "Kategori Produk"
+  },
+  "PaymentTypesView": {
+    "loading": "Memuat Tipe Pembayaran...",
+    "errorTitle": "Gagal memuat data",
+    "errorUnknown": "Terjadi kesalahan tidak diketahui.",
+    "title": "Tipe Pembayaran",
+    "description": "Lihat dan kelola metode pembayaran yang tersedia.",
+    "searchPlaceholder": "Cari berdasarkan nama pembayaran...",
+    "colName": "Nama",
+    "colFee": "Biaya Proses",
+    "colStatus": "Status",
+    "statusActive": "Aktif",
+    "statusInactive": "Nonaktif",
+    "empty": "Tipe pembayaran tidak ditemukan."
+  },
+  "OrdersView": {
+    "loading": "Memuat Pesanan...",
+    "errorTitle": "Gagal memuat data",
+    "title": "Pesanan",
+    "description": "Telusuri dan tinjau transaksi sebelumnya.",
+    "searchPlaceholder": "Cari berdasarkan nomor pesanan...",
+    "colOrder": "Pesanan #",
+    "colDate": "Tanggal",
+    "colPayment": "Pembayaran",
+    "colSubtotal": "Subtotal",
+    "colActions": "Aksi",
+    "viewDetails": "Lihat Detail",
+    "empty": "Pesanan tidak ditemukan.",
+    "modal": {
+      "title": "Pesanan #{orderNumber}",
+      "id": "ID",
+      "date": "Tanggal",
+      "subtotal": "Subtotal",
+      "total": "Total",
+      "paymentMethod": "Metode Pembayaran",
+      "notes": "Catatan",
+      "additionalInfo": "Info Tambahan",
+      "itemsTitle": "Daftar Item",
+      "itemProduct": "Produk",
+      "itemQty": "Qty",
+      "itemTotal": "Total",
+      "return": "Kembalikan Pesanan",
+      "processing": "Memproses...",
+      "print": "Cetak Struk",
+      "close": "Tutup",
+      "returnTitle": "Konfirmasi Pengembalian Pesanan",
+      "returnConfirm": "Apakah Anda yakin ingin mengembalikan pesanan #{orderNumber}?",
+      "returnCancel": "Batal",
+      "returnYes": "Ya, Kembalikan"
+    },
+    "errors": {
+      "missingDetails": "Detail pesanan atau token hilang.",
+      "noReturnItems": "Tidak ada item ID yang valid untuk dikembalikan.",
+      "returnFailed": "Gagal membuat pengembalian.",
+      "returnSuccess": "Pengembalian untuk pesanan {orderNumber} berhasil dibuat."
+    },
+    "receipt": {
+      "order": "Pesanan #",
+      "kasir": "Kasir",
+      "item": "Item",
+      "qty": "Qty",
+      "total": "Total",
+      "grandtotal": "TOTAL",
+      "thankyou": "Terima kasih atas kunjungan Anda!",
+      "comeagain": "~ Sampai jumpa lagi ~"
+    }
+  },
+  "Pagination": {
+    "pageOf": "Halaman {currentPage} dari {totalPages}",
+    "showingOf": "(Menampilkan {startItem}–{endItem} dari {totalItems} produk)",
+    "previous": "Sebelumnya",
+    "next": "Berikutnya"
+  }
+}

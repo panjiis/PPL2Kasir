@@ -1,0 +1,251 @@
+{
+  "DashboardView": {
+    "welcome": "Welcome back, {name}!",
+    "prompt": "Select an option from the sidebar to get started."
+  },
+  "Sidebar": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "products": "Products",
+      "groups": "Groups",
+      "paymentTypes": "Payment",
+      "orders": "Orders"
+    },
+    "theme": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark",
+      "systemTitle": "Follow system setting"
+    },
+    "customize": {
+      "title": "Customize Theme",
+      "package": "Theme Package",
+      "done": "Done",
+      "customize": "Customize"
+    },
+    "profile": {
+      "logout": "Logout"
+    },
+    "apiPopup": {
+      "noApi": "No API mapped for {key}",
+      "sessionExpired": "Session expired, please login again.",
+      "noData": "No data.",
+      "dataTitle": "{key} Data",
+      "loading": "Loading...",
+      "result": "API Result",
+      "close": "Close"
+    }
+  },
+  "Center": {
+    "title": "Main Menu",
+    "filters": {
+      "service": "Service",
+      "nonService": "Product",
+      "name": "Name",
+      "id": "ID"
+    },
+    "search": {
+      "placeholderId": "Search by Item ID...",
+      "placeholderName": "Search by name..."
+    },
+    "list": {
+      "loading": "Loading products...",
+      "empty": "No products match the filter.",
+      "otherGroup": "Others"
+    },
+    "card": {
+      "service": "Service",
+      "product": "Product",
+      "ariaAdd": "Add {name} to order",
+      "customizeLabel": "Product image:",
+      "customizePlaceholder": "Product image URL...",
+      "customizeButton": "Change"
+    }
+  },
+  "Aside": {
+    "pills": {
+      "delete": "Delete",
+      "quantity": "Quantity"
+    },
+    "lineItem": {
+      "deselect": "Deselect item",
+      "select": "Select item"
+    },
+    "products": {
+      "title": "Products",
+      "empty": "No products yet."
+    },
+    "services": {
+      "title": "Services",
+      "empty": "No services yet.",
+      "loadingEmployee": "Loading...",
+      "selectEmployee": "Select Employee"
+    },
+    "coupons": {
+      "filterAll": "All",
+      "filterProduct": "Product",
+      "filterService": "Service",
+      "placeholder": "Enter code",
+      "loading": "Loading Discounts...",
+      "empty": "No coupons.",
+      "remove": "Remove",
+      "noCoupon": "No coupon applied yet."
+    },
+    "billOptions": {
+      "order": "Order",
+      "void": "Void",
+      "voidConfirm": "Are you sure you want to void this order?"
+    },
+    "totals": {
+      "subtotal": "Subtotal",
+      "tax": "Tax (10%)",
+      "discount": "Discount",
+      "total": "Total",
+      "adjustMode": "Adjust Mode:",
+      "adjustOn": "ON",
+      "adjustOff": "OFF"
+    },
+    "paymentSheet": {
+      "title": "Calculation",
+      "orderTotal": "Order Total",
+      "serviceFee": "Service Fee ({paymentName})",
+      "grandTotal": "Grand Total",
+      "paymentType": "Payment Type:",
+      "loadingMethods": "Loading payment methods...",
+      "amountTendered": "Amount Tendered (Rp)",
+      "changeDue": "Change:",
+      "back": "Back",
+      "processing": "Processing...",
+      "process": "Process"
+    },
+    "statusSheet": {
+      "title": "Select Order Status",
+      "queue": "In Queue",
+      "process": "In Process",
+      "waiting": "Waiting Payment",
+      "cancel": "Cancel"
+    },
+    "errors": {
+      "emptyCart": "Cart is empty, nothing to process.",
+      "unassignedService": "Please assign an employee to \"{name}\" to proceed.",
+      "noPaymentMethod": "Please select a payment method.",
+      "cashInsufficient": "Cash (Rp{tendered}) is less than total (Rp{grandTotal}).",
+      "paymentFailed": "Failed to process payment. Please try again.",
+      "voidFailed": "Failed to process void order.",
+      "discountCartEmpty": "Cart is empty, cannot apply discount.",
+      "discountNoCartId": "Cart not found. Please add an item first.",
+      "discountInvalidId": "Invalid Coupon ID.",
+      "discountApiFailed": "Failed to apply discount from API."
+    },
+    "openCartLabel": "Open Cart"
+  },
+  "Cart": {
+    "processing": "Processing...",
+    "loginRequired": "You must be logged in",
+    "createCartFailed": "Failed to create cart",
+    "serviceExists": "Service already added. Select/change employee.",
+    "serviceAdded": "{name} added. Please select an employee.",
+    "addItemFailed": "Failed to add {name} to cart",
+    "itemNotFound": "Cart or item not found.",
+    "employeeAssigned": "Employee assigned.",
+    "assignEmployeeFailed": "Failed to assign employee."
+  },
+  "ProductsView": {
+    "loading": "Loading Products...",
+    "errorTitle": "Failed to load data",
+    "errorUnknown": "An unknown error occurred.",
+    "title": "Products",
+    "description": "Search and view your product inventory.",
+    "searchPlaceholder": "Search by product name or code...",
+    "colName": "Product Name",
+    "colCode": "Product Code",
+    "colPrice": "Price",
+    "empty": "No products found."
+  },
+  "GroupsView": {
+    "errorSession": "Session not found. Please login again.",
+    "errorUnknown": "An unknown error occurred.",
+    "loading": "Loading Data...",
+    "errorTitle": "Failed to load data",
+    "title": "Product Groups",
+    "subtitle": "Products in category {groupName}",
+    "prompt": "Select a category to see products.",
+    "emptyGroups": "No product groups found.",
+    "emptyProducts": "No products found in this group.",
+    "productCode": "Code:",
+    "unnamedGroup": "Unnamed Group",
+    "groupCategory": "Product Category"
+  },
+  "PaymentTypesView": {
+    "loading": "Loading Payment Types...",
+    "errorTitle": "Failed to load data",
+    "errorUnknown": "An unknown error occurred.",
+    "title": "Payment Types",
+    "description": "View and manage available payment methods.",
+    "searchPlaceholder": "Search by payment name...",
+    "colName": "Name",
+    "colFee": "Processing Fee",
+    "colStatus": "Status",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "empty": "No payment types found."
+  },
+  "OrdersView": {
+    "loading": "Loading Orders...",
+    "errorTitle": "Failed to load data",
+    "title": "Orders",
+    "description": "Browse and review past transactions.",
+    "searchPlaceholder": "Search by order number...",
+    "colOrder": "Order #",
+    "colDate": "Date",
+    "colPayment": "Payment",
+    "colSubtotal": "Subtotal",
+    "colActions": "Actions",
+    "viewDetails": "View Details",
+    "empty": "No orders found.",
+    "modal": {
+      "title": "Order #{orderNumber}",
+      "id": "ID",
+      "date": "Date",
+      "subtotal": "Subtotal",
+      "total": "Total",
+      "paymentMethod": "Payment Method",
+      "notes": "Notes",
+      "additionalInfo": "Additional Info",
+      "itemsTitle": "Item List",
+      "itemProduct": "Product",
+      "itemQty": "Qty",
+      "itemTotal": "Total",
+      "return": "Return Order",
+      "processing": "Processing...",
+      "print": "Print Receipt",
+      "close": "Close",
+      "returnTitle": "Confirm Order Return",
+      "returnConfirm": "Are you sure you want to return order #{orderNumber}?",
+      "returnCancel": "Cancel",
+      "returnYes": "Yes, Return"
+    },
+    "errors": {
+      "missingDetails": "Order details or token are missing.",
+      "noReturnItems": "No valid item IDs to return.",
+      "returnFailed": "Failed to create return.",
+      "returnSuccess": "Return created for order {orderNumber}."
+    },
+    "receipt": {
+      "order": "Order #",
+      "kasir": "Cashier",
+      "item": "Item",
+      "qty": "Qty",
+      "total": "Total",
+      "grandtotal": "TOTAL",
+      "thankyou": "Thank you for your visit!",
+      "comeagain": "~ See you again ~"
+    }
+  },
+  "Pagination": {
+    "pageOf": "Page {currentPage} of {totalPages}",
+    "showingOf": "(Showing {startItem}–{endItem} of {totalItems} products)",
+    "previous": "Previous",
+    "next": "Next"
+  }
+}
