@@ -12,7 +12,7 @@ import type {
   DetailedPosOrder,
   DiscountPayload,
   ApiSyncedCartItem,
-  ApiCartResponse, 
+  ApiCartResponse,
   Employee,
 } from '../types/pos';
 
@@ -221,7 +221,6 @@ export async function fetchCartById(
   return res.json();
 }
 
-
 export async function addItemToCart(
   body: AddItemPayload, // <-- Tipe payload yang benar
   token?: string
@@ -242,13 +241,10 @@ export async function removeItemFromCart(
   item_id: string,
   token?: string
 ): Promise<{ success: boolean }> {
-  const res = await fetch(
-    `${BASE_URL}/pos/carts/${cart_id}/items/${item_id}`,
-    {
-      method: 'DELETE',
-      headers: defaultHeaders(token),
-    }
-  );
+  const res = await fetch(`${BASE_URL}/pos/carts/${cart_id}/items/${item_id}`, {
+    method: 'DELETE',
+    headers: defaultHeaders(token),
+  });
   if (!res.ok) throw new Error(await safeReadText(res));
   return res.json();
 }
@@ -356,15 +352,23 @@ export async function createOrderFromCart(
   if (!res.ok) throw new Error(await safeReadText(res));
   return res.json();
 }
-
 export async function fetchOrders(
   token?: string
 ): Promise<{ data: DetailedPosOrder[] }> {
-  const res = await fetch(`${BASE_URL}/pos/orders`, {
+  const url = `${BASE_URL}/pos/orders`;
+  console.log('>>> Fetching orders from', url, 'with token', token);
+  const res = await fetch(url, {
     headers: defaultHeaders(token),
   });
-  if (!res.ok) throw new Error(await safeReadText(res));
-  return res.json();
+
+  const text = await res.text();
+  console.log('>>> fetchOrders raw response:', text);
+
+  if (!res.ok)
+    throw new Error(
+      `Failed to list orders. Status: ${res.status}. Body: ${text}`
+    );
+  return JSON.parse(text);
 }
 
 export async function fetchOrderById(

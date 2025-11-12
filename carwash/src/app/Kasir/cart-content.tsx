@@ -213,7 +213,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     cartIdRef.current = cartId;
   }, [cartId]);
 
-  // === FIXED addItem (pakai delta, bukan absolut)
+  // ==========================
+  // === CORE FUNCTIONS ======
+  // ==========================
+
+  // === FIXED addItem (pakai delta, bukan absolut) ===
   const addItem = useCallback(
     async (p: CartItem) => {
       if (addingItemIdRef.current === p.id) {
@@ -233,9 +237,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // ensure cart exists
         let currentCartId = cartIdRef.current;
         if (!currentCartId) {
-          console.log('(addItem) Membuat cart baru...');
           try {
             const { data } = await createCart({ cashier_id: 1 }, token);
             currentCartId = String(data.cart_id);
@@ -253,135 +257,119 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const found = currentItems.find((it) => it.id === p.id);
         const prevQty = found?.qty ?? 0;
         const deltaQty = 1; // selalu add +1
-
         const productCode = p.itemId ?? p.id;
 
+        // if service, ensure employee
         let employeeId = found?.employeeId;
-        if (p.type === 'service' && !employeeId) {
+        if (p.type === 'service') {
           if (loadingEmployees) {
-            showNotif({
-              type: 'error',
-              message: t('Cart.loadingEmployees'),
-            });
+            showNotif({ type: 'error', message: t('Cart.loadingEmployees') });
             return;
           }
-          if (employees.length === 0) {
-            showNotif({
-              type: 'error',
-              message: t('Cart.noEmployees'),
-            });
-            return;
+          if (!employeeId) {
+            if (employees.length === 0) {
+              showNotif({ type: 'error', message: t('Cart.noEmployees') });
+              return;
+            }
+            employeeId = employees[0].id;
           }
-          employeeId = employees[0].id;
-          p.employeeId = employeeId;
         }
 
         const payload: AddItemPayload = {
           cart_id: currentCartId,
           product_code: productCode,
           quantity: deltaQty,
-          serving_employee_id: employeeId,
+          ...(p.type === 'service' && employeeId
+            ? { serving_employee_id: employeeId }
+            : {}),
         };
 
-        try {
-          const response = await addItemToCart(payload, token);
-          const returnedCart = response?.data ?? {};
+        // call API
+        const response = await addItemToCart(payload, token);
+        const returnedCart = response?.data ?? {};
 
-          const serverSubtotal = returnedCart?.subtotal
-            ? parseFloat(String(returnedCart.subtotal))
-            : null;
-          const serverTax = returnedCart?.tax_amount
-            ? parseFloat(String(returnedCart.tax_amount))
-            : null;
-          const serverDiscount = returnedCart?.discount_amount
-            ? parseFloat(String(returnedCart.discount_amount))
-            : null;
-          const serverTotal = returnedCart?.total_amount
-            ? parseFloat(String(returnedCart.total_amount))
-            : null;
+        // update financials from server if present
+        const serverSubtotal = returnedCart?.subtotal
+          ? parseFloat(String(returnedCart.subtotal))
+          : null;
+        const serverTax = returnedCart?.tax_amount
+          ? parseFloat(String(returnedCart.tax_amount))
+          : null;
+        const serverDiscount = returnedCart?.discount_amount
+          ? parseFloat(String(returnedCart.discount_amount))
+          : null;
+        const serverTotal = returnedCart?.total_amount
+          ? parseFloat(String(returnedCart.total_amount))
+          : null;
 
-          if (serverDiscount !== null && !Number.isNaN(serverDiscount)) {
-            setApiDiscount(serverDiscount);
-          } else {
-            setApiDiscount(null);
-          }
+        setApiSubtotal(
+          serverSubtotal !== null && !Number.isNaN(serverSubtotal)
+            ? serverSubtotal
+            : null
+        );
+        setApiTax(serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null);
+        setApiDiscount(
+          serverDiscount !== null && !Number.isNaN(serverDiscount)
+            ? serverDiscount
+            : null
+        );
+        setApiTotal(serverTotal !== null && !Number.isNaN(serverTotal) ? serverTotal : null);
 
-          setApiSubtotal(
-            serverSubtotal !== null && !Number.isNaN(serverSubtotal)
-              ? serverSubtotal
-              : null
-          );
-          setApiTax(
-            serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null
-          );
-          setApiTotal(
-            serverTotal !== null && !Number.isNaN(serverTotal)
-              ? serverTotal
-              : null
-          );
+        const returnedItem = returnedCart.items?.find(
+          (item: ApiSyncedCartItem) =>
+            item.product?.product_code === payload.product_code
+        );
 
-          const returnedItem = returnedCart.items?.find(
-            (item: ApiSyncedCartItem) =>
-              item.product?.product_code === payload.product_code
-          );
+        const apiLineItemId = returnedItem?.item_id;
 
-          const apiLineItemId = returnedItem?.item_id;
-
-          setItems((prev) => {
-            const foundInSetter = prev.find((it) => it.id === p.id);
-            if (foundInSetter) {
-              // gunakan nilai dari server bila tersedia
-              if (returnedItem) {
-                return prev.map((it) =>
-                  it.id === p.id
-                    ? {
-                        ...it,
-                        qty: returnedItem.quantity,
-                        price: parseFloat(returnedItem.unit_price),
-                        isApiSynced: true,
-                        apiLineItemId: returnedItem.item_id,
-                      }
-                    : it
-                );
-              }
-              // fallback: prevQty + deltaQty
+        // update local state based on server response (prefer server values)
+        setItems((prev) => {
+          const foundInSetter = prev.find((it) => it.id === p.id);
+          if (foundInSetter) {
+            if (returnedItem) {
               return prev.map((it) =>
                 it.id === p.id
                   ? {
                       ...it,
-                      qty: prevQty + deltaQty,
+                      qty: returnedItem.quantity,
+                      price: parseFloat(returnedItem.unit_price),
                       isApiSynced: true,
-                      apiLineItemId:
-                        apiLineItemId ?? foundInSetter.apiLineItemId,
+                      apiLineItemId: returnedItem.item_id,
+                      employeeId: returnedItem ? (employeeId ?? it.employeeId) : it.employeeId,
                     }
                   : it
               );
             }
-            // baru ditambahkan
-            return [
-              ...prev,
-              {
-                ...p,
-                qty: returnedItem?.quantity ?? prevQty + deltaQty,
-                isApiSynced: true,
-                apiLineItemId: returnedItem?.item_id ?? apiLineItemId,
-              },
-            ];
-          });
-        } catch (e) {
-          console.error(e);
-          const errMsg =
-            e instanceof Error
-              ? e.message
-              : t('Cart.addItemFailed', { name: p.name });
-          showNotif({
-            type: 'error',
-            message: errMsg,
-          });
-          return;
-        }
-      } catch (err) {
-        console.error('Error in addItem:', err);
+            // fallback
+            return prev.map((it) =>
+              it.id === p.id
+                ? {
+                    ...it,
+                    qty: prevQty + deltaQty,
+                    isApiSynced: true,
+                    apiLineItemId: apiLineItemId ?? foundInSetter.apiLineItemId,
+                    employeeId: foundInSetter.employeeId ?? employeeId,
+                  }
+                : it
+            );
+          }
+          // new item
+          return [
+            ...prev,
+            {
+              ...p,
+              qty: returnedItem?.quantity ?? prevQty + deltaQty,
+              isApiSynced: true,
+              apiLineItemId: returnedItem?.item_id ?? apiLineItemId,
+              employeeId,
+            },
+          ];
+        });
+      } catch (e) {
+        console.error('Error in addItem:', e);
+        const errMsg =
+          e instanceof Error ? e.message : t('Cart.addItemFailed', { name: p.name });
+        showNotif({ type: 'error', message: errMsg });
       } finally {
         addingItemIdRef.current = null;
         setAddingItemId(null);
@@ -398,7 +386,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     ]
   );
 
-  // selectItem & toggleAdjust (unchanged)
+  // selectItem & toggleAdjust
   const selectItem = useCallback(
     (id: string | null) => {
       if (locked) return;
@@ -429,13 +417,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
 
       const oldQty = item.qty;
-      const deltaQty = newQty - oldQty;
+      const absoluteQty = Math.max(1, Math.floor(newQty));
+      const deltaQty = absoluteQty - oldQty;
       if (deltaQty === 0) return;
 
       const token = session?.token;
       const currentCartId = cartIdRef.current;
       if (!token || !currentCartId) {
-        showNotif({ type: 'error', message: 'Cart belum aktif.' });
+        showNotif({ type: 'error', message: 'Keranjang atau token tidak ditemukan.' });
         return;
       }
 
@@ -446,7 +435,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const payload: AddItemPayload = {
           cart_id: currentCartId,
           product_code: item.itemId ?? item.id,
-          quantity: deltaQty, // tambah sejumlah selisih
+          quantity: deltaQty,
           ...(item.type === 'service' && item.employeeId
             ? { serving_employee_id: item.employeeId }
             : {}),
@@ -455,6 +444,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
         try {
           const response = await addItemToCart(payload, token);
           const returnedCart = response?.data ?? {};
+
+          // update financials from server
+          const serverSubtotal = returnedCart?.subtotal
+            ? parseFloat(String(returnedCart.subtotal))
+            : null;
+          const serverTax = returnedCart?.tax_amount
+            ? parseFloat(String(returnedCart.tax_amount))
+            : null;
+          const serverDiscount = returnedCart?.discount_amount
+            ? parseFloat(String(returnedCart.discount_amount))
+            : null;
+          const serverTotal = returnedCart?.total_amount
+            ? parseFloat(String(returnedCart.total_amount))
+            : null;
+
+          setApiSubtotal(
+            serverSubtotal !== null && !Number.isNaN(serverSubtotal)
+              ? serverSubtotal
+              : null
+          );
+          setApiTax(serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null);
+          setApiDiscount(
+            serverDiscount !== null && !Number.isNaN(serverDiscount)
+              ? serverDiscount
+              : null
+          );
+          setApiTotal(serverTotal !== null && !Number.isNaN(serverTotal) ? serverTotal : null);
 
           const updatedItem = returnedCart.items?.find(
             (i: ApiSyncedCartItem) =>
@@ -466,10 +482,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
               it.id === id
                 ? {
                     ...it,
-                    qty: updatedItem?.quantity ?? newQty,
-                    price: parseFloat(
-                      updatedItem?.unit_price ?? String(it.price)
-                    ),
+                    qty: updatedItem?.quantity ?? absoluteQty,
+                    price: parseFloat(updatedItem?.unit_price ?? String(it.price)),
                     isApiSynced: true,
                     apiLineItemId: updatedItem?.item_id ?? it.apiLineItemId,
                   }
@@ -484,6 +498,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       // === TURUN KUANTITAS ===
       else if (deltaQty < 0) {
+        // for reducing, API expects delete calls per line item (as library shows).
+        // If server supports absolute set, you could call it instead — here we keep remove loop.
         const removeCount = Math.abs(deltaQty);
 
         for (let i = 0; i < removeCount; i++) {
@@ -503,13 +519,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // update state lokal
+        // update local state
         setItems((prev) =>
           prev
             .map((it) =>
-              it.id === id
-                ? { ...it, qty: Math.max(1, newQty), isApiSynced: true }
-                : it
+              it.id === id ? { ...it, qty: Math.max(1, absoluteQty), isApiSynced: true } : it
             )
             .filter((it) => it.qty > 0)
         );
@@ -602,46 +616,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       resetApiFinancials();
 
       try {
-        // 🧩 1️⃣ Hapus item lama dari cart
+        // 1) Hapus baris item di backend (jika ada)
         if (item.apiLineItemId) {
-          await removeItemFromCart(currentCartId, item.apiLineItemId, token);
+          try {
+            await removeItemFromCart(currentCartId, item.apiLineItemId, token);
+          } catch (err) {
+            // jika gagal hapus, jangan crash — lanjut cobalah re-add
+            console.warn('Gagal remove existing line before re-adding:', err);
+          }
         }
 
-        // 🧩 2️⃣ Tambahkan kembali item yang sama, qty sama, employee baru
+        // 2) Re-add item with same qty but new employee
         const payload: AddItemPayload = {
           cart_id: currentCartId,
           product_code: item.itemId ?? item.id,
-          quantity: item.qty, // kirim absolute qty, karena item baru
+          quantity: item.qty,
           serving_employee_id: employeeId,
         };
 
         const response = await addItemToCart(payload, token);
         const returnedCart = response?.data ?? {};
 
-        const updatedItem = returnedCart.items?.find(
-          (apiItem: ApiSyncedCartItem) =>
-            apiItem.product?.product_code === item.itemId
-        );
-
-        // 🧩 3️⃣ Update state lokal
-        setItems((prev) =>
-          prev.map((it) =>
-            it.id === itemId
-              ? {
-                  ...it,
-                  employeeId,
-                  qty: updatedItem?.quantity ?? item.qty,
-                  price: parseFloat(
-                    updatedItem?.unit_price ?? String(it.price)
-                  ),
-                  isApiSynced: true,
-                  apiLineItemId: updatedItem?.item_id ?? item.apiLineItemId,
-                }
-              : it
-          )
-        );
-
-        // 🧩 4️⃣ Update nilai finansial dari server (jika ada)
+        // update financials from server
         const serverSubtotal = returnedCart?.subtotal
           ? parseFloat(String(returnedCart.subtotal))
           : null;
@@ -660,30 +656,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? serverSubtotal
             : null
         );
-        setApiTax(
-          serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null
-        );
+        setApiTax(serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null);
         setApiDiscount(
           serverDiscount !== null && !Number.isNaN(serverDiscount)
             ? serverDiscount
             : null
         );
-        setApiTotal(
-          serverTotal !== null && !Number.isNaN(serverTotal)
-            ? serverTotal
-            : null
+        setApiTotal(serverTotal !== null && !Number.isNaN(serverTotal) ? serverTotal : null);
+
+        const updatedItem = returnedCart.items?.find(
+          (apiItem: ApiSyncedCartItem) =>
+            apiItem.product?.product_code === item.itemId
         );
 
-        showNotif({
-          type: 'success',
-          message: t('Cart.employeeAssigned'),
-        });
+        // update local state
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === itemId
+              ? {
+                  ...it,
+                  employeeId,
+                  qty: updatedItem?.quantity ?? it.qty,
+                  price: parseFloat(updatedItem?.unit_price ?? String(it.price)),
+                  isApiSynced: true,
+                  apiLineItemId: updatedItem?.item_id ?? it.apiLineItemId,
+                }
+              : it
+          )
+        );
+
+        showNotif({ type: 'success', message: t('Cart.employeeAssigned') });
       } catch (e) {
         console.error('Gagal update pegawai:', e);
         showNotif({
           type: 'error',
-          message:
-            e instanceof Error ? e.message : t('Cart.assignEmployeeFailed'),
+          message: e instanceof Error ? e.message : t('Cart.assignEmployeeFailed'),
         });
       }
     },
