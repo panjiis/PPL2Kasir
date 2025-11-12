@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Trash,
   Columns3,
@@ -84,18 +84,10 @@ function SmallPill({
   const { isCustomize, getButtonLabel, setButtonPref, getButtonClasses } =
     usePreferences();
 
-  // --- INI PERBAIKANNYA ---
-  // Tentukan key mana yang akan digunakan untuk mengambil *label* kustomisasi.
-  // Jika forceColorFrom ada, gunakan key itu. Jika tidak, gunakan prefKey.
+  // Pick label key appropriately (use forceColorFrom if provided)
   const labelKey = forceColorFrom || prefKey;
-
-  // Ambil label menggunakan 'labelKey' yang sudah benar
   const label = getButtonLabel(labelKey, defaultLabel);
-
-  // getButtonClasses() tidak mengambil argumen, jadi panggil seperti biasa.
-  // Warna akan tetap diambil dari tema aktif.
   const color = getButtonClasses();
-  // --- SELESAI PERBAIKAN ---
 
   return (
     <div className='flex flex-col items-start gap-1'>
@@ -119,8 +111,7 @@ function SmallPill({
             className='w-24 rounded border border-border bg-card text-xs px-2 py-0.5'
             defaultValue={label}
             onBlur={(e) =>
-              // Saat mengedit, kita tetap menyimpan ke prefKey asli,
-              // bukan ke key 'forceColorFrom'.
+              // Keep saving into the original prefKey
               setButtonPref(prefKey, { label: e.currentTarget.value })
             }
           />
@@ -150,41 +141,78 @@ function LineItem({
   onSetQty?: (newQty: number) => void;
 }) {
   const { t } = useTranslation();
+  // State untuk input field
   const [inputQty, setInputQty] = useState<string>(qty.toString());
+  // Ref untuk melacak apakah Enter ditekan
+  const enterPressed = useRef(false);
+  // Ref untuk melacak qty terakhir yang dikirim ke server atau state
+  const lastAppliedQty = useRef(qty);
 
+  // Sinkronkan inputQty dengan prop qty jika allowAdjust dinonaktifkan atau item tidak dipilih
   useEffect(() => {
-    setInputQty(qty.toString());
-  }, [qty, selected, allowAdjust]);
-
-  useEffect(() => {
-    if (allowAdjust && selected) {
-      setInputQty('');
-    } else {
+    if (!allowAdjust || !selected) {
       setInputQty(qty.toString());
+      lastAppliedQty.current = qty;
+      enterPressed.current = false; // Reset flag Enter
     }
-  }, [allowAdjust, selected, qty]);
+    // Jika mode adjust diaktifkan dan item dipilih, kosongkan input
+    else if (allowAdjust && selected) {
+      // Hanya reset jika input kosong atau tidak berubah dari state sebelumnya
+      if (
+        inputQty === '' ||
+        parseInt(inputQty, 10) === lastAppliedQty.current
+      ) {
+        setInputQty(qty.toString());
+        // Jangan reset lastAppliedQty di sini, biarkan tetap sebagai qty sebelum edit dimulai
+        // lastAppliedQty.current = qty; // Jangan lakukan ini di sini
+      }
+      enterPressed.current = false;
+    }
+  }, [qty, selected, allowAdjust, inputQty]); // Dependensi: qty, selected, allowAdjust
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '');
+    const val = e.target.value.replace(/\D/g, ''); // Hanya angka
     setInputQty(val);
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && onSetQty && allowAdjust && selected) {
-      const newQty = Math.max(1, Number(inputQty) || qty);
-      if (newQty !== qty) onSetQty(newQty);
+      enterPressed.current = true;
+      const parsed = parseInt(inputQty, 10);
+      // Gunakan nilai yang di-parse, atau kembali ke qty sebelumnya jika tidak valid
+      const newQty =
+        Number.isFinite(parsed) && parsed > 0 ? parsed : lastAppliedQty.current;
+      if (newQty !== lastAppliedQty.current) {
+        // Hanya kirim jika berbeda
+        onSetQty(newQty);
+        lastAppliedQty.current = newQty; // Update ref
+      }
+      // Set input ke nilai baru agar sesuai dengan state
+      setInputQty(newQty.toString());
+      e.currentTarget.blur(); // Hilangkan fokus setelah Enter
     }
   };
 
   const handleBlur = () => {
-    setInputQty(qty.toString());
+    if (enterPressed.current) {
+      // Jika blur terjadi karena Enter, jangan reset
+      enterPressed.current = false;
+      return;
+    }
+    // Jika blur terjadi tanpa Enter, reset input ke nilai terakhir yang diterapkan
+    setInputQty(lastAppliedQty.current.toString());
+  };
+
+  const handleFocus = () => {
+    // Reset flag Enter saat fokus
+    enterPressed.current = false;
   };
 
   return (
     <div
-      className={`flex items-start gap-3  ${
-        selected ? 'ring-2' : ''
-      } border-border bg-card p-2 rounded-md`}
+      className={`flex items-start gap-3 ${
+        selected ? 'ring-2 ring-primary' : '' // Tambahkan ring jika dipilih
+      } border border-border bg-card p-2 rounded-md`}
     >
       <button
         type='button'
@@ -213,11 +241,12 @@ function LineItem({
           type='number'
           min={1}
           className='w-14 h-6 rounded-md border border-border px-1 text-center text-xs outline-none disabled:bg-muted disabled:opacity-60'
-          value={inputQty}
-          disabled={!allowAdjust || !selected}
+          value={inputQty} // Gunakan state inputQty
+          disabled={!allowAdjust || !selected} // Hanya aktif jika adjust mode & selected
           onChange={handleInputChange}
           onKeyDown={handleInputKeyDown}
           onBlur={handleBlur}
+          onFocus={handleFocus}
         />
         {extraRight}
       </div>
@@ -257,12 +286,13 @@ function ProductSection() {
                 !locked && selectItem(selectedItemId === it.id ? null : it.id)
               }
               allowAdjust={adjustMode && !locked}
-              onSetQty={(newQty) =>
-                adjustMode &&
-                !locked &&
-                selectedItemId === it.id &&
-                newQty > 0 &&
-                adjustQuantity(it.id, newQty - it.qty)
+              onSetQty={
+                (newQty) =>
+                  adjustMode &&
+                  !locked &&
+                  selectedItemId === it.id &&
+                  newQty > 0 &&
+                  adjustQuantity(it.id, newQty) // send absolute quantity
               }
             />
           ))
@@ -321,12 +351,13 @@ function ServicesSection() {
                 !locked && selectItem(selectedItemId === it.id ? null : it.id)
               }
               allowAdjust={adjustMode && selectedItemId === it.id && !locked}
-              onSetQty={(newQty) =>
-                adjustMode &&
-                !locked &&
-                selectedItemId === it.id &&
-                newQty > 0 &&
-                adjustQuantity(it.id, newQty - it.qty)
+              onSetQty={
+                (newQty) =>
+                  adjustMode &&
+                  !locked &&
+                  selectedItemId === it.id &&
+                  newQty > 0 &&
+                  adjustQuantity(it.id, newQty) // FIX: send absolute qty for services too
               }
               extraRight={
                 <div className='inline-flex items-center gap-2'>
@@ -895,7 +926,7 @@ export default function AsideMock(): React.ReactElement {
       await voidOrderApi(
         {
           id: newOrderId,
-          voided_by: 1, // Ganti dengan ID user asli jika ada
+          voided_by: 1, // replace with real user id if available
           reason: 'Voided from cart by user',
         },
         token

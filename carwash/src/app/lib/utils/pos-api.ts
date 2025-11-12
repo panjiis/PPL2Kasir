@@ -221,9 +221,7 @@ export async function fetchCartById(
   return res.json();
 }
 
-// --- PERBAIKAN DI SINI ---
-// 1. Menggunakan AddItemPayload
-// 2. Mengganti nama import CartItem menjadi ApiCartItem
+
 export async function addItemToCart(
   body: AddItemPayload, // <-- Tipe payload yang benar
   token?: string
