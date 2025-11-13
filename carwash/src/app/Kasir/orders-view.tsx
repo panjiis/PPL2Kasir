@@ -95,17 +95,51 @@ const PrintableReceipt = ({
   const [isClient, setIsClient] = useState(false);
 
   // print CSS (thermal friendly)
+  // Kasir/orders-view.tsx
+
+  // print CSS (thermal friendly)
   const printStyles = `
-  /* ... (Styles CSS tidak berubah) ... */
   @media print {
+    /* --- PERBAIKAN BARU DIMULAI DI SINI --- */
+    @page {
+      /* Paksa ukuran kertas agar lebarnya 58mm */
+      size: ${paperWidth} auto; 
+      
+      /* Hapus semua margin & padding bawaan halaman */
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      /* Hapus CSS flexbox dari perbaikan sebelumnya */
+      display: block !important; 
+      justify-content: normal !important;
+      align-items: normal !important;
+      
+      /* Reset semua margin & padding body */
+      padding: 0 !important; 
+      margin: 0 !important;
+      width: 100% !important;
+      height: auto !important;
+    }
+    /* --- AKHIR PERBAIKAN --- */
+
     body > * { display: none !important; visibility: hidden !important; }
+    
     #printable-receipt {
       display: block !important;
       visibility: visible !important;
+      
+      /* Paksa struk agar sesuai lebar kertas 58mm */
       width: ${paperWidth};
       max-width: ${paperWidth};
-      margin: 0 auto;
+      
+      /* Hapus margin 'auto' */
+      margin: 0; 
+      
+      /* Padding internal struk biarkan apa adanya */
       padding: 4mm 4mm 6mm 4mm;
+      
       box-sizing: border-box;
       font-family: "Courier New", Courier, monospace;
       color: #000;
@@ -641,7 +675,7 @@ export default function OrdersView() {
                       {/* --- PERBAIKAN: Tampilkan Pajak & Diskon --- */}
                       <tr>
                         <td className='font-medium pr-2 py-1'>
-                          {t('Aside.totals.tax')} (10%)
+                          {t('Aside.totals.tax')}
                         </td>
                         {/* Baca dari variabel 'taxAmount' yang sudah di-parse */}
                         <td>{formatRupiah(taxAmount)}</td>

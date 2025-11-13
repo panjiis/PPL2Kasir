@@ -679,6 +679,7 @@ export default function AsideMock(): React.ReactElement {
     discount,
     total,
     formatIDR,
+    appliedCoupon,
     paymentSheetOpen,
     setPaymentSheetOpen,
     locked,
@@ -954,6 +955,15 @@ export default function AsideMock(): React.ReactElement {
       showNotif({
         type: 'error',
         message: t('Aside.errors.discountCartEmpty'),
+      });
+      return;
+    }
+
+    // ✅ Tambahan ini
+    if (appliedCoupon && appliedCoupon.id !== coupon.id) {
+      showNotif({
+        type: 'error',
+        message: 'Hanya satu diskon yang dapat diterapkan per transaksi.',
       });
       return;
     }

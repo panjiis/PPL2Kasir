@@ -307,13 +307,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? serverSubtotal
             : null
         );
-        setApiTax(serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null);
+        setApiTax(
+          serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null
+        );
         setApiDiscount(
           serverDiscount !== null && !Number.isNaN(serverDiscount)
             ? serverDiscount
             : null
         );
-        setApiTotal(serverTotal !== null && !Number.isNaN(serverTotal) ? serverTotal : null);
+        setApiTotal(
+          serverTotal !== null && !Number.isNaN(serverTotal)
+            ? serverTotal
+            : null
+        );
 
         const returnedItem = returnedCart.items?.find(
           (item: ApiSyncedCartItem) =>
@@ -335,7 +341,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
                       price: parseFloat(returnedItem.unit_price),
                       isApiSynced: true,
                       apiLineItemId: returnedItem.item_id,
-                      employeeId: returnedItem ? (employeeId ?? it.employeeId) : it.employeeId,
+                      employeeId: returnedItem
+                        ? employeeId ?? it.employeeId
+                        : it.employeeId,
                     }
                   : it
               );
@@ -368,7 +376,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error('Error in addItem:', e);
         const errMsg =
-          e instanceof Error ? e.message : t('Cart.addItemFailed', { name: p.name });
+          e instanceof Error
+            ? e.message
+            : t('Cart.addItemFailed', { name: p.name });
         showNotif({ type: 'error', message: errMsg });
       } finally {
         addingItemIdRef.current = null;
@@ -424,7 +434,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const token = session?.token;
       const currentCartId = cartIdRef.current;
       if (!token || !currentCartId) {
-        showNotif({ type: 'error', message: 'Keranjang atau token tidak ditemukan.' });
+        showNotif({
+          type: 'error',
+          message: 'Keranjang atau token tidak ditemukan.',
+        });
         return;
       }
 
@@ -464,13 +477,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
               ? serverSubtotal
               : null
           );
-          setApiTax(serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null);
+          setApiTax(
+            serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null
+          );
           setApiDiscount(
             serverDiscount !== null && !Number.isNaN(serverDiscount)
               ? serverDiscount
               : null
           );
-          setApiTotal(serverTotal !== null && !Number.isNaN(serverTotal) ? serverTotal : null);
+          setApiTotal(
+            serverTotal !== null && !Number.isNaN(serverTotal)
+              ? serverTotal
+              : null
+          );
 
           const updatedItem = returnedCart.items?.find(
             (i: ApiSyncedCartItem) =>
@@ -483,7 +502,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 ? {
                     ...it,
                     qty: updatedItem?.quantity ?? absoluteQty,
-                    price: parseFloat(updatedItem?.unit_price ?? String(it.price)),
+                    price: parseFloat(
+                      updatedItem?.unit_price ?? String(it.price)
+                    ),
                     isApiSynced: true,
                     apiLineItemId: updatedItem?.item_id ?? it.apiLineItemId,
                   }
@@ -523,7 +544,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setItems((prev) =>
           prev
             .map((it) =>
-              it.id === id ? { ...it, qty: Math.max(1, absoluteQty), isApiSynced: true } : it
+              it.id === id
+                ? { ...it, qty: Math.max(1, absoluteQty), isApiSynced: true }
+                : it
             )
             .filter((it) => it.qty > 0)
         );
@@ -656,13 +679,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? serverSubtotal
             : null
         );
-        setApiTax(serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null);
+        setApiTax(
+          serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null
+        );
         setApiDiscount(
           serverDiscount !== null && !Number.isNaN(serverDiscount)
             ? serverDiscount
             : null
         );
-        setApiTotal(serverTotal !== null && !Number.isNaN(serverTotal) ? serverTotal : null);
+        setApiTotal(
+          serverTotal !== null && !Number.isNaN(serverTotal)
+            ? serverTotal
+            : null
+        );
 
         const updatedItem = returnedCart.items?.find(
           (apiItem: ApiSyncedCartItem) =>
@@ -677,7 +706,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   ...it,
                   employeeId,
                   qty: updatedItem?.quantity ?? it.qty,
-                  price: parseFloat(updatedItem?.unit_price ?? String(it.price)),
+                  price: parseFloat(
+                    updatedItem?.unit_price ?? String(it.price)
+                  ),
                   isApiSynced: true,
                   apiLineItemId: updatedItem?.item_id ?? it.apiLineItemId,
                 }
@@ -690,7 +721,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         console.error('Gagal update pegawai:', e);
         showNotif({
           type: 'error',
-          message: e instanceof Error ? e.message : t('Cart.assignEmployeeFailed'),
+          message:
+            e instanceof Error ? e.message : t('Cart.assignEmployeeFailed'),
         });
       }
     },
@@ -745,16 +777,46 @@ export function CartProvider({ children }: { children: ReactNode }) {
     () => items.reduce((acc, it) => acc + it.price * it.qty, 0),
     [items]
   );
+
+
+
+
+
+
+  
   const taxRate = 0.1;
 
-  const localTax = useMemo(() => {
-    return Math.round(localSubtotal * taxRate);
-  }, [localSubtotal]);
-
-  const subtotal = apiSubtotal ?? localSubtotal;
-  const tax = apiTax ?? localTax;
+  const subtotal = apiSubtotal ?? localSubtotal; // Subtotal Bruto
   const discount = apiDiscount ?? 0;
-  const total = apiTotal ?? Math.round(subtotal - discount + tax);
+
+  // --- PERBAIKAN DIMULAI DI SINI ---
+  // Subtotal Neto: Subtotal Bruto - Diskon
+  const subtotalNeto = subtotal - discount;
+
+  // Pajak dihitung dari Subtotal Neto (Subtotal setelah diskon)
+  const tax = useMemo(() => {
+    // Jika ada nilai dari API, gunakan nilai API
+    if (apiTax !== null) return apiTax;
+
+    // Jika tidak ada API, hitung manual: Math.round(Subtotal Neto * taxRate)
+    const baseTax = Math.round(subtotalNeto * taxRate);
+    return baseTax;
+  }, [apiTax, subtotalNeto]);
+
+  // Total = Subtotal Neto + Pajak (atau Total = Subtotal Bruto - Diskon + Pajak)
+  const total = useMemo(() => {
+    // Jika ada nilai dari API, gunakan nilai API
+    if (apiTotal !== null) return apiTotal;
+
+    // Jika tidak ada API, hitung manual: Math.round(subtotalNeto + tax)
+    const baseTotal = Math.round(subtotalNeto + tax);
+    return baseTotal;
+  }, [apiTotal, subtotalNeto, tax]);
+
+
+
+
+
 
   const repeatRound = useCallback(() => {
     if (locked) return;
