@@ -1,5 +1,5 @@
+// Kasir/aside-mock.tsx
 'use client';
-
 import type React from 'react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
@@ -15,7 +15,6 @@ import {
   Banknote,
   Loader2,
 } from 'lucide-react';
-
 import { useCart, type ApiCartSyncData } from './cart-content';
 import type { Coupon } from './dummy';
 import {
@@ -83,12 +82,10 @@ function SmallPill({
 }) {
   const { isCustomize, getButtonLabel, setButtonPref, getButtonClasses } =
     usePreferences();
-
   // Pick label key appropriately (use forceColorFrom if provided)
   const labelKey = forceColorFrom || prefKey;
   const label = getButtonLabel(labelKey, defaultLabel);
   const color = getButtonClasses();
-
   return (
     <div className='flex flex-col items-start gap-1'>
       <button
@@ -147,7 +144,6 @@ function LineItem({
   const enterPressed = useRef(false);
   // Ref untuk melacak qty terakhir yang dikirim ke server atau state
   const lastAppliedQty = useRef(qty);
-
   // Sinkronkan inputQty dengan prop qty jika allowAdjust dinonaktifkan atau item tidak dipilih
   useEffect(() => {
     if (!allowAdjust || !selected) {
@@ -169,12 +165,10 @@ function LineItem({
       enterPressed.current = false;
     }
   }, [qty, selected, allowAdjust, inputQty]); // Dependensi: qty, selected, allowAdjust
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, ''); // Hanya angka
     setInputQty(val);
   };
-
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && onSetQty && allowAdjust && selected) {
       enterPressed.current = true;
@@ -192,7 +186,6 @@ function LineItem({
       e.currentTarget.blur(); // Hilangkan fokus setelah Enter
     }
   };
-
   const handleBlur = () => {
     if (enterPressed.current) {
       // Jika blur terjadi karena Enter, jangan reset
@@ -202,12 +195,10 @@ function LineItem({
     // Jika blur terjadi tanpa Enter, reset input ke nilai terakhir yang diterapkan
     setInputQty(lastAppliedQty.current.toString());
   };
-
   const handleFocus = () => {
     // Reset flag Enter saat fokus
     enterPressed.current = false;
   };
-
   return (
     <div
       className={`flex items-start gap-3 ${
@@ -314,7 +305,6 @@ function ServicesSection() {
     locked,
   } = useCart();
   const { session } = useSession();
-
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
 
@@ -406,7 +396,6 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<'all' | 'product' | 'service'>('all');
   const [codeInput, setCodeInput] = useState('');
-
   const [apiDiscounts, setApiDiscounts] = useState<ApiDiscount[]>([]);
   const [loadingDiscounts, setLoadingDiscounts] = useState(true);
 
@@ -517,7 +506,6 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
           />
         </div>
       </div>
-
       <div className='max-h-40 overflow-auto rounded-md border border-border/30 p-2 space-y-2 bg-secondary'>
         {loadingDiscounts ? (
           <div className='text-xs text-muted-foreground flex items-center justify-center py-2'>
@@ -551,7 +539,6 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
           ))
         )}
       </div>
-
       {appliedCoupon ? (
         <div className='flex items-center justify-between rounded-md border border-border bg-secondary px-3 py-2 text-sm'>
           <div>
@@ -589,7 +576,6 @@ function BillOptionSection({
   const { t } = useTranslation();
   const { isCustomize, getButtonLabel, getButtonClasses, setButtonPref } =
     usePreferences();
-
   const options = [
     {
       key: 'create',
@@ -613,6 +599,7 @@ function BillOptionSection({
         return null;
     }
   };
+
   return (
     <div className='grid grid-cols-2 gap-3 bg-secondary p-3 rounded-lg'>
       {options.map((opt) => {
@@ -628,7 +615,6 @@ function BillOptionSection({
             ? 'bg-destructive/10 text-destructive hover:bg-destructive/20 active:ring-destructive'
             : `${color.bg} ${color.text}`,
         ];
-
         return (
           <div key={opt.value} className='rounded-lg'>
             <button
@@ -648,7 +634,6 @@ function BillOptionSection({
               </div>
               <div className='text-xs'>{shown}</div>
             </button>
-
             {isCustomize && (
               <div className='mt-2 space-y-2'>
                 <input
@@ -691,21 +676,16 @@ export default function AsideMock(): React.ReactElement {
     cartId,
     clearCartState,
   } = useCart();
-
   const { showNotif } = useNotification();
   const { session } = useSession();
   const token = session?.token ?? '';
-
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
   const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(true);
   const [selectedPaymentType, setSelectedPaymentType] =
     useState<PaymentType | null>(null);
-
   const [amountTendered, setAmountTendered] = useState<string>('');
-
   const [statusSheetOpen, setStatusSheetOpen] = useState(false);
   const statuses = ['In Queue', 'In Process', 'Waiting Payment'] as const;
-
   const statusLabels = {
     'In Queue': t('Aside.statusSheet.queue'),
     'In Process': t('Aside.statusSheet.process'),
@@ -789,7 +769,6 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-
     const unassignedService = items.find(
       (it) => it.type === 'service' && !it.isApiSynced
     );
@@ -802,7 +781,6 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-
     if (!selectedPaymentType || !selectedPaymentType.id) {
       showNotif({
         type: 'error',
@@ -810,12 +788,10 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-
     const isCash = selectedPaymentType.payment_name
       .toLowerCase()
       .includes('cash');
     const tendered = Number(amountTendered) || 0;
-
     if (isCash && tendered < grandTotal) {
       showNotif({
         type: 'error',
@@ -826,10 +802,8 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-
     setBusy(true);
     setLocked(true);
-
     try {
       setPaymentSheetOpen(false);
       const paymentTypeId = selectedPaymentType.id;
@@ -842,7 +816,6 @@ export default function AsideMock(): React.ReactElement {
         additional_info: `Payment Fee: ${processingFee} (Metode: ${paymentName}, Rate: ${selectedPaymentType.processing_fee_rate})`,
         notes: `Payment type: ${paymentName}`,
       };
-
       console.log('Data yang "dilempar" ke createOrderFromCart:', orderPayload);
       const { data: order } = await createOrderFromCart(orderPayload, token);
       const createdOrderId = order.id;
@@ -852,10 +825,8 @@ export default function AsideMock(): React.ReactElement {
         payment_type_id: paymentTypeId,
         reference_number: `TRX-${Date.now()}`,
       };
-
       console.log('Data yang "dilempar" ke processPaymentApi:', paymentPayload);
       await processPaymentApi(paymentPayload, token);
-
       addOrder({
         id: String(createdOrderId),
         orderNo: order.document_number ?? `INV-${createdOrderId}`,
@@ -868,18 +839,15 @@ export default function AsideMock(): React.ReactElement {
         paymentBank: undefined,
         total: grandTotal,
       });
-
       showNotif({
         type: 'success',
         message: `Order ${createdOrderId} processed. Payment OK`,
         amount: grandTotal,
         method: paymentName,
       });
-
       window.dispatchEvent(
         new CustomEvent('navigate-kasir-view', { detail: { view: 'orders' } })
       );
-
       clearAll();
     } catch (err) {
       console.error('Payment processing failed:', err);
@@ -903,10 +871,8 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-
     setBusy(true);
     setLocked(true);
-
     try {
       const { data: createdOrder } = await createOrderFromCart(
         {
@@ -918,12 +884,10 @@ export default function AsideMock(): React.ReactElement {
         },
         token
       );
-
       const newOrderId = createdOrder.id;
       if (!newOrderId) {
         throw new Error('Gagal membuat entry order untuk di-void.');
       }
-
       await voidOrderApi(
         {
           id: newOrderId,
@@ -932,12 +896,10 @@ export default function AsideMock(): React.ReactElement {
         },
         token
       );
-
       showNotif({
         type: 'success',
         message: `Order ${createdOrder.document_number} berhasil di-void.`,
       });
-
       clearCartState({ deleteBackendCart: false });
     } catch (err) {
       console.error(err);
@@ -950,6 +912,7 @@ export default function AsideMock(): React.ReactElement {
     }
   }
 
+  // === FIXED: handleSelectAndApplyDiscount ===
   async function handleSelectAndApplyDiscount(coupon: Coupon): Promise<void> {
     if (items.length === 0) {
       showNotif({
@@ -959,7 +922,7 @@ export default function AsideMock(): React.ReactElement {
       return;
     }
 
-    // ✅ Tambahan ini
+    // ✅ PERBAIKAN: Cegah penambahan diskon jika sudah ada diskon aktif dan berbeda
     if (appliedCoupon && appliedCoupon.id !== coupon.id) {
       showNotif({
         type: 'error',
@@ -967,6 +930,7 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
+    // ✅ PERBAIKAN SELESAI
 
     const unassignedService = items.find(
       (it) => it.type === 'service' && !it.isApiSynced
@@ -980,7 +944,6 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-
     if (!cartId) {
       showNotif({
         type: 'error',
@@ -988,28 +951,22 @@ export default function AsideMock(): React.ReactElement {
       });
       return;
     }
-
     setBusy(true);
     try {
       const discountIdToApply = Number(coupon.id);
       if (!discountIdToApply) {
         throw new Error(t('Aside.errors.discountInvalidId'));
       }
-
       const discountPayload: DiscountPayload = {
         cart_id: cartId,
         discount_id: discountIdToApply,
         item_ids: items.map((it) => String(it.itemId)),
       };
-
       const result = await applyDiscountApi(discountPayload, token);
-
       console.log('API Discount Response:', result);
-
       if (!result.success) {
         throw new Error(result.message || t('Aside.errors.discountApiFailed'));
       }
-
       const syncData: ApiCartSyncData = {
         subtotal: parseFloat(result.subtotal ?? '0'),
         tax: parseFloat(result.tax_amount ?? '0'),
@@ -1017,13 +974,11 @@ export default function AsideMock(): React.ReactElement {
         total: parseFloat(result.total_amount ?? '0'),
         items: result.items || [],
       };
-
       applyCoupon(coupon, syncData);
-
       showNotif({ type: 'success', message: 'Diskon diterapkan.' });
     } catch (err) {
       console.error(err);
-      clearCoupon();
+      clearCoupon(); // Pastikan reset lokal jika gagal
       const errorMessage =
         err instanceof Error
           ? err.message
@@ -1033,26 +988,23 @@ export default function AsideMock(): React.ReactElement {
       setBusy(false);
     }
   }
+  // === AKHIR FIXED: handleSelectAndApplyDiscount ===
 
   const asideBlur =
     paymentSheetOpen || statusSheetOpen
       ? 'filter blur-md pointer-events-none'
       : '';
-
   const handleChooseStatus = (status: string) => {
     console.log(`Status changed to: ${status}`);
   };
-
   const isCashPayment = selectedPaymentType?.payment_name
     .toLowerCase()
     .includes('cash');
   const tenderedAmountNum = Number(amountTendered) || 0;
-
   const changeDue =
     isCashPayment && tenderedAmountNum > 0 && tenderedAmountNum >= grandTotal
       ? tenderedAmountNum - grandTotal
       : 0;
-
   const isProcessDisabled =
     busy ||
     !selectedPaymentType ||
@@ -1061,7 +1013,6 @@ export default function AsideMock(): React.ReactElement {
   return (
     <div className='flex flex-col gap-4 h-full  overflow-hidden relative'>
       <div className={asideBlur}></div>
-
       <div className='flex items-center gap-3 h-6 flex-shrink-0'>
         <SmallPill
           prefKey='aside:pill:delete'
@@ -1087,13 +1038,11 @@ export default function AsideMock(): React.ReactElement {
           {time || '--:--:--'}
         </div>
       </div>
-
       <div className='flex-1 flex flex-col gap-3 overflow-y-auto pr-1'>
         <ProductSection />
         <ServicesSection />
         <CouponPanel onSelect={handleSelectAndApplyDiscount} />
       </div>
-
       <div className='flex-shrink-0 space-y-4'>
         <hr className='border-t-4 border-border ' />
         <div className='space-y-2 text-sm'>
@@ -1138,7 +1087,6 @@ export default function AsideMock(): React.ReactElement {
         />
         <div className='flex justify-end'></div>
       </div>
-
       {paymentSheetOpen && (
         <div className='absolute inset-0 z-50 flex items-end justify-center'>
           <div
@@ -1153,7 +1101,6 @@ export default function AsideMock(): React.ReactElement {
             <div className='text-center font-bold font-rubik text-foreground text-lg mb-2'>
               {t('Aside.paymentSheet.title')}
             </div>
-
             <div className='rounded-lg border border-border bg-card p-3 text-foreground space-y-1'>
               <div className='flex justify-between text-sm'>
                 <span className='text-muted-foreground'>
@@ -1174,7 +1121,6 @@ export default function AsideMock(): React.ReactElement {
                 <span>{formatIDR(grandTotal)}</span>
               </div>
             </div>
-
             <div>
               <div className='font-medium mb-1'>
                 {t('Aside.paymentSheet.paymentType')}
@@ -1204,7 +1150,6 @@ export default function AsideMock(): React.ReactElement {
                 )}
               </div>
             </div>
-
             {isCashPayment && (
               <div className='space-y-3'>
                 <div>
@@ -1233,7 +1178,6 @@ export default function AsideMock(): React.ReactElement {
                 )}
               </div>
             )}
-
             <div className='mt-auto flex gap-3'>
               <button
                 className='flex-1 px-6 py-2 bg-muted text-foreground rounded-lg font-rubik font-semibold'
@@ -1257,7 +1201,6 @@ export default function AsideMock(): React.ReactElement {
           </div>
         </div>
       )}
-
       {statusSheetOpen && (
         <div className='absolute inset-0 z-50 flex items-end justify-center'>
           <div
@@ -1269,7 +1212,6 @@ export default function AsideMock(): React.ReactElement {
             <div className='text-center font-bold font-rubik text-foreground text-lg mb-2'>
               {t('Aside.statusSheet.title')}
             </div>
-
             <div className='grid grid-cols-1 gap-3 mt-2'>
               {statuses.map((st) => (
                 <button
@@ -1281,7 +1223,6 @@ export default function AsideMock(): React.ReactElement {
                 </button>
               ))}
             </div>
-
             <button
               className='mt-5 flex-1 px-6 py-2 bg-muted text-foreground rounded-lg font-rubik font-semibold'
               onClick={() => setStatusSheetOpen(false)}

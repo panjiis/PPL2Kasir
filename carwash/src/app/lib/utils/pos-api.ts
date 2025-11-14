@@ -14,11 +14,12 @@ import type {
   ApiSyncedCartItem,
   ApiCartResponse,
   Employee,
+  StockItem,
 } from '../types/pos';
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
-  'https://api.interphaselabs.com/api/v1';
+  'https://api-syntra.interphaselabs.com/api/v1';
 
 // only include Authorization header when token is truthy
 const defaultHeaders = (token?: string) => {
@@ -137,6 +138,62 @@ export async function updateProduct(
   if (!res.ok) throw new Error(await safeReadText(res));
   return res.json();
 }
+
+// ==================== STOCKS ====================
+
+export async function fetchStocks(
+  token?: string
+): Promise<{ data: StockItem[] }> {
+  const url = `${BASE_URL}/inventory/stocks`;
+  const res = await fetch(url, {
+    headers: defaultHeaders(token),
+  });
+
+  if (!res.ok) {
+    const text = await safeReadText(res);
+    throw new Error(
+      `Failed to fetch stocks from ${url}. Status ${res.status}. Body: ${text}`
+    );
+  }
+
+  const body: unknown = await res.json().catch(() => null);
+
+  if (!body) return { data: [] };
+
+  let data: StockItem[] = [];
+
+  // Support { data: [...] }
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'data' in body &&
+    Array.isArray(body.data)
+  ) {
+    data = body.data as StockItem[];
+  }
+  // Support [...]
+  else if (Array.isArray(body)) {
+    data = body as StockItem[];
+  }
+  // Fallback untuk wrapper umum lainnya
+  else {
+    for (const key of ['result', 'items', 'rows']) {
+      if (
+        typeof body === 'object' &&
+        body !== null &&
+        key in body &&
+        Array.isArray((body as Record<string, unknown>)[key])
+      ) {
+        data = (body as Record<string, unknown>)[key] as StockItem[];
+        break;
+      }
+    }
+  }
+
+  return { data: data }; // <-- PERBAIKAN: Menambahkan return statement
+}
+
+// ==================== PRODUCT GROUPS & TYPES ====================
 
 export async function fetchProductGroups(
   token?: string
@@ -511,6 +568,8 @@ export async function validateDiscount(
   if (!res.ok) throw new Error(await safeReadText(res));
   return res.json();
 }
+
+// ==================== EMPLOYEES ====================
 
 export async function fetchEmployees(
   token?: string

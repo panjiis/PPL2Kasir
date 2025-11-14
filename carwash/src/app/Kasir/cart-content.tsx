@@ -41,6 +41,7 @@ export type CartItem = {
   name: string;
   image: string;
   price: number;
+  originalPrice?: number;
   barcode?: string;
   type: ProductType;
   category: string;
@@ -120,7 +121,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
   const [billOption, setBillOption] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null); // <-- State ini penting
   const [orders, setOrders] = useState<OrderItem[]>([]);
 
   // === STATE FINANSIAL (frontend memo + server sync) ===
@@ -151,13 +152,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoadingEmployees(false));
   }, [session?.token]);
 
-  // Fungsi ini HANYA mereset memo diskon / finansial lokal (frontend)
+  /**
+   * Reset lokal (restore originalPrice → price, clear api financials, clear appliedCoupon)
+   * Fungsi ini sekarang mereset semua state yang berkaitan dengan diskon.
+   */
   const resetApiFinancials = useCallback(() => {
     setApiDiscount(null);
-    setAppliedCoupon(null);
     setApiSubtotal(null);
     setApiTax(null);
     setApiTotal(null);
+    setAppliedCoupon(null); // <-- PENTING: Reset juga appliedCoupon
+
+    // Kembalikan harga item ke harga aslinya jika ada
+    setItems((prev) =>
+      prev.map((it) => {
+        if (typeof it.originalPrice === 'number') {
+          return {
+            ...it,
+            price: it.originalPrice, // <-- Kembalikan harga asli
+            originalPrice: undefined, // <-- Hapus tanda originalPrice
+          };
+        }
+        return it;
+      })
+    );
   }, []);
 
   const clearCartState = useCallback(
@@ -166,7 +184,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const token = session?.token;
       const currentCartId = cartId;
 
-      resetApiFinancials();
+      resetApiFinancials(); // Reset semua state finansial dan diskon
 
       setItems([]);
       setSelectedItemId(null);
@@ -213,24 +231,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
     cartIdRef.current = cartId;
   }, [cartId]);
 
+  // --- HAPUS FUNGSI `resyncCartWithoutDiscount` ---
+  // Fungsi ini adalah penyebab bug kuantitas ganda.
+
   // ==========================
   // === CORE FUNCTIONS ======
   // ==========================
 
-  // === FIXED addItem (pakai delta, bukan absolut) ===
+  // === FIXED addItem ===
   const addItem = useCallback(
     async (p: CartItem) => {
+      if (locked) return;
       if (addingItemIdRef.current === p.id) {
         showNotif({ type: 'info', message: t('Cart.processing') });
         return;
       }
-      if (locked) return;
-
       addingItemIdRef.current = p.id;
       setAddingItemId(p.id);
 
       try {
-        resetApiFinancials();
+        // --- PERBAIKAN: Reset finansial jika diskon aktif ---
+        if (appliedCoupon) {
+          console.log('addItem: Diskon aktif, panggil resetApiFinancials()');
+          showNotif({
+            type: 'info',
+            message: t(
+              'Cart.discountReset',
+              'Diskon direset karena isi keranjang berubah.'
+            ),
+          });
+          resetApiFinancials(); // HANYA reset lokal, termasuk appliedCoupon
+        }
+        // --- PERBAIKAN SELESAI ---
+
         const token = session?.token;
         if (!token) {
           showNotif({ type: 'error', message: t('Cart.loginRequired') });
@@ -288,38 +321,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const response = await addItemToCart(payload, token);
         const returnedCart = response?.data ?? {};
 
-        // update financials from server if present
-        const serverSubtotal = returnedCart?.subtotal
-          ? parseFloat(String(returnedCart.subtotal))
-          : null;
-        const serverTax = returnedCart?.tax_amount
-          ? parseFloat(String(returnedCart.tax_amount))
-          : null;
-        const serverDiscount = returnedCart?.discount_amount
-          ? parseFloat(String(returnedCart.discount_amount))
-          : null;
-        const serverTotal = returnedCart?.total_amount
-          ? parseFloat(String(returnedCart.total_amount))
-          : null;
-
-        setApiSubtotal(
-          serverSubtotal !== null && !Number.isNaN(serverSubtotal)
-            ? serverSubtotal
-            : null
-        );
-        setApiTax(
-          serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null
-        );
-        setApiDiscount(
-          serverDiscount !== null && !Number.isNaN(serverDiscount)
-            ? serverDiscount
-            : null
-        );
-        setApiTotal(
-          serverTotal !== null && !Number.isNaN(serverTotal)
-            ? serverTotal
-            : null
-        );
+        // --- PERBAIKAN: ABAIKAN SEMUA DATA FINANSIAL DARI `returnedCart` ---
+        // JANGAN PANGGIL setApiDiscount, setApiSubtotal, dll.
+        // --- PERBAIKAN SELESAI ---
 
         const returnedItem = returnedCart.items?.find(
           (item: ApiSyncedCartItem) =>
@@ -328,7 +332,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         const apiLineItemId = returnedItem?.item_id;
 
-        // update local state based on server response (prefer server values)
         setItems((prev) => {
           const foundInSetter = prev.find((it) => it.id === p.id);
           if (foundInSetter) {
@@ -338,12 +341,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   ? {
                       ...it,
                       qty: returnedItem.quantity,
-                      price: parseFloat(returnedItem.unit_price),
+                      price: it.price, // <-- Gunakan harga lokal (yg sudah direset)
                       isApiSynced: true,
                       apiLineItemId: returnedItem.item_id,
-                      employeeId: returnedItem
-                        ? employeeId ?? it.employeeId
-                        : it.employeeId,
+                      employeeId: employeeId ?? it.employeeId,
                     }
                   : it
               );
@@ -392,11 +393,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       session?.token,
       showNotif,
       t,
-      resetApiFinancials,
+      resetApiFinancials, // <-- Dependensi yang benar
+      appliedCoupon, // <-- Dependensi untuk guard condition
     ]
   );
 
-  // selectItem & toggleAdjust
+  // selectItem & toggleAdjust (Tidak berubah)
   const selectItem = useCallback(
     (id: string | null) => {
       if (locked) return;
@@ -411,13 +413,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setAdjustMode((s) => !s);
   }, [locked, selectedItemId]);
 
-  // --- PERBAIKAN UTAMA: adjustQuantity ---
+  // === FIXED adjustQuantity ===
   const adjustQuantity = useCallback(
     async (id: string, newQty: number) => {
       if (locked || !adjustMode) {
         console.warn('(adjustQuantity) Guard clause triggered. Aborting.');
         return;
       }
+
+      // --- PERBAIKAN: Reset finansial jika diskon aktif ---
+      if (appliedCoupon) {
+        console.log(
+          'adjustQuantity: Diskon aktif, panggil resetApiFinancials()'
+        );
+        showNotif({
+          type: 'info',
+          message: t(
+            'Cart.discountReset',
+            'Diskon direset karena isi keranjang berubah.'
+          ),
+        });
+        resetApiFinancials(); // HANYA reset lokal, termasuk appliedCoupon
+      }
+      // --- PERBAIKAN SELESAI ---
 
       const currentItems = itemsRef.current;
       const item = currentItems.find((it) => it.id === id);
@@ -441,8 +459,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      resetApiFinancials();
-
       // === NAIK KUANTITAS ===
       if (deltaQty > 0) {
         const payload: AddItemPayload = {
@@ -458,38 +474,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const response = await addItemToCart(payload, token);
           const returnedCart = response?.data ?? {};
 
-          // update financials from server
-          const serverSubtotal = returnedCart?.subtotal
-            ? parseFloat(String(returnedCart.subtotal))
-            : null;
-          const serverTax = returnedCart?.tax_amount
-            ? parseFloat(String(returnedCart.tax_amount))
-            : null;
-          const serverDiscount = returnedCart?.discount_amount
-            ? parseFloat(String(returnedCart.discount_amount))
-            : null;
-          const serverTotal = returnedCart?.total_amount
-            ? parseFloat(String(returnedCart.total_amount))
-            : null;
-
-          setApiSubtotal(
-            serverSubtotal !== null && !Number.isNaN(serverSubtotal)
-              ? serverSubtotal
-              : null
-          );
-          setApiTax(
-            serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null
-          );
-          setApiDiscount(
-            serverDiscount !== null && !Number.isNaN(serverDiscount)
-              ? serverDiscount
-              : null
-          );
-          setApiTotal(
-            serverTotal !== null && !Number.isNaN(serverTotal)
-              ? serverTotal
-              : null
-          );
+          // --- PERBAIKAN: ABAIKAN data finansial dari server ---
 
           const updatedItem = returnedCart.items?.find(
             (i: ApiSyncedCartItem) =>
@@ -502,9 +487,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 ? {
                     ...it,
                     qty: updatedItem?.quantity ?? absoluteQty,
-                    price: parseFloat(
-                      updatedItem?.unit_price ?? String(it.price)
-                    ),
+                    price: it.price, // <-- Gunakan harga lokal
                     isApiSynced: true,
                     apiLineItemId: updatedItem?.item_id ?? it.apiLineItemId,
                   }
@@ -519,10 +502,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       // === TURUN KUANTITAS ===
       else if (deltaQty < 0) {
-        // for reducing, API expects delete calls per line item (as library shows).
-        // If server supports absolute set, you could call it instead — here we keep remove loop.
         const removeCount = Math.abs(deltaQty);
-
         for (let i = 0; i < removeCount; i++) {
           try {
             await removeItemFromCart(
@@ -539,8 +519,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
             break;
           }
         }
-
-        // update local state
         setItems((prev) =>
           prev
             .map((it) =>
@@ -552,15 +530,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [locked, adjustMode, resetApiFinancials, session?.token, showNotif]
+    [
+      locked,
+      adjustMode,
+      resetApiFinancials, // <-- Dependensi yang benar
+      session?.token,
+      showNotif,
+      appliedCoupon, // <-- Dependensi untuk guard condition
+      t,
+    ]
   );
-  // --- AKHIR PERBAIKAN ---
 
+  // === FIXED deleteSelected ===
   const deleteSelected = useCallback(async () => {
     if (locked || !selectedItemId) {
       console.warn('(deleteSelected) Guard clause triggered. Aborting.');
       return;
     }
+
+    // --- PERBAIKAN: Panggil reset LOKAL jika diskon aktif ---
+    if (appliedCoupon) {
+      console.log('deleteSelected: Diskon aktif, panggil resetApiFinancials()');
+      showNotif({
+        type: 'info',
+        message: t(
+          'Cart.discountReset',
+          'Diskon direset karena isi keranjang berubah.'
+        ),
+      });
+      resetApiFinancials(); // HANYA reset lokal, termasuk appliedCoupon
+    }
+    // --- AKHIR PERBAIKAN ---
 
     const id = selectedItemId;
     const item = itemsRef.current.find((it) => it.id === id);
@@ -570,34 +570,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setAdjustMode(false);
       return;
     }
-
     if (addingItemIdRef.current === id) {
       showNotif({ type: 'info', message: t('Cart.processing') });
       return;
     }
-
-    resetApiFinancials();
-
     addingItemIdRef.current = id;
     setAddingItemId(id);
 
     try {
       const token = session?.token;
       const currentCartId = cartIdRef.current;
-
       if (item.isApiSynced && token && currentCartId) {
         const idToDelete = item.apiLineItemId ?? item.itemId;
-
         if (!idToDelete) {
           throw new Error(
             t('Cart.removeItemFailed', { name: item.name }) +
               ' (Missing Backend ID)'
           );
         }
-
         await removeItemFromCart(currentCartId, idToDelete, token);
       }
-
       setItems((prev) => prev.filter((it) => it.id !== id));
       setSelectedItemId(null);
       setAdjustMode(false);
@@ -614,89 +606,106 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [
     locked,
     selectedItemId,
-    resetApiFinancials,
+    resetApiFinancials, // <-- Dependensi yang benar
     session?.token,
     showNotif,
     t,
+    appliedCoupon, // <-- Dependensi untuk guard condition
   ]);
 
+  // === FIXED setEmployee (INI KUNCI BUG ANDA) ===
   const setEmployee = useCallback(
     async (itemId: string, employeeId: number) => {
       if (locked) return;
 
-      const token = session?.token;
-      const currentCartId = cartIdRef.current;
       const item = itemsRef.current.find((it) => it.id === itemId);
-
-      if (!token || !currentCartId || !item) {
+      if (!item) {
         showNotif({ type: 'error', message: t('Cart.itemNotFound') });
         return;
       }
+      if (item.employeeId === employeeId) return; // Tidak ada perubahan
 
-      // kalau employee-nya sama, tidak perlu apa-apa
-      if (item.employeeId === employeeId) return;
+      console.log(
+        `setEmployee: Mengganti ${item.name} ke employee ${employeeId}`
+      );
 
-      resetApiFinancials();
+      // --- PERBAIKAN: Reset finansial jika diskon aktif ---
+      if (appliedCoupon) {
+        console.log('setEmployee: Diskon aktif, panggil resetApiFinancials()');
+        showNotif({
+          type: 'info',
+          message: t(
+            'Cart.discountReset',
+            'Diskon direset karena isi keranjang berubah.'
+          ),
+        });
+        resetApiFinancials(); // <--- Panggil reset LOKAL saja, termasuk appliedCoupon
+      }
+      // --- PERBAIKAN SELESAI ---
+
+      const token = session?.token;
+      let currentCartId = cartIdRef.current; // Biarkan 'let'
+      if (!token) {
+        showNotif({ type: 'error', message: t('Cart.loginRequired') });
+        return;
+      }
+
+      // Jika cartId null (seharusnya tidak terjadi, tapi untuk jaga-jaga)
+      if (!currentCartId) {
+        try {
+          console.log('setEmployee: CartID null, membuat keranjang baru...');
+          const { data } = await createCart({ cashier_id: 1 }, token);
+          currentCartId = String(data.cart_id);
+          localStorage.setItem('last_cart_id', currentCartId);
+          cartIdRef.current = currentCartId;
+          setCartId(currentCartId);
+        } catch (e) {
+          console.error(e);
+          showNotif({ type: 'error', message: t('Cart.createCartFailed') });
+          return;
+        }
+      }
 
       try {
         // 1) Hapus baris item di backend (jika ada)
+        // Kita harus berasumsi item.apiLineItemId adalah yang terbaru
         if (item.apiLineItemId) {
           try {
             await removeItemFromCart(currentCartId, item.apiLineItemId, token);
+            console.log(
+              `setEmployee: Berhasil hapus item ${item.apiLineItemId}`
+            );
           } catch (err) {
-            // jika gagal hapus, jangan crash — lanjut cobalah re-add
             console.warn('Gagal remove existing line before re-adding:', err);
+            // Ini bisa jadi error 400/404 jika item.apiLineItemId sudah basi, tidak apa-apa.
           }
         }
 
         // 2) Re-add item with same qty but new employee
         const payload: AddItemPayload = {
-          cart_id: currentCartId,
+          cart_id: currentCartId, // <--- ID keranjang yang sama
           product_code: item.itemId ?? item.id,
-          quantity: item.qty,
-          serving_employee_id: employeeId,
+          quantity: item.qty, // <--- Kuantitas yang ada (e.g., 1)
+          serving_employee_id: employeeId, // <--- Karyawan BARU
         };
 
+        console.log(
+          'setEmployee: Memanggil addItemToCart dengan payload:',
+          payload
+        );
         const response = await addItemToCart(payload, token);
         const returnedCart = response?.data ?? {};
 
-        // update financials from server
-        const serverSubtotal = returnedCart?.subtotal
-          ? parseFloat(String(returnedCart.subtotal))
-          : null;
-        const serverTax = returnedCart?.tax_amount
-          ? parseFloat(String(returnedCart.tax_amount))
-          : null;
-        const serverDiscount = returnedCart?.discount_amount
-          ? parseFloat(String(returnedCart.discount_amount))
-          : null;
-        const serverTotal = returnedCart?.total_amount
-          ? parseFloat(String(returnedCart.total_amount))
-          : null;
+        // --- PERBAIKAN: ABAIKAN data finansial dari server ---
 
-        setApiSubtotal(
-          serverSubtotal !== null && !Number.isNaN(serverSubtotal)
-            ? serverSubtotal
-            : null
-        );
-        setApiTax(
-          serverTax !== null && !Number.isNaN(serverTax) ? serverTax : null
-        );
-        setApiDiscount(
-          serverDiscount !== null && !Number.isNaN(serverDiscount)
-            ? serverDiscount
-            : null
-        );
-        setApiTotal(
-          serverTotal !== null && !Number.isNaN(serverTotal)
-            ? serverTotal
-            : null
-        );
-
+        // PERBAIKAN: Logika find yang benar (memakai 'serving_employee_id' dari tipe)
         const updatedItem = returnedCart.items?.find(
           (apiItem: ApiSyncedCartItem) =>
-            apiItem.product?.product_code === item.itemId
+            apiItem.product?.product_code === item.itemId &&
+            apiItem.serving_employee_id === employeeId // <-- Ini sekarang valid
         );
+
+        console.log('setEmployee: Respons server, item baru:', updatedItem);
 
         // update local state
         setItems((prev) =>
@@ -704,13 +713,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
             it.id === itemId
               ? {
                   ...it,
-                  employeeId,
-                  qty: updatedItem?.quantity ?? it.qty,
-                  price: parseFloat(
-                    updatedItem?.unit_price ?? String(it.price)
-                  ),
+                  employeeId, // <-- Set employee baru
+                  qty: updatedItem?.quantity ?? it.qty, // <-- Qty harusnya SAMA
+                  price: it.price, // <-- Harga tetap (sudah direset)
                   isApiSynced: true,
-                  apiLineItemId: updatedItem?.item_id ?? it.apiLineItemId,
+                  apiLineItemId: updatedItem?.item_id, // <-- Ambil ID BARU
                 }
               : it
           )
@@ -724,44 +731,85 @@ export function CartProvider({ children }: { children: ReactNode }) {
           message:
             e instanceof Error ? e.message : t('Cart.assignEmployeeFailed'),
         });
+        // Jika gagal, kembalikan employee ke state sebelumnya (opsional)
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === itemId ? { ...it, employeeId: item.employeeId } : it
+          )
+        );
       }
     },
-    [locked, session?.token, showNotif, t, resetApiFinancials]
+    [
+      locked,
+      session?.token,
+      showNotif,
+      t,
+      resetApiFinancials, // <-- Dependensi yang benar
+      appliedCoupon, // <-- Dependensi untuk guard condition
+    ]
   );
 
-  const applyCoupon = (c: Coupon, financials: ApiCartSyncData) => {
-    setAppliedCoupon(c);
-    setApiDiscount(financials.discount);
-    setApiSubtotal(financials.subtotal ?? null);
-    setApiTax(financials.tax ?? null);
-    setApiTotal(financials.total ?? null);
-
-    if (financials.items) {
-      setItems((prevItems) => {
-        const apiItemMap = new Map<string, ApiSyncedCartItem>();
-        financials.items.forEach((apiItem) => {
-          apiItemMap.set(apiItem.product.product_code, apiItem);
+  // Fungsi ini HANYA dipanggil saat diskon BERHASIL diterapkan dan valid
+  const applyCoupon = useCallback(
+    (c: Coupon, financials: ApiCartSyncData) => {
+      const uniqueDiscountIds = new Set(
+        financials.items
+          .filter((item) => item.discount)
+          .map((item) => item.discount)
+      );
+      if (uniqueDiscountIds.size > 1) {
+        console.warn('Detected multiple discounts in cart:', uniqueDiscountIds);
+        showNotif({
+          type: 'error',
+          message:
+            'Ditemukan lebih dari satu diskon. Semua diskon telah di-reset. Silakan pilih satu diskon lagi.',
         });
+        resetApiFinancials(); // Reset lokal
+      }
+      // 1. Set state appliedCoupon untuk menandakan diskon aktif
+      setAppliedCoupon(c);
+      // 2. Set state finansial dari API
+      setApiDiscount(financials.discount);
+      setApiSubtotal(financials.subtotal ?? null);
+      setApiTax(financials.tax ?? null);
+      setApiTotal(financials.total ?? null);
 
-        return prevItems.map((localItem) => {
-          const apiItem = apiItemMap.get(localItem.itemId);
-          if (apiItem) {
-            return {
-              ...localItem,
-              qty: apiItem.quantity,
-              price: parseFloat(apiItem.unit_price),
-              isApiSynced: true,
-              apiLineItemId: apiItem.item_id,
-            };
-          }
-          return localItem;
+      // 3. Update harga item dari API (harga setelah diskon)
+      if (financials.items) {
+        setItems((prevItems) => {
+          const apiItemMap = new Map<string, ApiSyncedCartItem>();
+          financials.items.forEach((apiItem) => {
+            apiItemMap.set(apiItem.product.product_code, apiItem);
+          });
+
+          return prevItems.map((localItem) => {
+            const apiItem = apiItemMap.get(localItem.itemId);
+            if (apiItem) {
+              return {
+                ...localItem,
+                // SIMPAN originalPrice jika belum tersimpan (harga sebelum diskon)
+                originalPrice:
+                  typeof localItem.originalPrice === 'number'
+                    ? localItem.originalPrice
+                    : localItem.price,
+                // Gantikan price dengan harga unit dari API (yang mungkin sudah berisi diskon)
+                price: parseFloat(apiItem.unit_price),
+                isApiSynced: true,
+                apiLineItemId: apiItem.item_id,
+                qty: apiItem.quantity,
+              };
+            }
+            return localItem;
+          });
         });
-      });
-    }
-  };
+      }
+    },
+    [resetApiFinancials, showNotif]
+  );
 
+  // Ini HANYA reset LOKAL, termasuk appliedCoupon.
   const clearCoupon = useCallback(() => {
-    resetApiFinancials();
+    resetApiFinancials(); // <-- Panggil reset yang baru, sudah mereset appliedCoupon
   }, [resetApiFinancials]);
 
   const products = useMemo(
@@ -773,50 +821,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items]
   );
 
-  const localSubtotal = useMemo(
-    () => items.reduce((acc, it) => acc + it.price * it.qty, 0),
-    [items]
-  );
+  // --- KALKULASI TOTAL ---
+  const localSubtotal = useMemo(() => {
+    // Gunakan harga asli jika ada, jika tidak gunakan harga saat ini
+    return items.reduce(
+      (acc, it) => acc + (it.originalPrice ?? it.price) * it.qty,
+      0
+    );
+  }, [items]);
 
-
-
-
-
-
-  
   const taxRate = 0.1;
 
-  const subtotal = apiSubtotal ?? localSubtotal; // Subtotal Bruto
+  // Subtotal adalah total SEBELUM diskon
+  const subtotal = apiSubtotal ?? localSubtotal;
+
+  // Diskon adalah nilai dari API, atau 0 jika direset
   const discount = apiDiscount ?? 0;
 
-  // --- PERBAIKAN DIMULAI DI SINI ---
-  // Subtotal Neto: Subtotal Bruto - Diskon
+  // Subtotal Neto (Setelah diskon)
   const subtotalNeto = subtotal - discount;
 
-  // Pajak dihitung dari Subtotal Neto (Subtotal setelah diskon)
+  // Pajak dihitung dari Subtotal Neto
   const tax = useMemo(() => {
-    // Jika ada nilai dari API, gunakan nilai API
-    if (apiTax !== null) return apiTax;
-
-    // Jika tidak ada API, hitung manual: Math.round(Subtotal Neto * taxRate)
-    const baseTax = Math.round(subtotalNeto * taxRate);
+    if (apiTax !== null) return apiTax; // Gunakan pajak dari API jika ada
+    const baseTax = Math.round(subtotalNeto * taxRate); // Hitung manual
     return baseTax;
   }, [apiTax, subtotalNeto]);
 
-  // Total = Subtotal Neto + Pajak (atau Total = Subtotal Bruto - Diskon + Pajak)
+  // Total adalah (Subtotal - Diskon) + Pajak
   const total = useMemo(() => {
-    // Jika ada nilai dari API, gunakan nilai API
-    if (apiTotal !== null) return apiTotal;
-
-    // Jika tidak ada API, hitung manual: Math.round(subtotalNeto + tax)
-    const baseTotal = Math.round(subtotalNeto + tax);
+    if (apiTotal !== null) return apiTotal; // Gunakan total dari API jika ada
+    const baseTotal = Math.round(subtotalNeto + tax); // Hitung manual
     return baseTotal;
   }, [apiTotal, subtotalNeto, tax]);
-
-
-
-
-
+  // --- AKHIR KALKULASI TOTAL ---
 
   const repeatRound = useCallback(() => {
     if (locked) return;
@@ -851,7 +889,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       addItem,
       selectItem,
       toggleAdjust,
-      adjustQuantity, // Sudah diperbaiki
+      adjustQuantity,
       deleteSelected,
       setEmployee,
       products,
@@ -907,6 +945,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       voidOrder,
       clearCartState,
       appliedCoupon,
+      applyCoupon,
       clearCoupon,
       orders,
       addOrder,

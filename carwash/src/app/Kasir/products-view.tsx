@@ -1,11 +1,12 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react'; // <-- Impor useEffect
 import { useSession } from '../lib/context/session';
-import type { PosProduct } from '@/app/lib/types/pos';
+import type { PosProduct, StockItem } from '@/app/lib/types/pos'; // <-- Impor StockItem
 import { AlertTriangle, Loader2, Search } from 'lucide-react';
 import { useProducts } from '@/app/Hooks/useProducts';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
+import { fetchStocks } from '../lib/utils/pos-api'; // <-- Impor fetchStocks
 
 const formatRupiah = (amount?: number) => {
   if (amount === undefined || amount === null) return 'N/A';
@@ -30,23 +31,67 @@ export default function ProductsView() {
     error,
   } = useProducts(session?.token ?? '');
 
+  // --- TAMBAHAN: State untuk Stocks ---
+  const [stocks, setStocks] = useState<StockItem[]>([]);
+  const [loadingStocks, setLoadingStocks] = useState(true);
+
+  // --- TAMBAHAN: useEffect untuk fetchStocks ---
+  useEffect(() => {
+    if (session?.token) {
+      setLoadingStocks(true);
+      fetchStocks(session.token)
+        .then((response) => {
+          setStocks(response.data || []);
+        })
+        .catch((err) => {
+          console.error('Failed to fetch stocks:', err);
+        })
+        .finally(() => {
+          setLoadingStocks(false);
+        });
+    } else {
+      setLoadingStocks(false);
+      setStocks([]);
+    }
+  }, [session?.token]);
+
   console.log('STATUS API PRODUCTS:', {
     token: session?.token ? 'Token Ada' : 'Token KOSONG',
     loading,
     error,
     productsData: products,
+    stocksData: stocks,
   });
 
+  // --- TAMBAHAN: Memo untuk memetakan total stok ---
+  const stockMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!stocks || stocks.length === 0) return map;
+
+    for (const item of stocks) {
+      const currentQty = map.get(item.product_code) || 0;
+      map.set(item.product_code, currentQty + item.available_quantity);
+    }
+    return map;
+  }, [stocks]);
+
+  // --- MODIFIKASI: mappedProducts sekarang menyertakan stok dan itemType ---
   const mappedProducts = useMemo(() => {
     return (products || []).map(
-      (p): PosProduct => ({
-        ...p,
-        price: Number(p.product_price ?? p.price ?? 0),
-        product_name: p.product_name ?? '',
-        product_code: p.product_code ?? '',
-      })
+      (p): PosProduct & { itemType: 'product' | 'service' } => {
+        const prefix = (p.product_code || '').split('-')[0] || '';
+        const itemType = prefix === 'SRV' ? 'service' : 'product';
+        return {
+          ...p,
+          price: Number(p.product_price ?? p.price ?? 0),
+          product_name: p.product_name ?? '',
+          product_code: p.product_code ?? '',
+          available_quantity: stockMap.get(p.product_code) ?? 0,
+          itemType: itemType, // <-- Tambahkan itemType
+        };
+      }
     );
-  }, [products]);
+  }, [products, stockMap]); // <-- Tambahkan stockMap sebagai dependensi
 
   const filteredProducts = useMemo(() => {
     return mappedProducts.filter(
@@ -63,7 +108,6 @@ export default function ProductsView() {
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
 
-  // BARU: Menghitung informasi spesifik untuk footer
   const totalItems = filteredProducts.length;
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const startItem = totalItems === 0 ? 0 : startIndex + 1;
@@ -76,10 +120,13 @@ export default function ProductsView() {
   const errorMessage = error
     ? error instanceof Error
       ? error.message
-      : t('ProductsView.errorUnknown') // <-- Menggunakan fallback key
+      : t('ProductsView.errorUnknown')
     : null;
 
-  if (loading)
+  // --- MODIFIKASI: Perbarui pengecekan loading ---
+  const mainLoading = loading || loadingStocks;
+
+  if (mainLoading)
     return (
       <div className='flex items-center justify-center h-full text-muted-foreground'>
         <Loader2 className='h-8 w-8 animate-spin mr-2' />
@@ -94,7 +141,6 @@ export default function ProductsView() {
         <span className='font-semibold'>
           {t('ProductsView.errorTitle')}
         </span>{' '}
-        {/* <-- Judul Error */}
         <p className='text-sm'>{errorMessage}</p>
       </div>
     );
@@ -105,9 +151,7 @@ export default function ProductsView() {
         <h1 className='text-2xl font-bold text-foreground'>
           {t('ProductsView.title')}
         </h1>
-        <p className='text-muted-foreground'>
-          {t('ProductsView.description')}
-        </p>
+        <p className='text-muted-foreground'>{t('ProductsView.description')}</p>
       </header>
 
       <div className='px-4 pb-4'>
@@ -130,7 +174,6 @@ export default function ProductsView() {
         <div className='border rounded-lg overflow-hidden'>
           <table className='w-full text-sm'>
             <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
-              {/* --- PERBAIKAN HIDRASI --- */}
               <tr>
                 <th className='text-left font-medium p-3'>
                   {t('ProductsView.colName')}
@@ -139,10 +182,12 @@ export default function ProductsView() {
                   {t('ProductsView.colCode')}
                 </th>
                 <th className='text-right font-medium p-3'>
+                  {t('ProductsView.colQty', 'Kuantitas')}
+                </th>
+                <th className='text-right font-medium p-3'>
                   {t('ProductsView.colPrice')}
                 </th>
               </tr>
-              {/* --- AKHIR PERBAIKAN HIDRASI --- */}
             </thead>
             <tbody className='divide-y divide-border'>
               {paginatedProducts.length > 0 ? (
@@ -155,6 +200,12 @@ export default function ProductsView() {
                     <td className='text-muted-foreground p-3'>
                       {item.product_code}
                     </td>
+                    {/* --- MODIFIKASI: Tampilkan Qty atau '-' --- */}
+                    <td className='p-3 text-right font-medium'>
+                      {item.itemType === 'product'
+                        ? item.available_quantity
+                        : '-'}
+                    </td>
                     <td className='p-3 text-right font-semibold'>
                       {formatRupiah(Number(item.price))}
                     </td>
@@ -163,7 +214,7 @@ export default function ProductsView() {
               ) : (
                 <tr>
                   <td
-                    colSpan={3}
+                    colSpan={4} // <-- Pastikan colspan 4
                     className='text-center p-6 text-muted-foreground'
                   >
                     {t('ProductsView.empty')}
@@ -175,21 +226,16 @@ export default function ProductsView() {
         </div>
       </div>
 
-      {/* MODIFIKASI: Footer Paginasi dengan info spesifik */}
       {totalPages > 1 && (
         <footer className='p-4 border-t flex items-center justify-between'>
-          {/* Membungkus info di sebelah kiri */}
           <div className='flex items-center gap-4'>
             <span className='text-sm text-muted-foreground'>
               {t('Pagination.pageOf', { currentPage, totalPages })}
             </span>
-            {/* Info spesifik baru, disembunyikan di layar kecil (sm:) */}
             <span className='text-sm text-muted-foreground hidden sm:block'>
               {t('Pagination.showingOf', { startItem, endItem, totalItems })}
             </span>
           </div>
-
-          {/* Tombol tetap di sebelah kanan */}
           <div className='flex items-center gap-2'>
             <Button
               variant='outline'

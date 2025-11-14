@@ -20,6 +20,7 @@ export interface PosProduct {
   requires_service_employee?: boolean;
   product_group_code?: string;
   product_group_name?: string;
+  available_quantity?: number;
 }
 
 export interface ProductGroup {
@@ -86,7 +87,6 @@ export interface PosOrder {
   notes?: string;
   created_at?: string;
   updated_at?: string;
-  
 }
 
 export interface DetailedPosOrder {
@@ -168,6 +168,7 @@ export interface ApiSyncedCartItem {
   line_total: string; // Total baris (cth: "10000.00")
   product: ApiSyncedCartProduct; // Objek produk yang di-nest
   discount?: unknown; // Objek diskon opsional, 'unknown' lebih aman dari 'any'
+  serving_employee_id?: number; // <--- TAMBAHKAN BARIS INI
 }
 
 export interface Employee {
@@ -188,4 +189,21 @@ export interface ApiCartResponse {
   total_amount: string;
   created_at?: unknown;
   updated_at?: unknown;
+}
+
+
+export interface StockItem {
+  product_code: string;
+  warehouse_id: number;
+  available_quantity: number;
+  reserved_quantity?: number;
+  unit_cost?: string;
+  product?: {
+    product_code: string;
+    product_name: string;
+  };
+  warehouse?: {
+    id: number;
+    warehouse_name: string;
+  };
 }
