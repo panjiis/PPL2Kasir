@@ -82,7 +82,6 @@ function SmallPill({
 }) {
   const { isCustomize, getButtonLabel, setButtonPref, getButtonClasses } =
     usePreferences();
-  // Pick label key appropriately (use forceColorFrom if provided)
   const labelKey = forceColorFrom || prefKey;
   const label = getButtonLabel(labelKey, defaultLabel);
   const color = getButtonClasses();
@@ -108,7 +107,6 @@ function SmallPill({
             className='w-24 rounded border border-border bg-card text-xs px-2 py-0.5'
             defaultValue={label}
             onBlur={(e) =>
-              // Keep saving into the original prefKey
               setButtonPref(prefKey, { label: e.currentTarget.value })
             }
           />
@@ -138,71 +136,58 @@ function LineItem({
   onSetQty?: (newQty: number) => void;
 }) {
   const { t } = useTranslation();
-  // State untuk input field
   const [inputQty, setInputQty] = useState<string>(qty.toString());
-  // Ref untuk melacak apakah Enter ditekan
   const enterPressed = useRef(false);
-  // Ref untuk melacak qty terakhir yang dikirim ke server atau state
   const lastAppliedQty = useRef(qty);
-  // Sinkronkan inputQty dengan prop qty jika allowAdjust dinonaktifkan atau item tidak dipilih
+
   useEffect(() => {
     if (!allowAdjust || !selected) {
       setInputQty(qty.toString());
       lastAppliedQty.current = qty;
-      enterPressed.current = false; // Reset flag Enter
-    }
-    // Jika mode adjust diaktifkan dan item dipilih, kosongkan input
-    else if (allowAdjust && selected) {
-      // Hanya reset jika input kosong atau tidak berubah dari state sebelumnya
+      enterPressed.current = false;
+    } else if (allowAdjust && selected) {
       if (
         inputQty === '' ||
         parseInt(inputQty, 10) === lastAppliedQty.current
       ) {
         setInputQty(qty.toString());
-        // Jangan reset lastAppliedQty di sini, biarkan tetap sebagai qty sebelum edit dimulai
-        // lastAppliedQty.current = qty; // Jangan lakukan ini di sini
       }
       enterPressed.current = false;
     }
-  }, [qty, selected, allowAdjust, inputQty]); // Dependensi: qty, selected, allowAdjust
+  }, [qty, selected, allowAdjust, inputQty]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, ''); // Hanya angka
+    const val = e.target.value.replace(/\D/g, '');
     setInputQty(val);
   };
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && onSetQty && allowAdjust && selected) {
       enterPressed.current = true;
       const parsed = parseInt(inputQty, 10);
-      // Gunakan nilai yang di-parse, atau kembali ke qty sebelumnya jika tidak valid
       const newQty =
         Number.isFinite(parsed) && parsed > 0 ? parsed : lastAppliedQty.current;
       if (newQty !== lastAppliedQty.current) {
-        // Hanya kirim jika berbeda
         onSetQty(newQty);
-        lastAppliedQty.current = newQty; // Update ref
+        lastAppliedQty.current = newQty;
       }
-      // Set input ke nilai baru agar sesuai dengan state
       setInputQty(newQty.toString());
-      e.currentTarget.blur(); // Hilangkan fokus setelah Enter
+      e.currentTarget.blur();
     }
   };
   const handleBlur = () => {
     if (enterPressed.current) {
-      // Jika blur terjadi karena Enter, jangan reset
       enterPressed.current = false;
       return;
     }
-    // Jika blur terjadi tanpa Enter, reset input ke nilai terakhir yang diterapkan
     setInputQty(lastAppliedQty.current.toString());
   };
   const handleFocus = () => {
-    // Reset flag Enter saat fokus
     enterPressed.current = false;
   };
   return (
     <div
       className={`flex items-start gap-3 ${
-        selected ? 'ring-2 ring-primary' : '' // Tambahkan ring jika dipilih
+        selected ? 'ring-2 ring-primary' : ''
       } border border-border bg-card p-2 rounded-md`}
     >
       <button
@@ -232,8 +217,8 @@ function LineItem({
           type='number'
           min={1}
           className='w-14 h-6 rounded-md border border-border px-1 text-center text-xs outline-none disabled:bg-muted disabled:opacity-60'
-          value={inputQty} // Gunakan state inputQty
-          disabled={!allowAdjust || !selected} // Hanya aktif jika adjust mode & selected
+          value={inputQty}
+          disabled={!allowAdjust || !selected}
           onChange={handleInputChange}
           onKeyDown={handleInputKeyDown}
           onBlur={handleBlur}
@@ -277,13 +262,12 @@ function ProductSection() {
                 !locked && selectItem(selectedItemId === it.id ? null : it.id)
               }
               allowAdjust={adjustMode && !locked}
-              onSetQty={
-                (newQty) =>
-                  adjustMode &&
-                  !locked &&
-                  selectedItemId === it.id &&
-                  newQty > 0 &&
-                  adjustQuantity(it.id, newQty) // send absolute quantity
+              onSetQty={(newQty) =>
+                adjustMode &&
+                !locked &&
+                selectedItemId === it.id &&
+                newQty > 0 &&
+                adjustQuantity(it.id, newQty)
               }
             />
           ))
@@ -341,13 +325,12 @@ function ServicesSection() {
                 !locked && selectItem(selectedItemId === it.id ? null : it.id)
               }
               allowAdjust={adjustMode && selectedItemId === it.id && !locked}
-              onSetQty={
-                (newQty) =>
-                  adjustMode &&
-                  !locked &&
-                  selectedItemId === it.id &&
-                  newQty > 0 &&
-                  adjustQuantity(it.id, newQty) // FIX: send absolute qty for services too
+              onSetQty={(newQty) =>
+                adjustMode &&
+                !locked &&
+                selectedItemId === it.id &&
+                newQty > 0 &&
+                adjustQuantity(it.id, newQty)
               }
               extraRight={
                 <div className='inline-flex items-center gap-2'>
@@ -551,7 +534,7 @@ function CouponPanel({ onSelect }: { onSelect: (c: Coupon) => void }) {
           </div>
           <button
             type='button'
-            onClick={clearCoupon}
+            onClick={async () => await clearCoupon()}
             className='ml-2 rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-muted'
           >
             {t('Aside.coupons.remove')}
@@ -922,13 +905,12 @@ export default function AsideMock(): React.ReactElement {
       return;
     }
 
-    // ✅ PERBAIKAN: Cegah penambahan diskon jika sudah ada diskon aktif dan berbeda
-    if (appliedCoupon && appliedCoupon.id !== coupon.id) {
-      showNotif({
-        type: 'error',
-        message: 'Hanya satu diskon yang dapat diterapkan per transaksi.',
-      });
-      return;
+    // ✅ PERBAIKAN: Jika sudah ada diskon aktif, hapus dulu
+    if (appliedCoupon) {
+      console.log(
+        'Mengganti diskon: Menghapus diskon lama terlebih dahulu...'
+      );
+      await clearCoupon();
     }
     // ✅ PERBAIKAN SELESAI
 
@@ -978,7 +960,7 @@ export default function AsideMock(): React.ReactElement {
       showNotif({ type: 'success', message: 'Diskon diterapkan.' });
     } catch (err) {
       console.error(err);
-      clearCoupon(); // Pastikan reset lokal jika gagal
+      await clearCoupon(); // Pastikan reset lokal & backend jika gagal
       const errorMessage =
         err instanceof Error
           ? err.message
@@ -1027,7 +1009,7 @@ export default function AsideMock(): React.ReactElement {
           onClick={
             !locked
               ? async () => {
-                  clearCoupon(); // reset memo discount manual
+                  await clearCoupon(); // reset memo discount manual via API
                   toggleAdjust();
                 }
               : undefined

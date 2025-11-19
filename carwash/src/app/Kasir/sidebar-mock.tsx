@@ -1,4 +1,4 @@
-// sidebar-mock.vB.tsx
+// sidebar-mock.tsx
 'use client';
 
 import type React from 'react';
@@ -41,7 +41,7 @@ import {
   fetchPaymentTypes,
   fetchOrders,
 } from '../lib/utils/pos-api';
-import { useTranslation } from 'react-i18next'; // <-- 1. Impor hook
+import { useTranslation } from 'react-i18next';
 
 interface NavItem {
   key: string;
@@ -49,7 +49,6 @@ interface NavItem {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }
 
-// Ini adalah label default (fallback)
 const defaultNavItems: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'products', label: 'Products', icon: Boxes },
@@ -62,7 +61,7 @@ const defaultNavItems: NavItem[] = [
    ThemeSwitcher
    ========================= */
 function ThemeSwitcher() {
-  const { t } = useTranslation(); // <-- 't' adalah FUNGSI
+  const { t } = useTranslation();
   const { setActiveThemeKey } = usePreferences();
   const [theme, setTheme] = useState<'system' | 'dark' | 'light'>('system');
   const [isMounted, setIsMounted] = useState(false);
@@ -117,7 +116,6 @@ function ThemeSwitcher() {
     setTheme(newTheme);
     const root = document.documentElement;
 
-    // Sinkronisasi dengan Theme Packages
     if (newTheme === 'dark') {
       root.classList.add('dark');
       localStorage.setItem('theme-preference', 'dark');
@@ -152,86 +150,32 @@ function ThemeSwitcher() {
   return (
     <div className='mt-2 w-full flex justify-center overflow-x-auto px-1'>
       <div className='inline-flex rounded-md border border-border bg-secondary p-1'>
-        {/* --- PERBAIKAN DI SINI --- */}
         {themes.map(
-          (
-            themeKey // <-- 't' diubah menjadi 'themeKey'
-          ) => (
+          (themeKey) => (
             <button
-              key={themeKey} // <-- Gunakan themeKey
+              key={themeKey}
               type='button'
-              onClick={() => handleThemeChange(themeKey)} // <-- Gunakan themeKey
-              aria-pressed={theme === themeKey} // <-- Gunakan themeKey
+              onClick={() => handleThemeChange(themeKey)}
+              aria-pressed={theme === themeKey}
               className={[
                 'flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
-                theme === themeKey // <-- Gunakan themeKey
+                theme === themeKey
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'bg-transparent text-foreground hover:bg-muted',
               ].join(' ')}
               title={
-                themeKey === 'system' // <-- Gunakan themeKey
-                  ? t('Sidebar.theme.systemTitle') // <-- 't' di sini adalah FUNGSI
-                  : t('Sidebar.theme.'+themeKey) // <-- 't' di sini adalah FUNGSI
+                themeKey === 'system'
+                  ? t('Sidebar.theme.systemTitle')
+                  : t('Sidebar.theme.'+themeKey)
               }
             >
-              {getIcon(themeKey)} {/* <-- Gunakan themeKey */}
+              {getIcon(themeKey)}
               <span className='capitalize'>
                 {t('Sidebar.theme.'+themeKey)}{' '}
-                {/* <-- 't' di sini adalah FUNGSI */}
               </span>
             </button>
           )
         )}
-        {/* --- AKHIR PERBAIKAN --- */}
-      </div>
-    </div>
-  );
-}
-
-/* =========================
-   LanguageSwitcher (BARU)
-   ========================= */
-function LanguageSwitcher() {
-  const { i18n } = useTranslation();
-  const currentLang = i18n.language;
-  const isId = currentLang.startsWith('id');
-  const isEn = currentLang.startsWith('en');
-
-  return (
-    <div className='mt-2 w-full flex justify-center overflow-x-auto px-1'>
-      <div className='inline-flex rounded-md border border-border bg-secondary p-1'>
-        <button
-          key='id'
-          type='button'
-          onClick={() => i18n.changeLanguage('id')}
-          aria-pressed={isId}
-          disabled={isId}
-          className={[
-            'flex items-center gap-1 px-3 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
-            isId
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'bg-transparent text-foreground hover:bg-muted',
-            'disabled:opacity-50',
-          ].join(' ')}
-        >
-          ID
-        </button>
-        <button
-          key='en'
-          type='button'
-          onClick={() => i18n.changeLanguage('en')}
-          aria-pressed={isEn}
-          disabled={isEn}
-          className={[
-            'flex items-center gap-1 px-3 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
-            isEn
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'bg-transparent text-foreground hover:bg-muted',
-            'disabled:opacity-50',
-          ].join(' ')}
-        >
-          EN
-        </button>
       </div>
     </div>
   );
@@ -255,25 +199,18 @@ function SidebarTileButton({
   isActive: boolean;
   isDragging?: boolean;
 }) {
-  // --- 1. PANGGIL HOOK i18n ---
   const { i18n } = useTranslation();
-
   const { isCustomize, getButtonLabel, setButtonPref, getButtonClasses } =
     usePreferences();
 
-  // --- 2. BUAT KEY SPESIFIK BAHASA ---
-  const lang = i18n.language.split('-')[0]; // Hasilnya 'id' atau 'en'
-  const key = `sidebar:${itemKey}:${lang}`;  // Contoh: 'sidebar:dashboard:id'
-  // --- AKHIR PERBAIKAN ---
+  const lang = i18n.language ? i18n.language.split('-')[0] : 'id'; 
+  const key = `sidebar:${itemKey}:${lang}`;
   
   const color = getButtonClasses();
 
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
-  // 'label' (fallback) yang masuk sudah diterjemahkan (cth: "Dasbor")
-  // 'getButtonLabel' sekarang akan mencari 'sidebar:dashboard:id' di localStorage
-  // Jika tidak ada, ia akan 'return label' ("Dasbor")
   const shownLabel = isMounted ? getButtonLabel(key, label) : label;
 
   return (
@@ -299,8 +236,8 @@ function SidebarTileButton({
 
         {isCustomize ? (
           <input
-            defaultValue={shownLabel} // Ini akan menampilkan 'Dasbor' atau kustomisasi 'id'
-            onBlur={(e) => setButtonPref(key, { label: e.currentTarget.value })} // Akan menyimpan ke 'sidebar:dashboard:id'
+            defaultValue={shownLabel}
+            onBlur={(e) => setButtonPref(key, { label: e.currentTarget.value })}
             className='text-[10px] text-center w-full rounded-md border border-border bg-card text-foreground px-1 py-0.5'
           />
         ) : (
@@ -347,7 +284,7 @@ function SortableNavItem({
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <SidebarTileButton
         icon={item.icon}
-        label={item.label} // Label yang sudah diterjemahkan
+        label={item.label}
         itemKey={item.key}
         onClick={() => {
           onNavigate(item.key);
@@ -369,7 +306,8 @@ export default function SidebarMock({
   activeView: string;
   onNavigate: (view: string) => void;
 }) {
-  const { t } = useTranslation(); // <-- 't' adalah FUNGSI
+  // 1. Ambil 'i18n' di sini untuk kontrol bahasa
+  const { t, i18n } = useTranslation(); 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -390,27 +328,32 @@ export default function SidebarMock({
   const globalBg = getBackgroundClass();
   const router = useRouter();
   const [company, setCompany] = useState({
-    name: 'Ezel Carwash Cilodong', // Sesuai aturan: tidak menerjemahkan nama
+    name: 'Ezel Carwash Cilodong',
     logo: '/logo.png',
   });
 
-  // Gunakan state untuk navItems agar bisa di-drag
+  // 2. FORCE DEFAULT LANGUAGE TO ID (INDONESIA)
+  useEffect(() => {
+    // Jika belum ada bahasa yang diset (saat load pertama), set ke 'id'
+    if (!i18n.language || i18n.language === 'system') {
+      i18n.changeLanguage('id');
+    }
+  }, [i18n]);
+
   const [navItems, setNavItems] = useState<NavItem[]>(defaultNavItems);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
-  // EFEK UNTUK MENERJEMAHKAN NAV ITEMS SAAT BAHASA BERUBAH
+  // EFEK UNTUK MENERJEMAHKAN NAV ITEMS
   useEffect(() => {
     setNavItems((currentItems) =>
       currentItems.map((item) => {
-        // Cari label default (Inggris) dari defaultNavItems
         const defaultItem = defaultNavItems.find(d => d.key === item.key);
-        // Terjemahkan menggunakan 't', fallback ke label Inggris jika tidak ketemu
         const translatedLabel = t(`Sidebar.nav.${item.key}`, defaultItem ? defaultItem.label : '');
         return { ...item, label: translatedLabel };
       })
     );
-  }, [t]); // Jalankan ini setiap kali 't' (bahasa) berubah
+  }, [t, i18n.language]); // Tambahkan i18n.language dependency
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -572,24 +515,22 @@ export default function SidebarMock({
           <span className='font-semibold text-primary uppercase'>SYNTRA</span>
         </div>
         <ThemeSwitcher />
-        <LanguageSwitcher /> {/* <-- Tombol Bahasa Ditambahkan di Sini */}
+        {/* Language Switcher di Atas SUDAH DIHAPUS */}
       </div>
 
       <div className='grid grid-cols-2 gap-2'>
-        {/* Blok !isMounted (fallback) */}
         {!isMounted &&
           defaultNavItems.map((item) => (
             <SidebarTileButton
               key={item.key}
               icon={item.icon}
-              label={item.label} // Akan menampilkan bahasa Inggris
+              label={item.label}
               itemKey={item.key}
               onClick={() => onNavigate(item.key)}
               isActive={activeView === item.key}
             />
           ))}
 
-        {/* Blok isMounted (client-side) */}
         {isMounted && (
           <DndContext
             sensors={sensors}
@@ -604,7 +545,7 @@ export default function SidebarMock({
                 <SortableNavItem
                   key={item.key}
                   id={item.key}
-                  item={item} // 'item' dari state 'navItems' sudah diterjemahkan
+                  item={item}
                   onNavigate={onNavigate}
                   isActive={activeView === item.key}
                   onFetch={handleNavClickFetch}
@@ -698,19 +639,51 @@ export default function SidebarMock({
               <MoreVertical className='h-4 w-4 text-muted-foreground' />
             </button>
 
+            {/* --- MODIFIKASI MENU POPUP --- */}
             {menuOpen && (
-              <div className='absolute right-2 bottom-14 bg-card border border-border rounded-md shadow-md py-1 z-50 w-28'>
+              <div className='absolute right-2 bottom-14 bg-card border border-border rounded-md shadow-md py-1 z-50 w-36'>
+                
+                {/* Opsi Bahasa */}
+                <div className='px-3 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider opacity-70'>
+                  Bahasa / Language
+                </div>
+                
+                <button
+                  onClick={() => i18n.changeLanguage('id')}
+                  className={[
+                    'w-full text-left text-sm px-3 py-1.5 transition flex items-center justify-between',
+                    i18n.language === 'id' ? 'bg-accent text-primary font-medium' : 'hover:bg-accent'
+                  ].join(' ')}
+                >
+                  <span>Indonesia</span>
+                  {i18n.language === 'id' && <span className="text-[10px] text-primary">●</span>}
+                </button>
+
+                <button
+                  onClick={() => i18n.changeLanguage('en')}
+                  className={[
+                    'w-full text-left text-sm px-3 py-1.5 transition flex items-center justify-between',
+                    i18n.language === 'en' ? 'bg-accent text-primary font-medium' : 'hover:bg-accent'
+                  ].join(' ')}
+                >
+                  <span>English</span>
+                  {i18n.language === 'en' && <span className="text-[10px] text-primary">●</span>}
+                </button>
+
+                <div className='h-px bg-border my-1 mx-2' />
+
                 <button
                   onClick={() => {
                     clearSession();
                     router.replace('/Login');
                   }}
-                  className='w-full text-left text-sm px-3 py-2 hover:bg-accent hover:text-destructive transition'
+                  className='w-full text-left text-sm px-3 py-2 hover:bg-destructive/10 hover:text-destructive transition'
                 >
                   {t('Sidebar.profile.logout')}
                 </button>
               </div>
             )}
+            {/* --- AKHIR MODIFIKASI --- */}
           </div>
         </div>
       </div>

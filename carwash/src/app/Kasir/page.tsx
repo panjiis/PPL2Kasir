@@ -1,15 +1,13 @@
 'use client';
-// import Image from 'next/image';
-// Impor useState dan useEffect
+
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ShoppingCart } from 'lucide-react'; // <-- PERBAIKAN: Impor ikon keranjang
-import { useTranslation } from 'react-i18next'; // <-- 1. Impor hook
+import { ShoppingCart, Menu, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import SidebarMock from './sidebar-mock';
 import CenterMock from './center-mock';
 import AsideMock from './aside-mock';
-// Pastikan useCart diimpor dari cart-content, bukan lib/context/cart-content
 import { CartProvider, useCart, type CartItem } from './cart-content';
 import { NotificationProvider } from './notification-context';
 
@@ -25,25 +23,26 @@ import GroupsView from './groups-view';
 import PaymentTypesView from './payment-types-view';
 import OrdersView from './orders-view';
 import '@/app/lib/il8n';
+// import DashboardView from './dashboard-view'; // <-- Tidak lagi digunakan sebagai tampilan default
 
 const queryClient = new QueryClient();
 
 function KasirInnerPage() {
-  const { t } = useTranslation(); // <-- 2. Panggil hook
+  const { t } = useTranslation();
   const { addItem } = useCart();
   const { getBackgroundClass } = usePreferences();
-  // 'surface' akan didefinisikan nanti setelah 'isMounted' true
 
+  // State awal tetap 'dashboard' agar sidebar aktif di tombol pertama
   const [currentView, setCurrentView] = useState('dashboard');
   const [editingProductCode] = useState<string | null>(null);
-  // <-- PERBAIKAN: State untuk mengontrol drawer keranjang di tablet
-  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
 
-  // State untuk melacak apakah komponen sudah di-mount di client
+  // State untuk Drawer Mobile/Tablet
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // Set isMounted menjadi true hanya setelah komponen di-mount di client
     setIsMounted(true);
   }, []);
 
@@ -52,6 +51,10 @@ function KasirInnerPage() {
       const ev = e as CustomEvent;
       if (ev?.detail?.view) {
         setCurrentView(String(ev.detail.view));
+        // Tutup sidebar jika navigasi terjadi (UX mobile/tablet)
+        if (window.innerWidth < 1280) {
+          setIsSidebarOpen(false);
+        }
       }
     }
     window.addEventListener('navigate-kasir-view', handler as EventListener);
@@ -87,6 +90,7 @@ function KasirInnerPage() {
     }
   };
 
+  // --- PERUBAHAN UTAMA DI SINI ---
   const renderCurrentView = () => {
     switch (currentView) {
       case 'products':
@@ -97,11 +101,16 @@ function KasirInnerPage() {
         return <PaymentTypesView />;
       case 'orders':
         return <OrdersView />;
+
+      // Hapus case 'dashboard' yang me-return DashboardView (teks selamat datang)
+      // case 'dashboard': return <DashboardView />;
+
       case 'update':
         if (!editingProductCode) {
-          setCurrentView('products');
+          setCurrentView('products'); // Redirect ke tabel produk jika tidak ada kode edit
           return <ProductsView />;
         }
+        return <ProductsView />;
 
       case 'dashboard':
       default:
@@ -109,47 +118,29 @@ function KasirInnerPage() {
     }
   };
 
-  // Jika belum di-mount (SSR atau hydration awal), return null
-  // Ini memastikan server dan client render hal yang sama (kosong)
-  if (!isMounted) {
-    return null;
-  }
+  if (!isMounted) return null;
 
-  // Setelah 'isMounted' true, kita aman memanggil 'getBackgroundClass'
-  // karena ini pasti terjadi di client
   const surface = getBackgroundClass();
-  console.log(surface);
 
   return (
     <DndContext onDragEnd={onDragEnd}>
-      <main className='h-screen w-full bg-background overflow-hidden'>
-        <div className='mx-auto w-full max-w-[min(1400px,96vw)] px-3 sm:px-4 lg:px-6 h-full flex flex-col'>
-          {/*
-            PERBAIKAN LAYOUT RESPONSIVE:
-            - md (768px+): 2 kolom [Sidebar | Konten]
-            - lg (1024px+): 2 kolom [Sidebar | Konten] (Tetap 2 kolom untuk iPad portrait)
-            - xl (1280px+): 3 kolom [Sidebar | Konten | Keranjang] (Hanya di layar lebar)
-          */}
+      <main className='h-screen w-full bg-background overflow-hidden relative'>
+        <div className='mx-auto w-full max-w-[min(1600px,98vw)] px-2 sm:px-4 h-full flex flex-col py-2 sm:py-4'>
+          {/* GRID SYSTEM RESPONSIVE */}
           <div
             className='
-     grid gap-3
-    grid-cols-1
-    sm:grid-cols-[180px_1fr]       /* Mulai dua kolom di 640px */
-    md:grid-cols-[200px_1fr]       /* iPad Mini portrait */
-    lg:grid-cols-[220px_1fr]       /* iPad Air portrait */
-    xl:grid-cols-[260px_1fr_300px] /* Desktop */
-    2xl:grid-cols-[300px_1fr_340px]
-    flex-1 overflow-hidden
-  '
+              grid gap-3 h-full overflow-hidden
+              grid-cols-1 
+              md:grid-cols-[1fr_320px] 
+              xl:grid-cols-[240px_1fr_340px]
+            '
           >
-            {/* SIDEBAR KIRI */}
+            {/* --- 1. DESKTOP SIDEBAR (Hanya muncul di XL ke atas) --- */}
             <aside
-              aria-label='Navigation'
+              aria-label='Navigation Desktop'
               className={[
-                'rounded-lg border border-border overflow-y-auto',
-                'h-full min-h-[calc(100vh-8rem)]',
-                'hidden md:block',
-                surface, // 'surface' aman digunakan di sini
+                'rounded-lg border border-border overflow-y-auto hidden xl:block',
+                surface,
               ].join(' ')}
             >
               <SidebarMock
@@ -158,44 +149,54 @@ function KasirInnerPage() {
               />
             </aside>
 
-            {/* BAGIAN TENGAH */}
+            {/* --- 2. MAIN CONTENT CENTER --- */}
             <section
               aria-label='Content'
               className={[
-                'rounded-lg border border-border overflow-y-auto relative',
-                'min-h-[calc(100vh-8rem)] p-3 sm:p-4 md:p-5',
-                'text-[clamp(0.85rem,1vw,1rem)]',
-                surface, // 'surface' aman digunakan di sini
+                'rounded-lg border border-border overflow-y-auto relative flex flex-col',
+                'p-1',
+                surface,
               ].join(' ')}
             >
-              {renderCurrentView()}
+              {/* Hamburger Button (Muncul di Mobile & Tablet / < XL) */}
+              <div className='xl:hidden flex items-center p-2 pb-0 mb-2'>
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className='p-2 rounded-md hover:bg-accent border border-border shadow-sm flex items-center gap-2'
+                  aria-label={t('Sidebar.menuLabel', 'Menu')}
+                >
+                  <Menu className='h-5 w-5' />
+                  <span className='text-sm font-semibold'>
+                    {t('Sidebar.menuLabel', 'Menu')}
+                  </span>
+                </button>
+              </div>
 
-              {/*
-                PERBAIKAN: TOMBOL CART UNTUK TABLET
-                Tombol ini hanya muncul di layar < xl (di bawah 1280px)
-                dimana sidebar kanan (AsideMock) tersembunyi.
-               
-              */}
-              <div className='xl:hidden fixed bottom-20 right-[calc(max(24px,env(safe-area-inset-right)))] z-40'>
+              {/* Render Content */}
+              <div className='flex-1 overflow-y-auto'>
+                {renderCurrentView()}
+              </div>
+
+              {/* Floating Cart Button (HANYA Mobile < MD) */}
+              <div className='md:hidden fixed bottom-6 right-6 z-40'>
                 <button
                   type='button'
                   onClick={() => setIsCartDrawerOpen(true)}
-                  className='rounded-full bg-primary text-primary-foreground p-4 shadow-lg active:scale-95 transition-transform'
-                  aria-label={t('Aside.openCartLabel')} // <-- 3. Ganti teks
+                  className='rounded-full bg-primary text-primary-foreground p-4 shadow-lg active:scale-95 transition-transform flex items-center justify-center'
+                  aria-label={t('Aside.openCartLabel', 'Buka Keranjang')}
                 >
                   <ShoppingCart className='h-6 w-6' />
                 </button>
               </div>
             </section>
 
-            {/* ASIDE KANAN */}
+            {/* --- 3. RIGHT SIDEBAR / CART (Muncul Static di Tablet/MD & Desktop/XL) --- */}
             <aside
               aria-label='Right Sidebar'
               className={[
                 'rounded-lg border border-border overflow-hidden relative',
-                'p-2 sm:p-3 md:p-4 h-full min-h-[calc(100vh-8rem)]',
-                'hidden xl:flex flex-col', // <-- PERBAIKAN: Tampil mulai xl (1280px)
-                surface, // 'surface' aman digunakan di sini
+                'hidden md:flex flex-col',
+                surface,
               ].join(' ')}
             >
               <div className='flex-1 overflow-y-auto'>
@@ -204,53 +205,67 @@ function KasirInnerPage() {
             </aside>
           </div>
 
-          {/*
-            PERBAIKAN: MODAL/DRAWER UNTUK CART
-            Ini akan merender AsideMock di dalam modal
-            saat tombol floating cart diklik di tablet.
-           
-          */}
+          {/* --- DRAWER: SIDEBAR (HAMBURGER) --- */}
+          {isSidebarOpen && (
+            <div className='fixed inset-0 z-[60] flex'>
+              <div
+                className='absolute inset-0 bg-black/50 backdrop-blur-sm'
+                onClick={() => setIsSidebarOpen(false)}
+              />
+
+              <div className='relative w-[260px] h-full bg-background border-r border-border shadow-2xl flex flex-col animate-in slide-in-from-left duration-200'>
+                <div className='flex justify-end p-2'>
+                  <button
+                    onClick={() => setIsSidebarOpen(false)}
+                    className='p-2 hover:bg-accent rounded-md'
+                    aria-label={t('Common.close', 'Tutup')}
+                  >
+                    <X className='h-5 w-5' />
+                  </button>
+                </div>
+                <div className='flex-1 overflow-y-auto px-2 pb-4'>
+                  <SidebarMock
+                    activeView={currentView}
+                    onNavigate={(view) => {
+                      setCurrentView(view);
+                      setIsSidebarOpen(false);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- DRAWER: CART (MOBILE Only) --- */}
           {isCartDrawerOpen && (
             <div
-              className='xl:hidden fixed inset-0 z-50 flex items-end justify-center'
-              onClick={() => setIsCartDrawerOpen(false)} // Klik di luar untuk menutup
+              className='md:hidden fixed inset-0 z-[60] flex items-end justify-center'
+              onClick={() => setIsCartDrawerOpen(false)}
             >
-              {/* Backdrop */}
-              <div className='absolute inset-0 bg-black/30 backdrop-blur-sm' />
-
-              {/* Konten Drawer */}
+              <div className='absolute inset-0 bg-black/50 backdrop-blur-sm' />
               <div
-                className='relative w-full max-w-md h-[90vh] bg-background border-t border-border rounded-t-2xl shadow-lg p-4 flex flex-col z-10'
-                onClick={(e) => e.stopPropagation()} // Mencegah drawer tertutup saat diklik di dalam
+                className='relative w-full max-w-md h-[85vh] bg-background border-t border-border rounded-t-2xl shadow-lg p-0 flex flex-col z-10 animate-in slide-in-from-bottom duration-200'
+                onClick={(e) => e.stopPropagation()}
               >
-                {/* Handle (garis abu-abu) */}
-                <div className='mx-auto mb-4 h-1 w-12 flex-shrink-0 rounded-full bg-muted-foreground/40' />
-
-                {/* Konten AsideMock */}
+                <div className='flex items-center justify-between p-4 border-b border-border bg-muted/30 rounded-t-2xl'>
+                  <div className='mx-auto h-1.5 w-12 rounded-full bg-muted-foreground/20 absolute left-0 right-0 top-3' />
+                  <span className='font-bold mt-2'>
+                    {t('Aside.cartTitle', 'Keranjang')}
+                  </span>
+                  <button
+                    onClick={() => setIsCartDrawerOpen(false)}
+                    className='mt-2'
+                    aria-label={t('Common.close', 'Tutup')}
+                  >
+                    <X className='h-5 w-5' />
+                  </button>
+                </div>
                 <div className='flex-1 overflow-y-auto'>
                   <AsideMock />
                 </div>
               </div>
             </div>
           )}
-
-          {/* <footer className='mt-2 rounded-lg bg-primary px-3 sm:px-4 py-2 sm:py-3 text-primary-foreground text-center sm:text-left'>
-            <div className='mx-auto flex flex-col sm:flex-row items-center justify-between gap-2'>
-              <div className='flex items-center gap-2'>
-                <Image
-                  src='/logo.png'
-                  alt='Logo'
-                  width={28}
-                  height={28}
-                  className='rounded-md object-cover bg-muted'
-                  priority
-                />
-              </div>
-              <p className='text-xs sm:text-sm opacity-90'>
-                Copyright 2025 Ngumpul Pas Deadline
-              </p>
-            </div>
-          </footer> */}
         </div>
       </main>
     </DndContext>
@@ -261,15 +276,13 @@ export default function KasirPage() {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
-        {/* <AuthProvider> */} {/* AuthProvider tidak ada di file Anda */}
-          <PreferencesProvider>
-            <NotificationProvider>
-              <CartProvider>
-                <KasirInnerPage />
-              </CartProvider>
-            </NotificationProvider>
-          </PreferencesProvider>
-        {/* </AuthProvider> */}
+        <PreferencesProvider>
+          <NotificationProvider>
+            <CartProvider>
+              <KasirInnerPage />
+            </CartProvider>
+          </NotificationProvider>
+        </PreferencesProvider>
       </SessionProvider>
     </QueryClientProvider>
   );

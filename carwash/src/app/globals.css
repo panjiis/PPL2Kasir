@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -122,28 +122,30 @@
   }
 }
 
-
-html, body, * {
-  transition: background-color 0.4s ease-in-out,
-              color 0.4s ease-in-out,
-              border-color 0.4s ease-in-out;
+html,
+body,
+* {
+  transition: background-color 0.4s ease-in-out, color 0.4s ease-in-out,
+    border-color 0.4s ease-in-out;
 }
 
 /* --- FIX: Apply Webkit scrollbar styles universally to all elements --- */
- ::-webkit-scrollbar {
+::-webkit-scrollbar {
   display: none;
-} 
+}
 
 /* Track background (the area the scrollbar moves along) */
-*::-webkit-scrollbar-track { /* Apply universally */
-  background: transparent; 
+*::-webkit-scrollbar-track {
+  /* Apply universally */
+  background: transparent;
 }
 
 /* Handle (the part you drag) */
-*::-webkit-scrollbar-thumb { /* Apply universally */
+*::-webkit-scrollbar-thumb {
+  /* Apply universally */
   background: var(--ring);
   border-radius: var(--radius-lg);
-  opacity: 0; 
+  opacity: 0;
   transition: opacity 0.4s ease-in-out;
 }
 
@@ -152,8 +154,9 @@ html, body, * {
    but for the body/main view, we keep the :hover on body/dark */
 body:hover::-webkit-scrollbar-thumb,
 .dark:hover::-webkit-scrollbar-thumb,
-*::-webkit-scrollbar-thumb:hover { /* Added :hover on the thumb itself as a fallback for internal divs */
-  opacity: 0.3; 
+*::-webkit-scrollbar-thumb:hover {
+  /* Added :hover on the thumb itself as a fallback for internal divs */
+  opacity: 0.3;
 }
 
 /* Handle on hover over the handle itself (optional) */
@@ -167,12 +170,12 @@ body:hover::-webkit-scrollbar-thumb,
 /* Firefox styles were already universal with the '*' selector */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--ring) transparent; 
+  scrollbar-color: var(--ring) transparent;
 }
 
 * {
--ms-overflow-x: hidden; /*IE and Edge */
-scrollbar-width: none; /* Firefox */
+  -ms-overflow-x: hidden; /*IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 @media (min-width: 768px) and (max-width: 899px) {

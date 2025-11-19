@@ -193,6 +193,8 @@ export async function fetchStocks(
   return { data: data }; // <-- PERBAIKAN: Menambahkan return statement
 }
 
+
+
 // ==================== PRODUCT GROUPS & TYPES ====================
 
 export async function fetchProductGroups(

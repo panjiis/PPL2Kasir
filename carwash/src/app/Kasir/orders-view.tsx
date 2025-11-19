@@ -12,7 +12,6 @@ import type { DetailedPosOrder, PosProduct } from '@/app/lib/types/pos';
 import { AlertTriangle, Loader2, Search } from 'lucide-react';
 import { useNotification } from './notification-context';
 
-// Import Dialog components
 import {
   Dialog,
   DialogContent,
@@ -23,11 +22,10 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
-// Import Button component
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 
-// --- Utility functions --- (Tidak berubah)
+// --- Utility functions ---
 const formatDate = (seconds?: number) => {
   if (!seconds) return '-';
   const d = new Date(seconds * 1000);
@@ -55,7 +53,6 @@ const formatRupiah = (amount?: number) => {
     .format(amount)
     .replace('IDR', 'Rp');
 };
-// -------------------------
 
 const ITEMS_PER_PAGE = 8;
 
@@ -65,13 +62,11 @@ const ITEMS_PER_PAGE = 8;
 const PrintableReceipt = ({
   order,
   products,
-  // --- PERBAIKAN: Terima props baru ---
   taxAmount,
   discountAmount,
   processingFee,
   paymentMethodName,
   grandTotal,
-  // ---
   storeName = 'EZEL CARWASH CILODONG',
   storeAddress = 'Jl. Raya Bogor KM. 34,5, Cilodong, Depok',
   storePhone = '(0812) 3456-7890',
@@ -79,13 +74,11 @@ const PrintableReceipt = ({
 }: {
   order: DetailedPosOrder;
   products: PosProduct[];
-  // --- PERBAIKAN: Definisikan tipe props baru ---
   taxAmount: number;
   discountAmount: number;
   processingFee: number;
   paymentMethodName: string;
   grandTotal: number;
-  // ---
   storeName?: string;
   storeAddress?: string;
   storePhone?: string;
@@ -94,52 +87,32 @@ const PrintableReceipt = ({
   const { t } = useTranslation();
   const [isClient, setIsClient] = useState(false);
 
-  // print CSS (thermal friendly)
-  // Kasir/orders-view.tsx
-
-  // print CSS (thermal friendly)
-  const printStyles = `
+  // PERBAIKAN 1: Bungkus printStyles dengan useMemo untuk mengatasi warning useEffect
+  const printStyles = useMemo(
+    () => `
   @media print {
-    /* --- PERBAIKAN BARU DIMULAI DI SINI --- */
     @page {
-      /* Paksa ukuran kertas agar lebarnya 58mm */
       size: ${paperWidth} auto; 
-      
-      /* Hapus semua margin & padding bawaan halaman */
       margin: 0;
       padding: 0;
     }
-
     body {
-      /* Hapus CSS flexbox dari perbaikan sebelumnya */
       display: block !important; 
       justify-content: normal !important;
       align-items: normal !important;
-      
-      /* Reset semua margin & padding body */
       padding: 0 !important; 
       margin: 0 !important;
       width: 100% !important;
       height: auto !important;
     }
-    /* --- AKHIR PERBAIKAN --- */
-
     body > * { display: none !important; visibility: hidden !important; }
-    
     #printable-receipt {
       display: block !important;
       visibility: visible !important;
-      
-      /* Paksa struk agar sesuai lebar kertas 58mm */
       width: ${paperWidth};
       max-width: ${paperWidth};
-      
-      /* Hapus margin 'auto' */
       margin: 0; 
-      
-      /* Padding internal struk biarkan apa adanya */
       padding: 4mm 4mm 6mm 4mm;
-      
       box-sizing: border-box;
       font-family: "Courier New", Courier, monospace;
       color: #000;
@@ -164,12 +137,15 @@ const PrintableReceipt = ({
     .rcpt-footer { text-align: center; margin-top: 6px; font-size: 10px; }
     .print\\:hidden { display: none !important; }
   }
-  `;
+  `,
+    [paperWidth]
+  );
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
+  // PERBAIKAN 1 (Lanjutan): Masukkan printStyles ke dependency array
   useEffect(() => {
     if (!isClient) return;
     const styleId = 'printable-receipt-styles';
@@ -182,8 +158,7 @@ const PrintableReceipt = ({
     return () => {
       styleEl.remove();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isClient, paperWidth]);
+  }, [isClient, printStyles]);
 
   const getProductName = (item: {
     product_name?: string;
@@ -206,9 +181,7 @@ const PrintableReceipt = ({
           <p>{storePhone}</p>
         </div>
       </div>
-
       <div className='rcpt-divider' />
-
       <div className='rcpt-meta'>
         <p>
           {t('OrdersView.receipt.order')}: {order.document_number}
@@ -221,9 +194,7 @@ const PrintableReceipt = ({
           {sessionStorage.getItem('username') ?? t('OrdersView.receipt.kasir')}
         </p>
       </div>
-
       <div className='rcpt-divider' />
-
       <table className='rcpt-items' role='table' aria-label='items'>
         <thead>
           <tr>
@@ -255,9 +226,7 @@ const PrintableReceipt = ({
           })}
         </tbody>
       </table>
-
       <div className='rcpt-divider' />
-
       <table className='rcpt-summary' role='table' aria-label='summary'>
         <tbody>
           <tr>
@@ -266,22 +235,16 @@ const PrintableReceipt = ({
               {formatRupiah(order.subtotal)}
             </td>
           </tr>
-
-          {/* --- PERBAIKAN: Tambah baris Pajak --- */}
           <tr>
             <td>{t('Aside.totals.tax')} (10%)</td>
             <td style={{ textAlign: 'right' }}>{formatRupiah(taxAmount)}</td>
           </tr>
-
-          {/* --- PERBAIKAN: Tambah baris Diskon --- */}
           <tr>
             <td>{t('Aside.totals.discount')}</td>
             <td style={{ textAlign: 'right' }}>
               - {formatRupiah(discountAmount)}
             </td>
           </tr>
-
-          {/* --- PERBAIKAN: Tambah baris Biaya Layanan --- */}
           {processingFee > 0 && (
             <tr>
               <td>
@@ -294,16 +257,10 @@ const PrintableReceipt = ({
               </td>
             </tr>
           )}
-          {/* --- AKHIR PERBAIKAN --- */}
-
           <tr className='total'>
             <td>{t('OrdersView.receipt.grandtotal')}</td>
-            <td style={{ textAlign: 'right' }}>
-              {/* --- PERBAIKAN: Gunakan grandTotal --- */}
-              {formatRupiah(grandTotal)}
-            </td>
+            <td style={{ textAlign: 'right' }}>{formatRupiah(grandTotal)}</td>
           </tr>
-
           {order.payment_type && (
             <tr>
               <td>{t('OrdersView.modal.paymentMethod')}</td>
@@ -314,9 +271,7 @@ const PrintableReceipt = ({
           )}
         </tbody>
       </table>
-
       <div className='rcpt-divider' />
-
       <div className='rcpt-footer'>
         <div style={{ marginBottom: 4 }}>{order.notes ?? ''}</div>
         <div style={{ fontSize: 10, marginTop: 6 }}>
@@ -328,7 +283,6 @@ const PrintableReceipt = ({
     document.body
   );
 };
-// --- end PrintableReceipt ---
 
 export default function OrdersView() {
   const { t } = useTranslation();
@@ -356,28 +310,22 @@ export default function OrdersView() {
   const [busy, setBusy] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
 
-  // --- PERBAIKAN: Hitung Pajak SECARA MANUAL dari Subtotal ---
   const discountAmount = useMemo(() => {
     if (!selectedOrder) return 0;
-    // Baca dari API, konversi ke number, default ke 0
     return Number(selectedOrder.discount_amount ?? 0);
   }, [selectedOrder]);
 
   const taxAmount = useMemo(() => {
     if (!selectedOrder) return 0;
-
     const baseForTax = Number(selectedOrder.subtotal ?? 0) - discountAmount;
     return Math.round(baseForTax * 0.1);
   }, [selectedOrder, discountAmount]);
 
-  // --- PERBAIKAN: Parse Biaya Layanan (Fee) dari Info Tambahan ---
   const { processingFee, paymentMethodName } = useMemo(() => {
     if (!selectedOrder?.additional_info) {
       return { processingFee: 0, paymentMethodName: '' };
     }
-    // Regex untuk mencari "Payment Fee: 5000"
     const feeMatch = selectedOrder.additional_info.match(/Payment Fee: (\d+)/);
-    // Regex untuk mencari "Metode: Qris"
     const methodMatch =
       selectedOrder.additional_info.match(/Metode: ([\w\s]+),/);
 
@@ -390,15 +338,11 @@ export default function OrdersView() {
     return { processingFee: fee, paymentMethodName: name };
   }, [selectedOrder]);
 
-  // --- PERBAIKAN: Hitung Grand Total baru ---
   const grandTotal = useMemo(() => {
     if (!selectedOrder) return 0;
-
     const subtotalNum = Number(selectedOrder.subtotal ?? 0);
-
     return subtotalNum - discountAmount + taxAmount + processingFee;
   }, [selectedOrder, discountAmount, taxAmount, processingFee]);
-  // --- AKHIR PERBAIKAN ---
 
   const handleReturnOrder = async () => {
     const token = session?.token;
@@ -411,7 +355,6 @@ export default function OrdersView() {
     }
     setBusy(true);
     try {
-      // API return membutuhkan 'id' dari order_items yang merupakan ID di database
       const allItemIds = selectedOrder.order_items
         .map((item) => item.id)
         .filter((id) => id != null) as number[];
@@ -473,7 +416,9 @@ export default function OrdersView() {
 
   const handleNextPage = () =>
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev, 1));
+
+  // PERBAIKAN 2: Tambahkan "- 1" agar halaman benar-benar berkurang
+  const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
   const loading = loadingOrders || loadingProducts;
   const error = errorOrders || errorProducts;
@@ -505,10 +450,12 @@ export default function OrdersView() {
   return (
     <div className='h-full flex flex-col bg-card print:hidden'>
       <header className='p-4'>
-        <h1 className='text-2xl font-bold text-foreground'>
+        <h1 className='text-xl sm:text-2xl font-bold text-foreground'>
           {t('OrdersView.title')}
         </h1>
-        <p className='text-muted-foreground'>{t('OrdersView.description')}</p>
+        <p className='text-sm text-muted-foreground'>
+          {t('OrdersView.description')}
+        </p>
       </header>
       <div className='px-4 pb-4'>
         <div className='relative'>
@@ -521,88 +468,90 @@ export default function OrdersView() {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className='w-full pl-10 pr-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50'
+            className='w-full pl-10 pr-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm'
           />
         </div>
       </div>
-      <div className='flex-1 overflow-y-auto px-4'>
-        <div className='border rounded-lg overflow-hidden'>
-          <table className='w-full text-sm'>
-            <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
-              <tr>
-                <th className='text-left font-medium p-3'>
-                  {t('OrdersView.colOrder')}
-                </th>
-                <th className='text-left font-medium p-3'>
-                  {t('OrdersView.colDate')}
-                </th>
-                <th className='text-left font-medium p-3'>
-                  {t('OrdersView.colPayment')}
-                </th>
-                <th className='text-right font-medium p-3'>
-                  {t('OrdersView.colSubtotal')}
-                </th>
-                <th className='text-center font-medium p-3'>
-                  {t('OrdersView.colActions')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className='divide-y divide-border'>
-              {paginatedOrders.length > 0 ? (
-                paginatedOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className='hover:bg-accent transition-colors'
-                  >
-                    <td className='p-3 font-medium text-primary'>
-                      #{order.document_number}
-                    </td>
-                    <td className='p-3 text-muted-foreground'>
-                      {formatDate(order.orders_date?.seconds)}
-                    </td>
-                    <td className='p-3'>
-                      {order.payment_type?.payment_name ?? 'N/A'}
-                    </td>
-                    <td className='p-3 text-right font-semibold'>
-                      {formatRupiah(order.subtotal ?? order.total_amount)}
-                    </td>
-                    <td className='p-3 text-center'>
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        onClick={() => setSelectedOrder(order)}
-                      >
-                        {t('OrdersView.viewDetails')}
-                      </Button>
+
+      {/* Responsive Table Container */}
+      <div className='flex-1 overflow-hidden px-2 sm:px-4 flex flex-col'>
+        <div className='border rounded-lg overflow-hidden flex-1 flex flex-col bg-background'>
+          <div className='overflow-x-auto flex-1'>
+            <table className='w-full text-sm min-w-[700px]'>
+              <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm z-10'>
+                <tr>
+                  <th className='text-left font-medium p-3 whitespace-nowrap'>
+                    {t('OrdersView.colOrder')}
+                  </th>
+                  <th className='text-left font-medium p-3 whitespace-nowrap'>
+                    {t('OrdersView.colDate')}
+                  </th>
+                  <th className='text-left font-medium p-3 whitespace-nowrap'>
+                    {t('OrdersView.colPayment')}
+                  </th>
+                  <th className='text-right font-medium p-3 whitespace-nowrap'>
+                    {t('OrdersView.colSubtotal')}
+                  </th>
+                  <th className='text-center font-medium p-3 whitespace-nowrap'>
+                    {t('OrdersView.colActions')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className='divide-y divide-border'>
+                {paginatedOrders.length > 0 ? (
+                  paginatedOrders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className='hover:bg-accent transition-colors'
+                    >
+                      <td className='p-3 font-medium text-primary whitespace-nowrap'>
+                        #{order.document_number}
+                      </td>
+                      <td className='p-3 text-muted-foreground whitespace-nowrap'>
+                        {formatDate(order.orders_date?.seconds)}
+                      </td>
+                      <td className='p-3 whitespace-nowrap'>
+                        {order.payment_type?.payment_name ?? 'N/A'}
+                      </td>
+                      <td className='p-3 text-right font-semibold whitespace-nowrap'>
+                        {formatRupiah(order.subtotal ?? order.total_amount)}
+                      </td>
+                      <td className='p-3 text-center'>
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          onClick={() => setSelectedOrder(order)}
+                        >
+                          {t('OrdersView.viewDetails')}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className='text-center p-6 text-muted-foreground'
+                    >
+                      {t('OrdersView.empty')}
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className='text-center p-6 text-muted-foreground'
-                  >
-                    {t('OrdersView.empty')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       {totalPages > 1 && (
-        <footer className='p-4 border-t flex items-center justify-between'>
-          <span className='text-sm text-muted-foreground'>
-            {t('Pagination.pageOf', {
-              currentPage: currentPage,
-              totalPages: totalPages,
-            })}
+        <footer className='p-4 border-t flex items-center justify-between bg-card z-10'>
+          <span className='text-xs sm:text-sm text-muted-foreground'>
+            {t('Pagination.pageOf', { currentPage, totalPages })}
           </span>
           <div className='flex items-center gap-2'>
             <Button
               variant='outline'
+              size='sm'
               onClick={handlePrevPage}
               disabled={currentPage === 1}
             >
@@ -610,6 +559,7 @@ export default function OrdersView() {
             </Button>
             <Button
               variant='outline'
+              size='sm'
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
             >
@@ -627,11 +577,9 @@ export default function OrdersView() {
             products={products}
             taxAmount={taxAmount}
             discountAmount={discountAmount}
-            // --- PERBAIKAN: Kirim props baru ke struk ---
             processingFee={processingFee}
             paymentMethodName={paymentMethodName}
             grandTotal={grandTotal}
-            // --- AKHIR PERBAIKAN ---
             paperWidth='58mm'
           />
 
@@ -639,26 +587,28 @@ export default function OrdersView() {
             open={!!selectedOrder}
             onOpenChange={(open) => !open && setSelectedOrder(null)}
           >
-            <DialogContent className='max-w-3xl max-h-[90vh] flex flex-col bg-card text-foreground print:hidden'>
-              <DialogHeader>
-                <DialogTitle>
+            <DialogContent className='w-[95vw] max-w-3xl max-h-[85vh] flex flex-col bg-card text-foreground print:hidden p-0 overflow-hidden rounded-lg'>
+              <DialogHeader className='p-4 sm:p-6 pb-2 border-b'>
+                <DialogTitle className='text-lg sm:text-xl'>
                   {t('OrdersView.modal.title', {
                     orderNumber: selectedOrder.document_number,
                   })}
                 </DialogTitle>
               </DialogHeader>
-              <div className='flex-1 overflow-y-auto p-1'>
-                <div className='border rounded-lg p-4 bg-muted shadow-sm mb-4'>
-                  <table className='w-full text-xs'>
+
+              <div className='flex-1 overflow-y-auto p-4 sm:p-6 space-y-4'>
+                {/* Order Details Table */}
+                <div className='border rounded-lg p-3 sm:p-4 bg-muted shadow-sm'>
+                  <table className='w-full text-xs sm:text-sm'>
                     <tbody>
                       <tr>
-                        <td className='font-medium pr-2 py-1'>
+                        <td className='font-medium pr-2 py-1 text-muted-foreground w-1/3'>
                           {t('OrdersView.modal.id')}
                         </td>
                         <td>{selectedOrder.id}</td>
                       </tr>
                       <tr>
-                        <td className='font-medium pr-2 py-1'>
+                        <td className='font-medium pr-2 py-1 text-muted-foreground'>
                           {t('OrdersView.modal.date')}
                         </td>
                         <td>
@@ -666,33 +616,26 @@ export default function OrdersView() {
                         </td>
                       </tr>
                       <tr>
-                        <td className='font-medium pr-2 py-1'>
+                        <td className='font-medium pr-2 py-1 text-muted-foreground'>
                           {t('OrdersView.modal.subtotal')}
                         </td>
                         <td>{formatRupiah(selectedOrder.subtotal)}</td>
                       </tr>
-
-                      {/* --- PERBAIKAN: Tampilkan Pajak & Diskon --- */}
                       <tr>
-                        <td className='font-medium pr-2 py-1'>
+                        <td className='font-medium pr-2 py-1 text-muted-foreground'>
                           {t('Aside.totals.tax')}
                         </td>
-                        {/* Baca dari variabel 'taxAmount' yang sudah di-parse */}
                         <td>{formatRupiah(taxAmount)}</td>
                       </tr>
                       <tr>
-                        <td className='font-medium pr-2 py-1'>
+                        <td className='font-medium pr-2 py-1 text-muted-foreground'>
                           {t('Aside.totals.discount')}
                         </td>
-                        {/* Tampilkan sebagai angka negatif, atau 'Rp 0' jika 0 */}
                         <td>- {formatRupiah(discountAmount)}</td>
                       </tr>
-                      {/* --- AKHIR PERBAIKAN --- */}
-
-                      {/* --- PERBAIKAN: Tampilkan Biaya Layanan --- */}
                       {processingFee > 0 && (
                         <tr>
-                          <td className='font-medium pr-2 py-1'>
+                          <td className='font-medium pr-2 py-1 text-muted-foreground'>
                             {t('Aside.paymentSheet.serviceFee', {
                               paymentName: paymentMethodName,
                             })}
@@ -700,17 +643,16 @@ export default function OrdersView() {
                           <td>{formatRupiah(processingFee)}</td>
                         </tr>
                       )}
-                      {/* --- AKHIR PERBAIKAN --- */}
-
-                      <tr>
-                        <td className='font-medium pr-2 py-1'>
+                      <tr className='border-t border-dashed border-foreground/20'>
+                        <td className='font-bold pr-2 py-2'>
                           {t('OrdersView.modal.total')}
                         </td>
-                        {/* --- PERBAIKAN: Tampilkan Grand Total --- */}
-                        <td>{formatRupiah(grandTotal)}</td>
+                        <td className='font-bold py-2'>
+                          {formatRupiah(grandTotal)}
+                        </td>
                       </tr>
                       <tr>
-                        <td className='font-medium pr-2 py-1'>
+                        <td className='font-medium pr-2 py-1 text-muted-foreground'>
                           {t('OrdersView.modal.paymentMethod')}
                         </td>
                         <td>
@@ -719,7 +661,7 @@ export default function OrdersView() {
                       </tr>
                       {selectedOrder.notes && (
                         <tr>
-                          <td className='font-medium pr-2 py-1'>
+                          <td className='font-medium pr-2 py-1 text-muted-foreground'>
                             {t('OrdersView.modal.notes')}
                           </td>
                           <td>{selectedOrder.notes}</td>
@@ -727,7 +669,7 @@ export default function OrdersView() {
                       )}
                       {selectedOrder.additional_info && (
                         <tr>
-                          <td className='font-medium pr-2 py-1'>
+                          <td className='font-medium pr-2 py-1 text-muted-foreground'>
                             {t('OrdersView.modal.additionalInfo')}
                           </td>
                           <td>{selectedOrder.additional_info}</td>
@@ -737,100 +679,115 @@ export default function OrdersView() {
                   </table>
                 </div>
 
-                <div className='border rounded-lg bg-muted shadow-sm'>
-                  <div className='font-semibold text-sm px-4 py-2 bg-muted border-b'>
+                {/* Items Table */}
+                <div className='border rounded-lg bg-muted shadow-sm overflow-hidden'>
+                  <div className='font-semibold text-sm px-3 py-2 bg-muted/50 border-b'>
                     {t('OrdersView.modal.itemsTitle')}
                   </div>
-                  <table className='w-full text-sm'>
-                    <thead>
-                      <tr className='bg-muted'>
-                        <th className='border px-2 py-1 text-left'>
-                          {t('OrdersView.modal.itemProduct')}
-                        </th>
-                        <th className='border px-2 py-1 text-center'>
-                          {t('OrdersView.modal.itemQty')}
-                        </th>
-                        <th className='border px-2 py-1 text-right'>
-                          {t('OrdersView.modal.itemTotal')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedOrder.order_items.map((item, idx) => {
-                        const productName =
-                          item.product?.product_name ??
-                          item.product_name ??
-                          item.product_code ??
-                          'Unknown';
-                        const quantity = item.quantity ?? item.qty ?? 0;
-                        const total = Number(
-                          item.line_total ?? item.total_price ?? 0
-                        );
-
-                        return (
-                          <tr key={item.id ?? idx}>
-                            <td className='border px-2 py-1'>{productName}</td>
-                            <td className='border px-2 py-1 text-center'>
-                              {quantity}
-                            </td>
-                            <td className='border px-2 py-1 text-right'>
-                              {formatRupiah(total)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <div className='overflow-x-auto'>
+                    <table className='w-full text-xs sm:text-sm min-w-[300px]'>
+                      <thead>
+                        <tr className='bg-muted/50'>
+                          <th className='border-b px-3 py-2 text-left font-medium'>
+                            {t('OrdersView.modal.itemProduct')}
+                          </th>
+                          <th className='border-b px-3 py-2 text-center font-medium w-[60px]'>
+                            {t('OrdersView.modal.itemQty')}
+                          </th>
+                          <th className='border-b px-3 py-2 text-right font-medium'>
+                            {t('OrdersView.modal.itemTotal')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedOrder.order_items.map((item, idx) => {
+                          const productName =
+                            item.product?.product_name ??
+                            item.product_name ??
+                            item.product_code ??
+                            'Unknown';
+                          const quantity = item.quantity ?? item.qty ?? 0;
+                          const total = Number(
+                            item.line_total ?? item.total_price ?? 0
+                          );
+                          return (
+                            <tr key={item.id ?? idx}>
+                              <td className='border-b px-3 py-2'>
+                                {productName}
+                              </td>
+                              <td className='border-b px-3 py-2 text-center'>
+                                {quantity}
+                              </td>
+                              <td className='border-b px-3 py-2 text-right whitespace-nowrap'>
+                                {formatRupiah(total)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
-              <DialogFooter className='mt-4 gap-2'>
-                <Dialog
-                  open={isReturnDialogOpen}
-                  onOpenChange={setIsReturnDialogOpen}
-                >
-                  <DialogTrigger asChild>
-                    <Button variant='destructive' disabled={busy}>
-                      {busy
-                        ? t('OrdersView.modal.processing')
-                        : t('OrdersView.modal.return')}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>
-                        {t('OrdersView.modal.returnTitle')}
-                      </DialogTitle>
-                      <DialogDescription className='py-4 text-base text-center'>
-                        {t('OrdersView.modal.returnConfirm', {
-                          orderNumber: selectedOrder.document_number,
-                        })}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className='gap-2'>
-                      <DialogClose asChild>
-                        <Button variant='outline'>
-                          {t('OrdersView.modal.returnCancel')}
-                        </Button>
-                      </DialogClose>
+              <DialogFooter className='p-4 border-t gap-2 sm:gap-2 flex-col sm:flex-row'>
+                <div className='flex gap-2 w-full sm:w-auto'>
+                  <Dialog
+                    open={isReturnDialogOpen}
+                    onOpenChange={setIsReturnDialogOpen}
+                  >
+                    <DialogTrigger asChild>
                       <Button
                         variant='destructive'
-                        onClick={handleReturnOrder}
                         disabled={busy}
+                        className='flex-1 sm:flex-none'
                       >
                         {busy
                           ? t('OrdersView.modal.processing')
-                          : t('OrdersView.modal.returnYes')}
+                          : t('OrdersView.modal.return')}
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-                <Button variant='outline' onClick={handlePrintReceipt}>
-                  {t('OrdersView.modal.print')}
-                </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>
+                          {t('OrdersView.modal.returnTitle')}
+                        </DialogTitle>
+                        <DialogDescription className='py-4 text-base text-center'>
+                          {t('OrdersView.modal.returnConfirm', {
+                            orderNumber: selectedOrder.document_number,
+                          })}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter className='gap-2 sm:space-x-2'>
+                        <DialogClose asChild>
+                          <Button variant='outline'>
+                            {t('OrdersView.modal.returnCancel')}
+                          </Button>
+                        </DialogClose>
+                        <Button
+                          variant='destructive'
+                          onClick={handleReturnOrder}
+                          disabled={busy}
+                        >
+                          {busy
+                            ? t('OrdersView.modal.processing')
+                            : t('OrdersView.modal.returnYes')}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Button
+                    variant='outline'
+                    onClick={handlePrintReceipt}
+                    className='flex-1 sm:flex-none'
+                  >
+                    {t('OrdersView.modal.print')}
+                  </Button>
+                </div>
                 <Button
                   variant='outline'
                   onClick={() => setSelectedOrder(null)}
+                  className='w-full sm:w-auto'
                 >
                   {t('OrdersView.modal.close')}
                 </Button>

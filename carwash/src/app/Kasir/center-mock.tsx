@@ -320,11 +320,11 @@ export default function CenterMock() {
         const rawGroups: ProductGroup[] = Array.isArray(groupResult.data)
           ? groupResult.data
           : [];
-        
+
         // TODO: Di sini Anda bisa memuat urutan
         // yang disimpan dari localStorage/API dan
         // mengurutkan `rawGroups` sebelum di-set.
-        
+
         setApiGroups(rawGroups);
       } catch (err) {
         console.error('Failed to load products or groups from API:', err);
@@ -466,11 +466,11 @@ export default function CenterMock() {
         if (oldIndex === -1 || newIndex === -1) return groups; // Safety check
 
         const newOrderedGroups = arrayMove(groups, oldIndex, newIndex);
-        
+
         // TODO: Di sini Anda bisa menyimpan `newOrderedGroups`
         // (atau hanya urutan ID-nya) ke localStorage/API
         // untuk preferensi pengguna.
-        
+
         return newOrderedGroups;
       });
     }

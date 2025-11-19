@@ -1,12 +1,12 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react'; // <-- Impor useEffect
+import { useState, useMemo, useEffect } from 'react';
 import { useSession } from '../lib/context/session';
-import type { PosProduct, StockItem } from '@/app/lib/types/pos'; // <-- Impor StockItem
+import type { PosProduct, StockItem } from '@/app/lib/types/pos';
 import { AlertTriangle, Loader2, Search } from 'lucide-react';
 import { useProducts } from '@/app/Hooks/useProducts';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { fetchStocks } from '../lib/utils/pos-api'; // <-- Impor fetchStocks
+import { fetchStocks } from '../lib/utils/pos-api';
 
 const formatRupiah = (amount?: number) => {
   if (amount === undefined || amount === null) return 'N/A';
@@ -31,11 +31,9 @@ export default function ProductsView() {
     error,
   } = useProducts(session?.token ?? '');
 
-  // --- TAMBAHAN: State untuk Stocks ---
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [loadingStocks, setLoadingStocks] = useState(true);
 
-  // --- TAMBAHAN: useEffect untuk fetchStocks ---
   useEffect(() => {
     if (session?.token) {
       setLoadingStocks(true);
@@ -55,15 +53,6 @@ export default function ProductsView() {
     }
   }, [session?.token]);
 
-  console.log('STATUS API PRODUCTS:', {
-    token: session?.token ? 'Token Ada' : 'Token KOSONG',
-    loading,
-    error,
-    productsData: products,
-    stocksData: stocks,
-  });
-
-  // --- TAMBAHAN: Memo untuk memetakan total stok ---
   const stockMap = useMemo(() => {
     const map = new Map<string, number>();
     if (!stocks || stocks.length === 0) return map;
@@ -75,7 +64,6 @@ export default function ProductsView() {
     return map;
   }, [stocks]);
 
-  // --- MODIFIKASI: mappedProducts sekarang menyertakan stok dan itemType ---
   const mappedProducts = useMemo(() => {
     return (products || []).map(
       (p): PosProduct & { itemType: 'product' | 'service' } => {
@@ -87,11 +75,11 @@ export default function ProductsView() {
           product_name: p.product_name ?? '',
           product_code: p.product_code ?? '',
           available_quantity: stockMap.get(p.product_code) ?? 0,
-          itemType: itemType, // <-- Tambahkan itemType
+          itemType: itemType,
         };
       }
     );
-  }, [products, stockMap]); // <-- Tambahkan stockMap sebagai dependensi
+  }, [products, stockMap]);
 
   const filteredProducts = useMemo(() => {
     return mappedProducts.filter(
@@ -117,14 +105,12 @@ export default function ProductsView() {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const handlePrevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
 
+  const mainLoading = loading || loadingStocks;
   const errorMessage = error
     ? error instanceof Error
       ? error.message
       : t('ProductsView.errorUnknown')
     : null;
-
-  // --- MODIFIKASI: Perbarui pengecekan loading ---
-  const mainLoading = loading || loadingStocks;
 
   if (mainLoading)
     return (
@@ -148,10 +134,12 @@ export default function ProductsView() {
   return (
     <div className='h-full flex flex-col bg-card'>
       <header className='p-4'>
-        <h1 className='text-2xl font-bold text-foreground'>
+        <h1 className='text-xl sm:text-2xl font-bold text-foreground'>
           {t('ProductsView.title')}
         </h1>
-        <p className='text-muted-foreground'>{t('ProductsView.description')}</p>
+        <p className='text-sm text-muted-foreground'>
+          {t('ProductsView.description')}
+        </p>
       </header>
 
       <div className='px-4 pb-4'>
@@ -165,80 +153,85 @@ export default function ProductsView() {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className='w-full pl-10 pr-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50'
+            className='w-full pl-10 pr-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm'
           />
         </div>
       </div>
 
-      <div className='flex-1 overflow-y-auto px-4'>
-        <div className='border rounded-lg overflow-hidden'>
-          <table className='w-full text-sm'>
-            <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm'>
-              <tr>
-                <th className='text-left font-medium p-3'>
-                  {t('ProductsView.colName')}
-                </th>
-                <th className='text-left font-medium p-3'>
-                  {t('ProductsView.colCode')}
-                </th>
-                <th className='text-right font-medium p-3'>
-                  {t('ProductsView.colQty', 'Kuantitas')}
-                </th>
-                <th className='text-right font-medium p-3'>
-                  {t('ProductsView.colPrice')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className='divide-y divide-border'>
-              {paginatedProducts.length > 0 ? (
-                paginatedProducts.map((item) => (
-                  <tr
-                    key={item.product_code}
-                    className='hover:bg-accent transition-colors'
-                  >
-                    <td className='p-3 font-medium'>{item.product_name}</td>
-                    <td className='text-muted-foreground p-3'>
-                      {item.product_code}
-                    </td>
-                    {/* --- MODIFIKASI: Tampilkan Qty atau '-' --- */}
-                    <td className='p-3 text-right font-medium'>
-                      {item.itemType === 'product'
-                        ? item.available_quantity
-                        : '-'}
-                    </td>
-                    <td className='p-3 text-right font-semibold'>
-                      {formatRupiah(Number(item.price))}
+      <div className='flex-1 overflow-hidden px-2 sm:px-4 flex flex-col'>
+        <div className='border rounded-lg overflow-hidden flex-1 flex flex-col bg-background'>
+          {/* Scroll Container for Table */}
+          <div className='overflow-x-auto flex-1'>
+            <table className='w-full text-sm min-w-[600px]'>
+              <thead className='bg-muted/50 sticky top-0 backdrop-blur-sm z-10'>
+                <tr>
+                  <th className='text-left font-medium p-3 whitespace-nowrap'>
+                    {t('ProductsView.colName')}
+                  </th>
+                  <th className='text-left font-medium p-3 whitespace-nowrap'>
+                    {t('ProductsView.colCode')}
+                  </th>
+                  <th className='text-right font-medium p-3 whitespace-nowrap'>
+                    {t('ProductsView.colQty', 'Kuantitas')}
+                  </th>
+                  <th className='text-right font-medium p-3 whitespace-nowrap'>
+                    {t('ProductsView.colPrice')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className='divide-y divide-border'>
+                {paginatedProducts.length > 0 ? (
+                  paginatedProducts.map((item) => (
+                    <tr
+                      key={item.product_code}
+                      className='hover:bg-accent transition-colors'
+                    >
+                      <td className='p-3 font-medium min-w-[150px]'>
+                        {item.product_name}
+                      </td>
+                      <td className='text-muted-foreground p-3 whitespace-nowrap'>
+                        {item.product_code}
+                      </td>
+                      <td className='p-3 text-right font-medium whitespace-nowrap'>
+                        {item.itemType === 'product'
+                          ? item.available_quantity
+                          : '-'}
+                      </td>
+                      <td className='p-3 text-right font-semibold whitespace-nowrap'>
+                        {formatRupiah(Number(item.price))}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className='text-center p-6 text-muted-foreground'
+                    >
+                      {t('ProductsView.empty')}
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={4} // <-- Pastikan colspan 4
-                    className='text-center p-6 text-muted-foreground'
-                  >
-                    {t('ProductsView.empty')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       {totalPages > 1 && (
-        <footer className='p-4 border-t flex items-center justify-between'>
-          <div className='flex items-center gap-4'>
-            <span className='text-sm text-muted-foreground'>
+        <footer className='p-4 border-t flex items-center justify-between flex-wrap gap-3 bg-card z-10'>
+          <div className='flex items-center gap-2 sm:gap-4'>
+            <span className='text-xs sm:text-sm text-muted-foreground'>
               {t('Pagination.pageOf', { currentPage, totalPages })}
             </span>
-            <span className='text-sm text-muted-foreground hidden sm:block'>
+            <span className='text-xs sm:text-sm text-muted-foreground hidden md:block'>
               {t('Pagination.showingOf', { startItem, endItem, totalItems })}
             </span>
           </div>
           <div className='flex items-center gap-2'>
             <Button
               variant='outline'
+              size='sm'
               onClick={handlePrevPage}
               disabled={currentPage === 1}
             >
@@ -246,6 +239,7 @@ export default function ProductsView() {
             </Button>
             <Button
               variant='outline'
+              size='sm'
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
             >
