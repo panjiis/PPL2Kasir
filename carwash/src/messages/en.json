@@ -46,8 +46,8 @@
       "id": "ID"
     },
     "search": {
-      "placeholderId": "Search by Item ID...",
-      "placeholderName": "Search by name..."
+      "placeholderId": "Search",
+      "placeholderName": "Search"
     },
     "list": {
       "loading": "Loading products...",

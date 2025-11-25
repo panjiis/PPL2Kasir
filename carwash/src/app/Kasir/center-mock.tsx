@@ -65,7 +65,7 @@ function SearchPill({
         ev.preventDefault();
         onSubmit();
       }}
-      className='flex-1 flex items-center rounded-lg border border-border bg-secondary h-12 px-3 min-w-[200px]'
+      className='flex-1 flex items-center rounded-lg border border-border bg-secondary h-12 px-3 min-w-[100px] lg:min-w-[200px]'
     >
       <Search className='h-5 w-5 text-muted-foreground mr-2' />
       <input
@@ -73,7 +73,7 @@ function SearchPill({
         value={query}
         onChange={(ev) => setQuery(ev.target.value)}
         placeholder={placeholder}
-        className='flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground h-full'
+        className='flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground h-full min-w-0'
       />
     </form>
   );
@@ -117,7 +117,7 @@ function ProductCard({
             width={300}
             height={100}
             className='h-[100px] w-full object-cover rounded-md'
-            unoptimized
+            unoptimized={true}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = '/placeholder.svg';
@@ -506,7 +506,7 @@ export default function CenterMock() {
           type='button'
           onClick={() => handleTypeFilterToggle('service')}
           className={[
-            'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-24 ml-1 px-2 transition-all',
+            'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-16 lg:w-24 ml-1 px-2 transition-all',
             typeFilter === 'service' ? 'ring-2 ring-primary' : 'ring-0',
           ].join(' ')}
         >
@@ -521,7 +521,7 @@ export default function CenterMock() {
           type='button'
           onClick={() => handleTypeFilterToggle('nonService')}
           className={[
-            'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-24 ml-1 px-2 transition-all',
+            'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-16 lg:w-24 ml-1 px-2 transition-all',
             typeFilter === 'nonService' ? 'ring-2 ring-primary' : 'ring-0',
           ].join(' ')}
         >
@@ -533,7 +533,7 @@ export default function CenterMock() {
           </span>
         </button>
 
-        <div className='h-8 w-px bg-border mx-2' />
+        {/* <div className='h-8 w-px bg-border mx-2' /> */}
 
         {[
           {
@@ -552,7 +552,7 @@ export default function CenterMock() {
             type='button'
             onClick={() => setSearchType(btn.type as typeof searchType)}
             className={[
-              'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-24 ml-1 px-2 transition-all',
+              'flex flex-col items-center justify-center rounded-lg border bg-secondary border-border h-12 w-16 lg:w-24 ml-1 px-2 transition-all',
               searchType === btn.type ? 'ring-2 ring-primary' : 'ring-0',
             ].join(' ')}
           >

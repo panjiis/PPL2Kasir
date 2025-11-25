@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -8,13 +8,18 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
       {
-      protocol: 'https',
+        protocol: 'https',
         hostname: 'placehold.co',
         port: '',
         pathname: '/**',
-      }
-    ]
-  }
+      },
+
+      {
+        protocol: 'https',
+        hostname: '**', // Mengizinkan semua domain gambar HTTPS
+      },
+    ],
+  },
 };
 
 export default nextConfig;

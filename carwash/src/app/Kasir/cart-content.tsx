@@ -127,7 +127,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // === STATE FINANSIAL ===
   const [apiDiscount, setApiDiscount] = useState<number | null>(null);
   const [apiSubtotal, setApiSubtotal] = useState<number | null>(null);
-  // Fix ESLint: Gunakan koma kosong [, setter] untuk mengabaikan nilai state yang tidak dibaca
+  // Gunakan koma kosong untuk mengabaikan nilai state (fix ESLint unused vars)
   const [, setApiTax] = useState<number | null>(null);
   const [, setApiTotal] = useState<number | null>(null);
 
@@ -228,8 +228,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setItems(newItemsState);
 
       return newCartId;
-    } catch (err) {
-      console.error('Gagal reset cart diskon:', err);
+    } catch (e) {
+      // Fix ESLint: gunakan variabel 'e'
+      console.error('Gagal reset cart diskon:', e);
       showNotif({
         type: 'error',
         message: 'Gagal sinkronisasi penghapusan diskon.',
@@ -498,7 +499,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
               token
             );
           } catch (e) {
-            // Fix ESLint: gunakan variabel 'e' dengan mencetaknya
             console.warn('Remove item failed in loop:', e);
             break;
           }
@@ -545,7 +545,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     try {
       const token = session?.token;
-      // Gunakan ID baru jika ada reset, atau ID lama
       const activeCartId = currentCartId || cartIdRef.current;
 
       if (item.isApiSynced && token && activeCartId) {
@@ -647,7 +646,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [locked, session?.token, showNotif, t, clearCoupon, appliedCoupon]
   );
 
-  // applyCoupon Logic (Normal)
+  // === UPDATE: Logic BOGO (Buy One Get One) ===
   const applyCoupon = useCallback(
     (c: Coupon, financials: ApiCartSyncData) => {
       const uniqueDiscountIds = new Set(
@@ -655,7 +654,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .filter((i) => i.discount)
           .map((i) => i.discount)
       );
-      // Jika backend mendeteksi >1 diskon (stacking tidak sengaja), reset cart
       if (uniqueDiscountIds.size > 1) {
         showNotif({
           type: 'error',
@@ -675,19 +673,42 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setItems((prev) => {
           const map = new Map();
           financials.items.forEach((i) => map.set(i.product.product_code, i));
+
           return prev.map((loc) => {
             const api = map.get(loc.itemId);
             if (api) {
+              let finalQty = api.quantity;
+
+              // FIX ESLINT: Define proper type locally instead of 'any'
+              type DiscountWithBogo = {
+                discount_type?: number;
+                buy_quantity?: number;
+                get_quantity?: number;
+              };
+
+              const d = api.discount as DiscountWithBogo;
+
+              if (d && d.discount_type === 3) {
+                const buy = d.buy_quantity || 0;
+                const get = d.get_quantity || 0;
+
+                // Rumus: Kelipatan pembelian * barang gratis
+                if (buy > 0 && get > 0) {
+                  const freeQty = Math.floor(api.quantity / buy) * get;
+                  finalQty += freeQty; // Tambahkan item gratis ke display qty
+                }
+              }
+
               return {
                 ...loc,
                 originalPrice:
                   typeof loc.originalPrice === 'number'
                     ? loc.originalPrice
                     : loc.price,
-                price: parseFloat(api.unit_price), // Harga setelah diskon
+                price: parseFloat(api.unit_price),
                 isApiSynced: true,
                 apiLineItemId: api.item_id,
-                qty: api.quantity,
+                qty: finalQty,
               };
             }
             return loc;
@@ -698,7 +719,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [clearCoupon, showNotif]
   );
 
-  // ... sisa kalkulasi total & value provider ...
   const products = useMemo(
     () => items.filter((it) => it.type === 'product'),
     [items]
@@ -708,7 +728,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items]
   );
 
-  // === KALKULASI TOTAL (MANUAL & SESUAI REQUEST) ===
   const localSubtotal = useMemo(() => {
     return items.reduce(
       (acc, it) => acc + (it.originalPrice ?? it.price) * it.qty,
@@ -716,29 +735,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   }, [items]);
 
-  const taxRate = 0.1; // 10%
+  const taxRate = 0.1;
 
-  // 1. Subtotal Murni (Harga Barang Asli)
   const subtotal = apiSubtotal ?? localSubtotal;
 
-  // 2. Pajak (10% dari Subtotal Murni)
-  // Kita hanya perlu setApiTax agar state tersimpan, tapi untuk kalkulasi UI
-  // kita hitung manual agar konsisten dengan aturan Total = Barang + Pajak - Diskon.
-  // Variabel apiTax diabaikan dalam dependency karena kita ingin memaksakan logika ini.
   const tax = useMemo(() => {
     return Math.round(subtotal * taxRate);
   }, [subtotal]);
 
-  // 3. Diskon (Nominal)
   const discount = apiDiscount ?? 0;
 
-  // 4. Total Akhir = (Subtotal + Pajak) - Diskon
   const total = useMemo(() => {
     const grossTotal = subtotal + tax;
     const netTotal = grossTotal - discount;
-    return Math.max(0, netTotal); // Mencegah minus
+    return Math.max(0, netTotal);
   }, [subtotal, tax, discount]);
-  // --- AKHIR KALKULASI TOTAL ---
 
   const repeatRound = useCallback(() => {
     if (!locked)

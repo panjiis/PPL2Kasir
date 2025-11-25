@@ -46,8 +46,8 @@
       "id": "ID"
     },
     "search": {
-      "placeholderId": "Cari berdasarkan Item ID...",
-      "placeholderName": "Cari berdasarkan nama..."
+      "placeholderId": "Cari ",
+      "placeholderName": "Cari "
     },
     "list": {
       "loading": "Memuat produk...",

@@ -60,7 +60,11 @@ const defaultNavItems: NavItem[] = [
 /* =========================
    ThemeSwitcher
    ========================= */
-function ThemeSwitcher() {
+function ThemeSwitcher({
+  onModeChange,
+}: {
+  onModeChange: (mode: 'dark' | 'light') => void;
+}) {
   const { t } = useTranslation();
   const { setActiveThemeKey } = usePreferences();
   const [theme, setTheme] = useState<'system' | 'dark' | 'light'>('system');
@@ -80,20 +84,31 @@ function ThemeSwitcher() {
     const root = document.documentElement;
 
     const apply = (t: 'system' | 'dark' | 'light') => {
+      let effectiveMode: 'dark' | 'light' = 'light';
+
       if (t === 'dark') {
         root.classList.add('dark');
         localStorage.setItem('theme-preference', 'dark');
+        effectiveMode = 'dark';
       } else if (t === 'light') {
         root.classList.remove('dark');
         localStorage.setItem('theme-preference', 'light');
+        effectiveMode = 'light';
       } else {
         localStorage.setItem('theme-preference', 'system');
         const prefersDark =
           window.matchMedia &&
           window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (prefersDark) root.classList.add('dark');
-        else root.classList.remove('dark');
+        if (prefersDark) {
+          root.classList.add('dark');
+          effectiveMode = 'dark';
+        } else {
+          root.classList.remove('dark');
+          effectiveMode = 'light';
+        }
       }
+
+      onModeChange(effectiveMode);
     };
 
     apply(savedTheme);
@@ -101,29 +116,35 @@ function ThemeSwitcher() {
     const mql = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
       if (savedTheme === 'system') {
-        if (e.matches) root.classList.add('dark');
-        else root.classList.remove('dark');
+        if (e.matches) {
+          root.classList.add('dark');
+          onModeChange('dark');
+        } else {
+          root.classList.remove('dark');
+          onModeChange('light');
+        }
       }
     };
     mql.addEventListener('change', handler);
 
     return () => mql.removeEventListener('change', handler);
-  }, []);
+  }, [onModeChange]); // Added onModeChange to dependency
 
   if (!isMounted) return null;
 
   const handleThemeChange = (newTheme: 'system' | 'dark' | 'light') => {
     setTheme(newTheme);
     const root = document.documentElement;
+    let effectiveMode: 'dark' | 'light' = 'light';
 
     if (newTheme === 'dark') {
       root.classList.add('dark');
       localStorage.setItem('theme-preference', 'dark');
-      setActiveThemeKey('dark');
+      effectiveMode = 'dark';
     } else if (newTheme === 'light') {
       root.classList.remove('dark');
       localStorage.setItem('theme-preference', 'light');
-      setActiveThemeKey('light');
+      effectiveMode = 'light';
     } else {
       localStorage.setItem('theme-preference', 'system');
       const prefersDark = window.matchMedia(
@@ -131,12 +152,16 @@ function ThemeSwitcher() {
       ).matches;
       if (prefersDark) {
         root.classList.add('dark');
-        setActiveThemeKey('dark');
+        effectiveMode = 'dark';
       } else {
         root.classList.remove('dark');
-        setActiveThemeKey('light');
+        effectiveMode = 'light';
       }
     }
+
+    // Reset theme key to default for that mode to prevent color clash
+    setActiveThemeKey(effectiveMode === 'dark' ? 'dark' : 'light');
+    onModeChange(effectiveMode);
   };
 
   const getIcon = (t: 'system' | 'dark' | 'light') => {
@@ -150,32 +175,30 @@ function ThemeSwitcher() {
   return (
     <div className='mt-2 w-full flex justify-center overflow-x-auto px-1'>
       <div className='inline-flex rounded-md border border-border bg-secondary p-1'>
-        {themes.map(
-          (themeKey) => (
-            <button
-              key={themeKey}
-              type='button'
-              onClick={() => handleThemeChange(themeKey)}
-              aria-pressed={theme === themeKey}
-              className={[
-                'flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
-                theme === themeKey
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-transparent text-foreground hover:bg-muted',
-              ].join(' ')}
-              title={
-                themeKey === 'system'
-                  ? t('Sidebar.theme.systemTitle')
-                  : t('Sidebar.theme.'+themeKey)
-              }
-            >
-              {getIcon(themeKey)}
-              <span className='capitalize'>
-                {t('Sidebar.theme.'+themeKey)}{' '}
-              </span>
-            </button>
-          )
-        )}
+        {themes.map((themeKey) => (
+          <button
+            key={themeKey}
+            type='button'
+            onClick={() => handleThemeChange(themeKey)}
+            aria-pressed={theme === themeKey}
+            className={[
+              'flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-all whitespace-nowrap',
+              theme === themeKey
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-transparent text-foreground hover:bg-muted',
+            ].join(' ')}
+            title={
+              themeKey === 'system'
+                ? t('Sidebar.theme.systemTitle')
+                : t('Sidebar.theme.' + themeKey)
+            }
+          >
+            {getIcon(themeKey)}
+            <span className='capitalize'>
+              {t('Sidebar.theme.' + themeKey)}{' '}
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -203,9 +226,9 @@ function SidebarTileButton({
   const { isCustomize, getButtonLabel, setButtonPref, getButtonClasses } =
     usePreferences();
 
-  const lang = i18n.language ? i18n.language.split('-')[0] : 'id'; 
+  const lang = i18n.language ? i18n.language.split('-')[0] : 'id';
   const key = `sidebar:${itemKey}:${lang}`;
-  
+
   const color = getButtonClasses();
 
   const [isMounted, setIsMounted] = useState(false);
@@ -306,10 +329,12 @@ export default function SidebarMock({
   activeView: string;
   onNavigate: (view: string) => void;
 }) {
-  // 1. Ambil 'i18n' di sini untuk kontrol bahasa
-  const { t, i18n } = useTranslation(); 
+  const { t, i18n } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // State untuk melacak mode efektif (hasil akhir: dark atau light?)
+  const [effectiveMode, setEffectiveMode] = useState<'dark' | 'light'>('dark');
 
   const {
     isCustomize,
@@ -332,9 +357,7 @@ export default function SidebarMock({
     logo: '/logo.png',
   });
 
-  // 2. FORCE DEFAULT LANGUAGE TO ID (INDONESIA)
   useEffect(() => {
-    // Jika belum ada bahasa yang diset (saat load pertama), set ke 'id'
     if (!i18n.language || i18n.language === 'system') {
       i18n.changeLanguage('id');
     }
@@ -344,16 +367,18 @@ export default function SidebarMock({
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
 
-  // EFEK UNTUK MENERJEMAHKAN NAV ITEMS
   useEffect(() => {
     setNavItems((currentItems) =>
       currentItems.map((item) => {
-        const defaultItem = defaultNavItems.find(d => d.key === item.key);
-        const translatedLabel = t(`Sidebar.nav.${item.key}`, defaultItem ? defaultItem.label : '');
+        const defaultItem = defaultNavItems.find((d) => d.key === item.key);
+        const translatedLabel = t(
+          `Sidebar.nav.${item.key}`,
+          defaultItem ? defaultItem.label : ''
+        );
         return { ...item, label: translatedLabel };
       })
     );
-  }, [t, i18n.language]); // Tambahkan i18n.language dependency
+  }, [t, i18n.language]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -380,7 +405,6 @@ export default function SidebarMock({
     }
   };
 
-  // popup state for API results
   const [popupContent, setPopupContent] = useState<React.ReactNode | null>(
     null
   );
@@ -475,6 +499,11 @@ export default function SidebarMock({
     }
   };
 
+  // Filter themes berdasarkan mode efektif (Dark/Light)
+  const visibleThemePackages = themePackages.filter(
+    (pkg) => pkg.baseMode === effectiveMode
+  );
+
   return (
     <div
       className={[
@@ -514,8 +543,7 @@ export default function SidebarMock({
           Powered by{' '}
           <span className='font-semibold text-primary uppercase'>SYNTRA</span>
         </div>
-        <ThemeSwitcher />
-        {/* Language Switcher di Atas SUDAH DIHAPUS */}
+        <ThemeSwitcher onModeChange={setEffectiveMode} />
       </div>
 
       <div className='grid grid-cols-2 gap-2'>
@@ -563,9 +591,13 @@ export default function SidebarMock({
               {t('Sidebar.customize.title')}
             </h3>
 
-            <div className='text-xs mb-1'>{t('Sidebar.customize.package')}</div>
+            <div className='text-xs mb-1'>
+              {effectiveMode === 'dark'
+                ? t('Sidebar.customize.package') + ' (Dark)'
+                : t('Sidebar.customize.package') + ' (Light)'}
+            </div>
             <div className='flex flex-wrap gap-2'>
-              {themePackages.map(
+              {visibleThemePackages.map(
                 (opt: { key: string; label: string; bg: string }) => (
                   <button
                     key={opt.key}
@@ -639,35 +671,40 @@ export default function SidebarMock({
               <MoreVertical className='h-4 w-4 text-muted-foreground' />
             </button>
 
-            {/* --- MODIFIKASI MENU POPUP --- */}
             {menuOpen && (
               <div className='absolute right-2 bottom-14 bg-card border border-border rounded-md shadow-md py-1 z-50 w-36'>
-                
-                {/* Opsi Bahasa */}
                 <div className='px-3 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider opacity-70'>
                   Bahasa / Language
                 </div>
-                
+
                 <button
                   onClick={() => i18n.changeLanguage('id')}
                   className={[
                     'w-full text-left text-sm px-3 py-1.5 transition flex items-center justify-between',
-                    i18n.language === 'id' ? 'bg-accent text-primary font-medium' : 'hover:bg-accent'
+                    i18n.language === 'id'
+                      ? 'bg-accent text-primary font-medium'
+                      : 'hover:bg-accent',
                   ].join(' ')}
                 >
                   <span>Indonesia</span>
-                  {i18n.language === 'id' && <span className="text-[10px] text-primary">●</span>}
+                  {i18n.language === 'id' && (
+                    <span className='text-[10px] text-primary'>●</span>
+                  )}
                 </button>
 
                 <button
                   onClick={() => i18n.changeLanguage('en')}
                   className={[
                     'w-full text-left text-sm px-3 py-1.5 transition flex items-center justify-between',
-                    i18n.language === 'en' ? 'bg-accent text-primary font-medium' : 'hover:bg-accent'
+                    i18n.language === 'en'
+                      ? 'bg-accent text-primary font-medium'
+                      : 'hover:bg-accent',
                   ].join(' ')}
                 >
                   <span>English</span>
-                  {i18n.language === 'en' && <span className="text-[10px] text-primary">●</span>}
+                  {i18n.language === 'en' && (
+                    <span className='text-[10px] text-primary'>●</span>
+                  )}
                 </button>
 
                 <div className='h-px bg-border my-1 mx-2' />
@@ -683,7 +720,6 @@ export default function SidebarMock({
                 </button>
               </div>
             )}
-            {/* --- AKHIR MODIFIKASI --- */}
           </div>
         </div>
       </div>

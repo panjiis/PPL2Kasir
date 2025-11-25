@@ -152,7 +152,7 @@ export interface ApiSyncedCartProduct {
   product_price: string; // API mengirim harga sebagai string
   cost_price?: string;
   is_active?: boolean;
-  // created_at dan updated_at bisa ditambahkan jika perlu
+  image_url?: string;
 }
 
 /**
@@ -160,15 +160,15 @@ export interface ApiSyncedCartProduct {
  * endpoint API /pos/carts/discounts. Berdasarkan log JSON.
  */
 export interface ApiSyncedCartItem {
-  item_id: string; // ID unik untuk baris item di keranjang (cth: "157")
-  product_code: string; // Kode produk (cth: "DRINK-0003")
+  item_id: string; 
+  product_code: string; 
   quantity: number;
-  unit_price: string; // Harga per unit (cth: "10000")
-  discount_amount: string; // Jumlah diskon (cth: "0.00")
-  line_total: string; // Total baris (cth: "10000.00")
-  product: ApiSyncedCartProduct; // Objek produk yang di-nest
-  discount?: unknown; // Objek diskon opsional, 'unknown' lebih aman dari 'any'
-  serving_employee_id?: number; // <--- TAMBAHKAN BARIS INI
+  unit_price: string; 
+  discount_amount: string;
+  line_total: string; 
+  product: ApiSyncedCartProduct; 
+  discount?: unknown; 
+  serving_employee_id?: number; 
 }
 
 export interface Employee {

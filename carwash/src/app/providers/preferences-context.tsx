@@ -8,6 +8,7 @@ type ThemePackage = {
   bg: string;
   button: string;
   text: string;
+  baseMode: 'dark' | 'light';
 };
 
 type ButtonPref = {
@@ -56,33 +57,22 @@ type PreferencesContextValue = {
 };
 
 const themePackages: ThemePackage[] = [
+  // === DARK MODE BASE ===
   {
     key: "dark",
     label: "Dark",
     bg: "bg-[#0a0a0a]",
     button: "bg-[#fafafa] text-[#0a0a0a]",
     text: "text-[#fafafa]",
+    baseMode: 'dark',
   },
   {
-    key: "light",
-    label: "Light",
-    bg: "bg-[#ffffff]",
-    button: "bg-[#18181b] text-[#fafafa]",
-    text: "text-[#18181b]",
-  },
-    {
     key: 'grey', 
     label: 'Grey', 
-    bg: 'bg-[#2A2A2A]', // <-- Diubah dari 'bg-[#0a0a0a]'
-    button: 'bg-[#fafafa] text-[#2A2A2A]', // <-- Diubah dari 'text-[#0a0a0a]'
+    bg: 'bg-[#2A2A2A]',
+    button: 'bg-[#fafafa] text-[#2A2A2A]',
     text: 'text-[#fafafa]',
-  },
-  {
-    key: 'lightgrey', // <-- Diubah dari 'light'
-    label: 'Light Gray', // <-- Diubah dari 'Light'
-    bg: 'bg-[#DFDFE1]', // <-- Diubah dari 'bg-[#454341]'
-    button: 'bg-[#18181b] text-[#fafafa]',
-    text: 'text-[#18181b]',
+    baseMode: 'dark',
   },
   {
     key: "green",
@@ -90,6 +80,7 @@ const themePackages: ThemePackage[] = [
     bg: "bg-[#064e3b]",
     button: "bg-[#ffffff] text-[#065f46]",
     text: "text-[#ffffff]",
+    baseMode: 'dark',
   },
   {
     key: "blue",
@@ -97,6 +88,7 @@ const themePackages: ThemePackage[] = [
     bg: "bg-[#1e3a8a]",
     button: "bg-[#ffffff] text-[#1e3a8a] hover:bg-white/90",
     text: "text-[#ffffff]",
+    baseMode: 'dark',
   },
   {
     key: "purple",
@@ -104,6 +96,25 @@ const themePackages: ThemePackage[] = [
     bg: "bg-[#581c87]",
     button: "bg-[#ffffff] text-[#581c87] hover:bg-white/90",
     text: "text-[#ffffff]",
+    baseMode: 'dark',
+  },
+
+  // === LIGHT MODE BASE ===
+  {
+    key: "light",
+    label: "Light",
+    bg: "bg-[#ffffff]",
+    button: "bg-[#18181b] text-[#fafafa]",
+    text: "text-[#18181b]",
+    baseMode: 'light',
+  },
+  {
+    key: 'lightgrey',
+    label: 'Light Gray',
+    bg: 'bg-[#DFDFE1]',
+    button: 'bg-[#18181b] text-[#fafafa]',
+    text: 'text-[#18181b]',
+    baseMode: 'light',
   },
 ];
 
@@ -172,7 +183,18 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("customTheme", JSON.stringify(customTheme));
   }, [customTheme]);
 
-  const toggleCustomize = () => setIsCustomize((s) => !s);
+  // --- PERBAIKAN UTAMA DI SINI ---
+  const toggleCustomize = () => {
+    if (!isCustomize) {
+      // Saat MENGAKTIFKAN customize, kita salin dulu tema yang sedang aktif
+      // ke dalam customTheme. Ini mencegah tampilan lompat ke "hitam" (default)
+      // jika user sedang ada di Light Mode.
+      const currentActive = themePackages.find(t => t.key === activeThemeKeyState) || themePackages[0];
+      setCustomThemeState(currentActive);
+    }
+    setIsCustomize((s) => !s);
+  };
+  // -------------------------------
   
   const resetCustomization = () => {
     setIsCustomize(false);
