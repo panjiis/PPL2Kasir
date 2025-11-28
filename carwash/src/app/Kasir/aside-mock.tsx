@@ -332,23 +332,30 @@ function ServicesSection() {
                 newQty > 0 &&
                 adjustQuantity(it.id, newQty)
               }
-              extraRight={
+             extraRight={
                 <div className='inline-flex items-center gap-2'>
                   <Select
                     value={it.employeeId ? String(it.employeeId) : ''}
                     onValueChange={(val) => setEmployee(it.id, Number(val))}
                     disabled={locked || loadingEmployees}
                   >
-                    <SelectTrigger className='h-7 px-2 py-1 text-xs border border-border bg-card text-foreground'>
+                    {/* PERBAIKAN TAMPILAN:
+                      1. w-[90px]: Memberikan lebar tetap agar konsisten.
+                      2. [&>span]:truncate: Memotong teks panjang (nama karyawan) dengan ellipsis (...)
+                      3. text-[10px]: Ukuran font disesuaikan agar muat.
+                    */}
+                    <SelectTrigger className='h-7 w-[90px] px-2 py-1 text-[10px] border border-border bg-card text-foreground flex items-center justify-between [&>span]:truncate [&>span]:w-full [&>span]:text-left'>
                       <SelectValue
                         placeholder={
                           loadingEmployees
-                            ? t('Aside.services.loadingEmployee')
+                            ? '...' 
                             : t('Aside.services.selectEmployee')
                         }
                       />
                     </SelectTrigger>
-                    <SelectContent>
+                    
+                    {/* Menyesuaikan lebar dropdown agar sedikit lebih lebar dari tombolnya supaya nama terbaca jelas */}
+                    <SelectContent align="end" className="min-w-[120px]">
                       <SelectGroup>
                         {employees.map((e) => (
                           <SelectItem
