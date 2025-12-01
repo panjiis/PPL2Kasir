@@ -240,6 +240,7 @@ function ProductSection() {
     adjustQuantity,
     locked,
   } = useCart();
+  
   return (
     <fieldset className='rounded-lg border border-border bg-secondary p-3'>
       <legend className='px-2 text-sm text-muted-foreground'>
@@ -332,19 +333,19 @@ function ServicesSection() {
                 newQty > 0 &&
                 adjustQuantity(it.id, newQty)
               }
-             extraRight={
+              // === BAGIAN PERBAIKAN DI SINI ===
+              extraRight={
                 <div className='inline-flex items-center gap-2'>
                   <Select
                     value={it.employeeId ? String(it.employeeId) : ''}
                     onValueChange={(val) => setEmployee(it.id, Number(val))}
                     disabled={locked || loadingEmployees}
                   >
-                    {/* PERBAIKAN TAMPILAN:
-                      1. w-[90px]: Memberikan lebar tetap agar konsisten.
-                      2. [&>span]:truncate: Memotong teks panjang (nama karyawan) dengan ellipsis (...)
-                      3. text-[10px]: Ukuran font disesuaikan agar muat.
+                    {/* PERBAIKAN TAMPILAN TRIGGER:
+                       1. Mengganti w-[90px] menjadi w-[115px] agar muat nama lebih panjang.
+                       2. Menambahkan max-w-[130px] untuk menjaga layout baris tidak rusak.
                     */}
-                    <SelectTrigger className='h-7 w-[90px] px-2 py-1 text-[10px] border border-border bg-card text-foreground flex items-center justify-between [&>span]:truncate [&>span]:w-full [&>span]:text-left'>
+                    <SelectTrigger className='h-7 w-[112px] max-w-[125px] px-2 py-1 text-[10px] border border-border bg-card text-foreground flex items-center justify-between [&>span]:truncate [&>span]:w-full [&>span]:text-left'>
                       <SelectValue
                         placeholder={
                           loadingEmployees
@@ -354,8 +355,12 @@ function ServicesSection() {
                       />
                     </SelectTrigger>
                     
-                    {/* Menyesuaikan lebar dropdown agar sedikit lebih lebar dari tombolnya supaya nama terbaca jelas */}
-                    <SelectContent align="end" className="min-w-[120px]">
+                    {/* PERBAIKAN ISI DROPDOWN:
+                       1. min-w-[220px]: Membuat dropdown JAUH lebih lebar saat dibuka,
+                          sehingga nama seperti "Muhammad Panji Wicaksono" terbaca utuh.
+                       2. align="end": Memastikan dropdown melebar ke kiri agar tidak keluar layar kanan.
+                    */}
+                    <SelectContent align="end" className="min-w-[220px]">
                       <SelectGroup>
                         {employees.map((e) => (
                           <SelectItem
@@ -363,6 +368,7 @@ function ServicesSection() {
                             value={String(e.id)}
                             className='text-xs'
                           >
+                            {/* Menampilkan nama lengkap tanpa truncate di dalam list */}
                             {e.employee_name}
                           </SelectItem>
                         ))}
