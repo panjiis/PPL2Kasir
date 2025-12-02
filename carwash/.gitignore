@@ -42,3 +42,11 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+src/app/Hooks/tests/
+src/app/Kasir/tests/
+src/app/Login/tests/
+
+
+vitest.config.ts
+vitest.setup.ts
