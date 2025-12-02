@@ -212,11 +212,11 @@ function LineItem({
           </span>
         </div>
       </div>
-      <div className='ml-auto flex items-center gap-2'>
+      <div className='ml-auto flex items-start gap-2'>
         <input
           type='number'
           min={1}
-          className='w-14 h-6 rounded-md border border-border px-1 text-center text-xs outline-none disabled:bg-muted disabled:opacity-60'
+          className='w-14 h-6 mt-1 rounded-md border border-border px-1 text-center text-xs outline-none disabled:bg-muted disabled:opacity-60'
           value={inputQty}
           disabled={!allowAdjust || !selected}
           onChange={handleInputChange}
@@ -240,7 +240,7 @@ function ProductSection() {
     adjustQuantity,
     locked,
   } = useCart();
-  
+
   return (
     <fieldset className='rounded-lg border border-border bg-secondary p-3'>
       <legend className='px-2 text-sm text-muted-foreground'>
@@ -333,43 +333,54 @@ function ServicesSection() {
                 newQty > 0 &&
                 adjustQuantity(it.id, newQty)
               }
-              // === BAGIAN PERBAIKAN DI SINI ===
+              // === PERBAIKAN DI SINI ===
               extraRight={
-                <div className='inline-flex items-center gap-2'>
+              
+                <div className='flex items-start gap-2 w-full'>
                   <Select
                     value={it.employeeId ? String(it.employeeId) : ''}
                     onValueChange={(val) => setEmployee(it.id, Number(val))}
                     disabled={locked || loadingEmployees}
                   >
-                    {/* PERBAIKAN TAMPILAN TRIGGER:
-                       1. Mengganti w-[90px] menjadi w-[115px] agar muat nama lebih panjang.
-                       2. Menambahkan max-w-[130px] untuk menjaga layout baris tidak rusak.
-                    */}
-                    <SelectTrigger className='h-7 w-[112px] max-w-[125px] px-2 py-1 text-[10px] border border-border bg-card text-foreground flex items-center justify-between [&>span]:truncate [&>span]:w-full [&>span]:text-left'>
-                      <SelectValue
-                        placeholder={
-                          loadingEmployees
-                            ? '...' 
-                            : t('Aside.services.selectEmployee')
-                        }
-                      />
+                    <SelectTrigger
+                      className='
+                        min-w-0
+                        max-w-[180px]
+                        w-full
+                        !h-auto min-h-[35px] 
+                        py-2 px-2
+                        text-[10px]
+                        border border-border bg-card text-foreground
+                        flex items-start gap-1
+                      '
+                   
+                    >
+                      <div className='flex-1 min-w-0 text-left'>
+                        <span className='block w-full whitespace-normal break-words leading-tight'>
+                          <SelectValue
+                            placeholder={
+                              loadingEmployees
+                                ? '...'
+                                : t('Aside.services.selectEmployee')
+                            }
+                          />
+                        </span>
+                      </div>
                     </SelectTrigger>
-                    
-                    {/* PERBAIKAN ISI DROPDOWN:
-                       1. min-w-[220px]: Membuat dropdown JAUH lebih lebar saat dibuka,
-                          sehingga nama seperti "Muhammad Panji Wicaksono" terbaca utuh.
-                       2. align="end": Memastikan dropdown melebar ke kiri agar tidak keluar layar kanan.
-                    */}
-                    <SelectContent align="end" className="min-w-[220px]">
+
+                    {/* Bagian Content (Dropdown) tetap sama */}
+                    <SelectContent align='end' className='w-[220px]'>
                       <SelectGroup>
                         {employees.map((e) => (
                           <SelectItem
                             key={e.id}
                             value={String(e.id)}
-                            className='text-xs'
+                            // Pastikan dropdown item juga bisa wrap
+                            className='text-xs h-auto py-2 whitespace-normal break-words text-left items-start'
                           >
-                            {/* Menampilkan nama lengkap tanpa truncate di dalam list */}
-                            {e.employee_name}
+                            <span className='leading-snug block w-full'>
+                              {e.employee_name}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -920,9 +931,7 @@ export default function AsideMock(): React.ReactElement {
 
     // ✅ PERBAIKAN: Jika sudah ada diskon aktif, hapus dulu
     if (appliedCoupon) {
-      console.log(
-        'Mengganti diskon: Menghapus diskon lama terlebih dahulu...'
-      );
+      console.log('Mengganti diskon: Menghapus diskon lama terlebih dahulu...');
       await clearCoupon();
     }
     // ✅ PERBAIKAN SELESAI
