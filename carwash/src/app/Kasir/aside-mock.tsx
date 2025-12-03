@@ -796,7 +796,7 @@ export default function AsideMock(): React.ReactElement {
     [total, processingFee]
   );
 
-  async function handleProcessPayment(): Promise<void> {
+  async function handleProcessPayment(explicitAmount?: number | unknown): Promise<void> {
     if (!cartId || items.length === 0) {
       showNotif({
         type: 'error',
@@ -826,7 +826,13 @@ export default function AsideMock(): React.ReactElement {
     const isCash = selectedPaymentType.payment_name
       .toLowerCase()
       .includes('cash');
-    const tendered = Number(amountTendered) || 0;
+
+    // LOGIC CHANGE: Check for explicit amount first
+    let tendered = Number(amountTendered) || 0;
+    if (typeof explicitAmount === 'number') {
+        tendered = explicitAmount;
+    }
+
     if (isCash && tendered < grandTotal) {
       showNotif({
         type: 'error',
@@ -1213,12 +1219,25 @@ export default function AsideMock(): React.ReactElement {
             {isCashPayment && (
               <div className='space-y-3'>
                 <div>
-                  <label
-                    htmlFor='amountTendered'
-                    className='font-medium mb-1 text-sm'
-                  >
-                    {t('Aside.paymentSheet.amountTendered')}
-                  </label>
+                  <div className='flex justify-between items-center mb-1'>
+                    <label
+                      htmlFor='amountTendered'
+                      className='font-medium text-sm'
+                    >
+                      {t('Aside.paymentSheet.amountTendered')}
+                    </label>
+                    <button
+                      type='button'
+                      onClick={() => {
+                        const val = grandTotal;
+                        setAmountTendered(String(val));
+                        handleProcessPayment(val);
+                      }}
+                      className='text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1 rounded-md font-medium transition-colors'
+                    >
+                      {t('Aside.paymentSheet.exactAmount', 'Uang Pas')}
+                    </button>
+                  </div>
                   <input
                     type='number'
                     id='amountTendered'
@@ -1250,7 +1269,7 @@ export default function AsideMock(): React.ReactElement {
               </button>
               <button
                 className='flex-1 px-6 py-2 bg-primary text-primary-foreground rounded-lg font-rubik font-semibold disabled:opacity-50'
-                onClick={handleProcessPayment}
+                onClick={() => handleProcessPayment()}
                 disabled={isProcessDisabled}
               >
                 {busy
