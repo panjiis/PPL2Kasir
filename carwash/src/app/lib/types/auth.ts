@@ -6,6 +6,7 @@ export type User = {
   lastname: string;
   role_id: number;
   is_active: boolean;
+  image_url?: string;
   last_login?: { seconds: number; nanos: number };
   created_at?: { seconds: number; nanos: number };
   updated_at?: { seconds: number; nanos: number };

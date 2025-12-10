@@ -207,3 +207,13 @@ export interface StockItem {
     warehouse_name: string;
   };
 }
+
+
+export interface CompanyProfile {
+  id?: number;
+  company_name: string;
+  company_address?: string;
+  company_logo?: string; // URL dari API
+  phone?: string;
+image_url?: string;
+}

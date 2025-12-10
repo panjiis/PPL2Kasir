@@ -17,6 +17,8 @@ import type {
   StockItem,
 } from '../types/pos';
 
+import type { CompanyProfile } from '../types/pos';
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   'https://api-syntra.interphaselabs.com/api/v1';
@@ -192,8 +194,6 @@ export async function fetchStocks(
 
   return { data: data }; // <-- PERBAIKAN: Menambahkan return statement
 }
-
-
 
 // ==================== PRODUCT GROUPS & TYPES ====================
 
@@ -612,4 +612,32 @@ export async function fetchEmployees(
   }
 
   return { data: data };
+}
+
+export async function fetchCompanyProfile(
+  token?: string
+): Promise<{ data: CompanyProfile }> {
+  // Pastikan endpoint ini sesuai dengan backend Anda
+  // Contoh: /settings/company atau /company-profile
+  const url = `${BASE_URL}/settings/company`;
+
+  const res = await fetch(url, {
+    headers: defaultHeaders(token),
+  });
+
+  if (!res.ok) {
+    // Jika endpoint belum siap, kembalikan default agar tidak crash
+    if (res.status === 404) {
+      console.warn('Endpoint company profile not found, using default.');
+      return {
+        data: {
+          company_name: 'Ezel Carwash',
+          image_url: '',
+        },
+      };
+    }
+    throw new Error(await safeReadText(res));
+  }
+
+  return res.json();
 }

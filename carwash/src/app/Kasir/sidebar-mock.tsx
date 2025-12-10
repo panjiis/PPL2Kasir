@@ -1,4 +1,4 @@
-// sidebar-mock.tsx
+// Kasir/sidebar-mock.tsx
 'use client';
 
 import type React from 'react';
@@ -40,6 +40,7 @@ import {
   fetchProductGroups,
   fetchPaymentTypes,
   fetchOrders,
+  fetchCompanyProfile, // Pastikan ini ada di pos-api.ts
 } from '../lib/utils/pos-api';
 import { useTranslation } from 'react-i18next';
 
@@ -128,7 +129,7 @@ function ThemeSwitcher({
     mql.addEventListener('change', handler);
 
     return () => mql.removeEventListener('change', handler);
-  }, [onModeChange]); // Added onModeChange to dependency
+  }, [onModeChange]);
 
   if (!isMounted) return null;
 
@@ -159,7 +160,6 @@ function ThemeSwitcher({
       }
     }
 
-    // Reset theme key to default for that mode to prevent color clash
     setActiveThemeKey(effectiveMode === 'dark' ? 'dark' : 'light');
     onModeChange(effectiveMode);
   };
@@ -333,7 +333,6 @@ export default function SidebarMock({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // State untuk melacak mode efektif (hasil akhir: dark atau light?)
   const [effectiveMode, setEffectiveMode] = useState<'dark' | 'light'>('dark');
 
   const {
@@ -352,10 +351,41 @@ export default function SidebarMock({
   const globalBtn = getButtonClasses();
   const globalBg = getBackgroundClass();
   const router = useRouter();
+
+  // --- STATE PERUSAHAAN ---
+  // Default values harus lebih netral untuk menghindari overwrite visual sebelum API load
   const [company, setCompany] = useState({
     name: 'Ezel Carwash Cilodong',
-    logo: '/logo.png',
+    logo: '', // Mulai kosong, jangan langsung hardcode '/logo.png' agar tidak 'ketimpa'
   });
+
+  // --- EFFECT: Load Company Profile from API ---
+  useEffect(() => {
+    if (session?.token) {
+      fetchCompanyProfile(session.token)
+        .then((res) => {
+          if (res.data) {
+            setCompany({
+              name: res.data.company_name || 'Ezel Carwash Cilodong',
+              logo: res.data.image_url || '', // API mengembalikan image_url
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load company profile:', err);
+          // Jika gagal fetch baru fallback
+          setCompany((prev) => ({ ...prev, logo: '/logo.png' }));
+        });
+    }
+  }, [session?.token]);
+
+  // --- USER DATA ---
+  // Ambil data user dari session atau gunakan default
+  const userImage = session?.user?.image_url || ''; // Gunakan image_url dari type User
+  const userName = session?.user?.firstname 
+    ? `${session.user.firstname} ${session.user.lastname || ''}`.trim()
+    : userProfile.name;
+  const userRole = session?.user?.role?.role_name ?? userProfile.role;
 
   useEffect(() => {
     if (!i18n.language || i18n.language === 'system') {
@@ -499,7 +529,6 @@ export default function SidebarMock({
     }
   };
 
-  // Filter themes berdasarkan mode efektif (Dark/Light)
   const visibleThemePackages = themePackages.filter(
     (pkg) => pkg.baseMode === effectiveMode
   );
@@ -512,20 +541,30 @@ export default function SidebarMock({
       ].join(' ')}
     >
       <div className='flex flex-col items-center mb-3 pt-2'>
-        <div className='h-12 w-12 rounded-lg overflow-hidden mb-1'>
+        {/* --- LOGO PERUSAHAAN (API) --- */}
+        <div className='h-12 w-12 rounded-lg overflow-hidden mb-1 relative bg-white'>
           <Image
             src={
-              company.logo?.startsWith('http')
+              company.logo && company.logo.startsWith('http')
                 ? company.logo
-                : company.logo || '/logo.png'
+                : '/' // Fallback ke logo.png jika kosong/tidak valid
             }
             alt='Company Logo'
-            width={48}
-            height={48}
-            className='object-cover h-full w-full'
-            unoptimized
+            fill
+            className='object-contain p-1' // Gunakan object-contain agar tidak gepeng
+            unoptimized={true}
+            priority // Tambahkan priority untuk LCP
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              // Cegah infinite loop jika logo.png juga error
+              if (target.src.indexOf('') === -1) {
+                target.src = '';
+              }
+            }}
           />
         </div>
+
+        {/* --- NAMA PERUSAHAAN (API) --- */}
         {isCustomize ? (
           <input
             defaultValue={company.name}
@@ -640,27 +679,33 @@ export default function SidebarMock({
           ref={menuRef}
         >
           <div className='flex items-center gap-2'>
-            <div className='h-8 w-8 rounded-md overflow-hidden'>
+            {/* --- FOTO PROFIL USER (API) --- */}
+            <div className='h-8 w-8 rounded-md overflow-hidden relative bg-muted'>
               <Image
                 src={
-                  company.logo?.startsWith('http')
-                    ? company.logo
-                    : company.logo || './Logo.png'
+                  userImage && userImage.startsWith('http')
+                    ? userImage
+                    : '/Logo.png' // Default ke Logo.png jika kosong
                 }
                 alt='User Profile'
-                width={40}
-                height={40}
-                className='h-full w-full object-cover'
-                unoptimized
+                fill
+                className='object-cover'
+                unoptimized={true}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src.indexOf('Logo.png') === -1) {
+                    target.src = '/Logo.png';
+                  }
+                }}
               />
             </div>
 
             <div className='flex flex-col flex-1 min-w-0'>
               <span className='text-sm font-medium text-foreground truncate'>
-                {userProfile.name}
+                {userName}
               </span>
               <span className='text-[11px] text-muted-foreground truncate'>
-                {userProfile.role}
+                {userRole}
               </span>
             </div>
 
