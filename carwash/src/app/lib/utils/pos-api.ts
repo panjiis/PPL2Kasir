@@ -17,8 +17,7 @@ import type {
   StockItem,
 } from '../types/pos';
 
-import type { CompanyProfile } from '../types/pos';
-
+import type { CompanySettings } from '../types/pos';
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   'https://api-syntra.interphaselabs.com/api/v1';
@@ -614,30 +613,33 @@ export async function fetchEmployees(
   return { data: data };
 }
 
-export async function fetchCompanyProfile(
+export async function fetchCompanySettings(
   token?: string
-): Promise<{ data: CompanyProfile }> {
-  // Pastikan endpoint ini sesuai dengan backend Anda
-  // Contoh: /settings/company atau /company-profile
-  const url = `${BASE_URL}/settings/company`;
+): Promise<{ data: CompanySettings | null }> {
+  // Update endpoint sesuai saran teman Anda
+  const url = `${BASE_URL}/store/1`;
 
-  const res = await fetch(url, {
-    headers: defaultHeaders(token),
-  });
+  try {
+    const res = await fetch(url, {
+      headers: defaultHeaders(token),
+    });
 
-  if (!res.ok) {
-    // Jika endpoint belum siap, kembalikan default agar tidak crash
-    if (res.status === 404) {
-      console.warn('Endpoint company profile not found, using default.');
-      return {
-        data: {
-          company_name: 'Ezel Carwash',
-          image_url: '',
-        },
-      };
+    if (!res.ok) {
+      console.warn('[API] Gagal fetch store info. Menggunakan default.');
+      return { data: null };
     }
-    throw new Error(await safeReadText(res));
-  }
 
-  return res.json();
+    const json = await res.json();
+
+    // Handle jika API mengembalikan data tanpa wrapper "data"
+    // (Berdasarkan screenshot, response store/1 sepertinya langsung object)
+    if (json && !json.data && (json.store_name || json.id)) {
+      return { data: json };
+    }
+
+    return json;
+  } catch (err) {
+    console.warn('[API] Error koneksi store info:', err);
+    return { data: null };
+  }
 }

@@ -94,7 +94,7 @@ function ProductCard({
   isAdding,
 }: ProductCardProps) {
   const { t } = useTranslation();
-  const { isCustomize, getProductImage, setProductImage } = usePreferences();
+  const {  getProductImage } = usePreferences();
   const finalImage = id ? getProductImage(id, image_url) : image_url;
 
   return (
@@ -145,37 +145,6 @@ function ProductCard({
           )}
         </div>
       </button>
-
-      {isCustomize && id && (
-        <div className='mt-3 flex flex-col gap-1.5'>
-          <label className='text-[11px] text-muted-foreground font-medium'>
-            {t('Center.card.customizeLabel')}
-          </label>
-          <div className='flex gap-2 w-full overflow-hidden'>
-            <input
-              className='flex-1 min-w-0 rounded-md border border-border bg-card text-foreground text-xs px-2 py-1 
-                   focus:outline-none focus:ring-1 focus:ring-primary 
-                   overflow-hidden text-ellipsis break-all'
-              placeholder={t('Center.card.customizePlaceholder')}
-              defaultValue={finalImage}
-              onBlur={(ev) => setProductImage(id, ev.currentTarget.value)}
-            />
-            <button
-              type='button'
-              className='px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs hover:opacity-90 whitespace-nowrap'
-              onClick={() => {
-                const url = prompt(
-                  t('Center.card.customizePlaceholder'),
-                  finalImage || ''
-                );
-                if (url !== null) setProductImage(id, url);
-              }}
-            >
-              {t('Center.card.customizeButton')}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

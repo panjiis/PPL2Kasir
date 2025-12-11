@@ -58,7 +58,6 @@
       "service": "Layanan",
       "product": "Produk",
       "ariaAdd": "Tambah {{name}} ke pesanan",
-      "customizeLabel": "Gambar produk:",
       "customizePlaceholder": "URL gambar produk...",
       "customizeButton": "Ubah"
     }

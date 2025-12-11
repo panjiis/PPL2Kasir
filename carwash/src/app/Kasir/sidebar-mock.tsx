@@ -40,9 +40,10 @@ import {
   fetchProductGroups,
   fetchPaymentTypes,
   fetchOrders,
-  fetchCompanyProfile, // Pastikan ini ada di pos-api.ts
+  fetchCompanySettings, // Pastikan fungsi ini sudah ada di pos-api.ts
 } from '../lib/utils/pos-api';
 import { useTranslation } from 'react-i18next';
+import type { CompanySettings } from '../lib/types/pos';
 
 interface NavItem {
   key: string;
@@ -343,49 +344,49 @@ export default function SidebarMock({
     setActiveThemeKey,
     getButtonClasses,
     getBackgroundClass,
-    getUserProfile,
+    // getUserProfile tidak lagi dipakai untuk data utama, diganti session
   } = usePreferences();
+
+  // Gunakan session untuk data User & Token
   const { session, clearSession } = useSession();
 
-  const userProfile = getUserProfile();
   const globalBtn = getButtonClasses();
   const globalBg = getBackgroundClass();
   const router = useRouter();
 
-  // --- STATE PERUSAHAAN ---
-  // Default values harus lebih netral untuk menghindari overwrite visual sebelum API load
+  // State Company Info
   const [company, setCompany] = useState({
     name: 'Ezel Carwash Cilodong',
-    logo: '', // Mulai kosong, jangan langsung hardcode '/logo.png' agar tidak 'ketimpa'
+    image_url: '/logo.png', // Default image
   });
 
-  // --- EFFECT: Load Company Profile from API ---
+  // Fetch Company Settings dari API
   useEffect(() => {
     if (session?.token) {
-      fetchCompanyProfile(session.token)
+      fetchCompanySettings(session.token)
         .then((res) => {
-          if (res.data) {
+          const data = res.data || (res as unknown as CompanySettings);
+          if (data) {
             setCompany({
-              name: res.data.company_name || 'Ezel Carwash Cilodong',
-              logo: res.data.image_url || '', // API mengembalikan image_url
+              // Tambahkan optional chaining (?.) atau fallback yang sesuai field API
+              name:
+                data.store_name ||
+                data.name ||
+                data.company_name ||
+                'Ezel Carwash',
+              image_url: data.image_url || data.logo || '/logo.png',
             });
           }
         })
         .catch((err) => {
-          console.error('Failed to load company profile:', err);
-          // Jika gagal fetch baru fallback
-          setCompany((prev) => ({ ...prev, logo: '/logo.png' }));
+          console.error('Gagal memuat info perusahaan:', err);
         });
     }
   }, [session?.token]);
-
-  // --- USER DATA ---
-  // Ambil data user dari session atau gunakan default
-  const userImage = session?.user?.image_url || ''; // Gunakan image_url dari type User
-  const userName = session?.user?.firstname 
-    ? `${session.user.firstname} ${session.user.lastname || ''}`.trim()
-    : userProfile.name;
-  const userRole = session?.user?.role?.role_name ?? userProfile.role;
+  useEffect(() => {
+    console.log('Data Session User:', session?.user);
+    console.log('URL Gambar User:', session?.user?.image_url);
+  }, [session]);
 
   useEffect(() => {
     if (!i18n.language || i18n.language === 'system') {
@@ -533,6 +534,12 @@ export default function SidebarMock({
     (pkg) => pkg.baseMode === effectiveMode
   );
 
+  // Helper untuk gambar
+  const getSafeImage = (url?: string, fallback = '/placeholder-user.jpg') => {
+    if (!url) return fallback;
+    if (url.startsWith('http')) return url;
+    return fallback;
+  };
   return (
     <div
       className={[
@@ -540,31 +547,26 @@ export default function SidebarMock({
         globalBg,
       ].join(' ')}
     >
+      {/* HEADER: Company Info */}
       <div className='flex flex-col items-center mb-3 pt-2'>
-        {/* --- LOGO PERUSAHAAN (API) --- */}
-        <div className='h-12 w-12 rounded-lg overflow-hidden mb-1 relative bg-white'>
+        <div className='h-12 w-12 rounded-lg overflow-hidden mb-1 bg-white/10'>
           <Image
-            src={
-              company.logo && company.logo.startsWith('http')
-                ? company.logo
-                : '/' // Fallback ke logo.png jika kosong/tidak valid
-            }
+            src={getSafeImage(company.image_url, '/logo.png')}
             alt='Company Logo'
-            fill
-            className='object-contain p-1' // Gunakan object-contain agar tidak gepeng
+            width={48}
+            height={48}
+            className='object-cover h-full w-full'
+            // PENTING: unoptimized={true} membypass proses resize Next.js
+            // Ini seringkali memperbaiki masalah gambar "x" dari Discord/CDN luar
             unoptimized={true}
-            priority // Tambahkan priority untuk LCP
+            priority={true} // Agar loading lebih cepat karena ini LCP (Largest Contentful Paint) candidate
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              // Cegah infinite loop jika logo.png juga error
-              if (target.src.indexOf('') === -1) {
-                target.src = '';
-              }
+              target.src = '/logo.png'; // Fallback ke lokal jika gagal load
+              target.onerror = null; // Mencegah loop error
             }}
           />
         </div>
-
-        {/* --- NAMA PERUSAHAAN (API) --- */}
         {isCustomize ? (
           <input
             defaultValue={company.name}
@@ -585,6 +587,7 @@ export default function SidebarMock({
         <ThemeSwitcher onModeChange={setEffectiveMode} />
       </div>
 
+      {/* NAVIGATION */}
       <div className='grid grid-cols-2 gap-2'>
         {!isMounted &&
           defaultNavItems.map((item) => (
@@ -623,6 +626,7 @@ export default function SidebarMock({
         )}
       </div>
 
+      {/* CUSTOMIZATION PANEL */}
       {isCustomize && (
         <div className='mt-3 px-1'>
           <div className='rounded-lg border border-border bg-card p-2'>
@@ -657,6 +661,7 @@ export default function SidebarMock({
         </div>
       )}
 
+      {/* FOOTER: User Profile & Customize Button */}
       <div className='mt-auto space-y-2'>
         <button
           onClick={toggleCustomize}
@@ -679,33 +684,39 @@ export default function SidebarMock({
           ref={menuRef}
         >
           <div className='flex items-center gap-2'>
-            {/* --- FOTO PROFIL USER (API) --- */}
-            <div className='h-8 w-8 rounded-md overflow-hidden relative bg-muted'>
+            <div className='h-8 w-8 rounded-md overflow-hidden bg-muted'>
+              {/* GAMBAR PROFIL USER DARI API */}
               <Image
-                src={
-                  userImage && userImage.startsWith('http')
-                    ? userImage
-                    : '/Logo.png' // Default ke Logo.png jika kosong
-                }
+                // Coba load gambar dari session, kalau URL nya mati (404), onError akan jalan
+                src={getSafeImage(
+                  session?.user?.image_url,
+                  '/placeholder-user.jpg'
+                )}
                 alt='User Profile'
-                fill
-                className='object-cover'
+                width={40}
+                height={40}
+                className='h-full w-full object-cover'
+                // PENTING: Bypass optimasi Next.js agar gambar eksternal lebih stabil
                 unoptimized={true}
+                // PENTING: Fallback Error Handler
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  if (target.src.indexOf('Logo.png') === -1) {
-                    target.src = '/Logo.png';
-                  }
+                  // Ganti source ke UI Avatars (Pasti Aktif) jika gambar Discord mati
+                  target.src = `https://ui-avatars.com/api/?name=${
+                    session?.user?.username || 'User'
+                  }&background=random&color=fff`;
                 }}
               />
             </div>
 
             <div className='flex flex-col flex-1 min-w-0'>
               <span className='text-sm font-medium text-foreground truncate'>
-                {userName}
+                {session?.user?.firstname
+                  ? `${session.user.firstname} ${session.user.lastname || ''}`
+                  : session?.user?.username || 'Kasir'}
               </span>
               <span className='text-[11px] text-muted-foreground truncate'>
-                {userRole}
+                {session?.user?.role?.role_name || 'Staff'}
               </span>
             </div>
 
@@ -769,6 +780,7 @@ export default function SidebarMock({
         </div>
       </div>
 
+      {/* POPUP API RESULT */}
       {popupContent && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
           <div className='bg-white dark:bg-card rounded-lg shadow-lg p-6 max-w-lg w-[min(95vw,640px)]'>

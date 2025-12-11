@@ -58,7 +58,6 @@
       "service": "Service",
       "product": "Product",
       "ariaAdd": "Add {{name}} to order",
-      "customizeLabel": "Product image:",
       "customizePlaceholder": "Product image URL...",
       "customizeButton": "Change"
     }

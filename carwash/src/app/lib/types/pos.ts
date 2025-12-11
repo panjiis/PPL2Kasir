@@ -208,12 +208,17 @@ export interface StockItem {
   };
 }
 
-
-export interface CompanyProfile {
+export interface CompanySettings {
   id?: number;
-  company_name: string;
-  company_address?: string;
-  company_logo?: string; // URL dari API
+  // Variasi nama yang mungkin dikembalikan API /store/1 atau /settings/company
+  store_name?: string; 
+  company_name?: string;
+  name?: string;
+  
+  address?: string;
   phone?: string;
-image_url?: string;
+  
+  // Field gambar
+  image_url?: string;
+  logo?: string;
 }
