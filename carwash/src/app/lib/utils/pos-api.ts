@@ -17,6 +17,7 @@ import type {
   StockItem,
 } from '../types/pos';
 
+import type { CompanySettings } from '../types/pos';
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   'https://api-syntra.interphaselabs.com/api/v1';
@@ -192,8 +193,6 @@ export async function fetchStocks(
 
   return { data: data }; // <-- PERBAIKAN: Menambahkan return statement
 }
-
-
 
 // ==================== PRODUCT GROUPS & TYPES ====================
 
@@ -612,4 +611,35 @@ export async function fetchEmployees(
   }
 
   return { data: data };
+}
+
+export async function fetchCompanySettings(
+  token?: string
+): Promise<{ data: CompanySettings | null }> {
+  // Update endpoint sesuai saran teman Anda
+  const url = `${BASE_URL}/store/1`;
+
+  try {
+    const res = await fetch(url, {
+      headers: defaultHeaders(token),
+    });
+
+    if (!res.ok) {
+      console.warn('[API] Gagal fetch store info. Menggunakan default.');
+      return { data: null };
+    }
+
+    const json = await res.json();
+
+    // Handle jika API mengembalikan data tanpa wrapper "data"
+    // (Berdasarkan screenshot, response store/1 sepertinya langsung object)
+    if (json && !json.data && (json.store_name || json.id)) {
+      return { data: json };
+    }
+
+    return json;
+  } catch (err) {
+    console.warn('[API] Error koneksi store info:', err);
+    return { data: null };
+  }
 }

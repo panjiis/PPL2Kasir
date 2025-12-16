@@ -1,7 +1,6 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   images: {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
@@ -13,7 +12,20 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
-
+      // --- Tambahan untuk Discord ---
+      {
+        protocol: 'https',
+        hostname: 'cdn.discordapp.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'media.discordapp.net', // Domain alternatif yang sering dipakai Discord
+        port: '',
+        pathname: '/**',
+      },
+      // -----------------------------
       {
         protocol: 'https',
         hostname: '**', // Mengizinkan semua domain gambar HTTPS

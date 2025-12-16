@@ -1,4 +1,4 @@
-// sidebar-mock.tsx
+// Kasir/sidebar-mock.tsx
 'use client';
 
 import type React from 'react';
@@ -40,8 +40,10 @@ import {
   fetchProductGroups,
   fetchPaymentTypes,
   fetchOrders,
+  fetchCompanySettings, // Pastikan fungsi ini sudah ada di pos-api.ts
 } from '../lib/utils/pos-api';
 import { useTranslation } from 'react-i18next';
+import type { CompanySettings } from '../lib/types/pos';
 
 interface NavItem {
   key: string;
@@ -128,7 +130,7 @@ function ThemeSwitcher({
     mql.addEventListener('change', handler);
 
     return () => mql.removeEventListener('change', handler);
-  }, [onModeChange]); // Added onModeChange to dependency
+  }, [onModeChange]);
 
   if (!isMounted) return null;
 
@@ -159,7 +161,6 @@ function ThemeSwitcher({
       }
     }
 
-    // Reset theme key to default for that mode to prevent color clash
     setActiveThemeKey(effectiveMode === 'dark' ? 'dark' : 'light');
     onModeChange(effectiveMode);
   };
@@ -333,7 +334,6 @@ export default function SidebarMock({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // State untuk melacak mode efektif (hasil akhir: dark atau light?)
   const [effectiveMode, setEffectiveMode] = useState<'dark' | 'light'>('dark');
 
   const {
@@ -344,18 +344,49 @@ export default function SidebarMock({
     setActiveThemeKey,
     getButtonClasses,
     getBackgroundClass,
-    getUserProfile,
+    // getUserProfile tidak lagi dipakai untuk data utama, diganti session
   } = usePreferences();
+
+  // Gunakan session untuk data User & Token
   const { session, clearSession } = useSession();
 
-  const userProfile = getUserProfile();
   const globalBtn = getButtonClasses();
   const globalBg = getBackgroundClass();
   const router = useRouter();
+
+  // State Company Info
   const [company, setCompany] = useState({
     name: 'Ezel Carwash Cilodong',
-    logo: '/logo.png',
+    image_url: '/logo.png', // Default image
   });
+
+  // Fetch Company Settings dari API
+  useEffect(() => {
+    if (session?.token) {
+      fetchCompanySettings(session.token)
+        .then((res) => {
+          const data = res.data || (res as unknown as CompanySettings);
+          if (data) {
+            setCompany({
+              // Tambahkan optional chaining (?.) atau fallback yang sesuai field API
+              name:
+                data.store_name ||
+                data.name ||
+                data.company_name ||
+                'Ezel Carwash',
+              image_url: data.image_url || data.logo || '/logo.png',
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('Gagal memuat info perusahaan:', err);
+        });
+    }
+  }, [session?.token]);
+  useEffect(() => {
+    console.log('Data Session User:', session?.user);
+    console.log('URL Gambar User:', session?.user?.image_url);
+  }, [session]);
 
   useEffect(() => {
     if (!i18n.language || i18n.language === 'system') {
@@ -499,11 +530,16 @@ export default function SidebarMock({
     }
   };
 
-  // Filter themes berdasarkan mode efektif (Dark/Light)
   const visibleThemePackages = themePackages.filter(
     (pkg) => pkg.baseMode === effectiveMode
   );
 
+  // Helper untuk gambar
+  const getSafeImage = (url?: string, fallback = '/placeholder-user.jpg') => {
+    if (!url) return fallback;
+    if (url.startsWith('http')) return url;
+    return fallback;
+  };
   return (
     <div
       className={[
@@ -511,19 +547,24 @@ export default function SidebarMock({
         globalBg,
       ].join(' ')}
     >
+      {/* HEADER: Company Info */}
       <div className='flex flex-col items-center mb-3 pt-2'>
-        <div className='h-12 w-12 rounded-lg overflow-hidden mb-1'>
+        <div className='h-12 w-12 rounded-lg overflow-hidden mb-1 bg-white/10'>
           <Image
-            src={
-              company.logo?.startsWith('http')
-                ? company.logo
-                : company.logo || '/logo.png'
-            }
+            src={getSafeImage(company.image_url, '/logo.png')}
             alt='Company Logo'
             width={48}
             height={48}
             className='object-cover h-full w-full'
-            unoptimized
+            // PENTING: unoptimized={true} membypass proses resize Next.js
+            // Ini seringkali memperbaiki masalah gambar "x" dari Discord/CDN luar
+            unoptimized={true}
+            priority={true} // Agar loading lebih cepat karena ini LCP (Largest Contentful Paint) candidate
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = '/logo.png'; // Fallback ke lokal jika gagal load
+              target.onerror = null; // Mencegah loop error
+            }}
           />
         </div>
         {isCustomize ? (
@@ -546,6 +587,7 @@ export default function SidebarMock({
         <ThemeSwitcher onModeChange={setEffectiveMode} />
       </div>
 
+      {/* NAVIGATION */}
       <div className='grid grid-cols-2 gap-2'>
         {!isMounted &&
           defaultNavItems.map((item) => (
@@ -584,6 +626,7 @@ export default function SidebarMock({
         )}
       </div>
 
+      {/* CUSTOMIZATION PANEL */}
       {isCustomize && (
         <div className='mt-3 px-1'>
           <div className='rounded-lg border border-border bg-card p-2'>
@@ -618,6 +661,7 @@ export default function SidebarMock({
         </div>
       )}
 
+      {/* FOOTER: User Profile & Customize Button */}
       <div className='mt-auto space-y-2'>
         <button
           onClick={toggleCustomize}
@@ -640,27 +684,39 @@ export default function SidebarMock({
           ref={menuRef}
         >
           <div className='flex items-center gap-2'>
-            <div className='h-8 w-8 rounded-md overflow-hidden'>
+            <div className='h-8 w-8 rounded-md overflow-hidden bg-muted'>
+              {/* GAMBAR PROFIL USER DARI API */}
               <Image
-                src={
-                  company.logo?.startsWith('http')
-                    ? company.logo
-                    : company.logo || './Logo.png'
-                }
+                // Coba load gambar dari session, kalau URL nya mati (404), onError akan jalan
+                src={getSafeImage(
+                  session?.user?.image_url,
+                  '/placeholder-user.jpg'
+                )}
                 alt='User Profile'
                 width={40}
                 height={40}
                 className='h-full w-full object-cover'
-                unoptimized
+                // PENTING: Bypass optimasi Next.js agar gambar eksternal lebih stabil
+                unoptimized={true}
+                // PENTING: Fallback Error Handler
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  // Ganti source ke UI Avatars (Pasti Aktif) jika gambar Discord mati
+                  target.src = `https://ui-avatars.com/api/?name=${
+                    session?.user?.username || 'User'
+                  }&background=random&color=fff`;
+                }}
               />
             </div>
 
             <div className='flex flex-col flex-1 min-w-0'>
               <span className='text-sm font-medium text-foreground truncate'>
-                {userProfile.name}
+                {session?.user?.firstname
+                  ? `${session.user.firstname} ${session.user.lastname || ''}`
+                  : session?.user?.username || 'Kasir'}
               </span>
               <span className='text-[11px] text-muted-foreground truncate'>
-                {userProfile.role}
+                {session?.user?.role?.role_name || 'Staff'}
               </span>
             </div>
 
@@ -724,6 +780,7 @@ export default function SidebarMock({
         </div>
       </div>
 
+      {/* POPUP API RESULT */}
       {popupContent && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
           <div className='bg-white dark:bg-card rounded-lg shadow-lg p-6 max-w-lg w-[min(95vw,640px)]'>

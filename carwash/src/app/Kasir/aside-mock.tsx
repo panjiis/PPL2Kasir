@@ -37,8 +37,9 @@ import {
   fetchEmployees,
   fetchPaymentTypes,
 } from '../lib/utils/pos-api';
-import type { Employee, PaymentType } from '../lib/types/pos';
+import type { Employee, PaymentType, DetailedPosOrder, PosProduct } from '../lib/types/pos';
 import { useTranslation } from 'react-i18next';
+import { PrintableReceipt } from './orders-view';
 
 type ApiDiscount = {
   id?: number | string;
@@ -333,9 +334,7 @@ function ServicesSection() {
                 newQty > 0 &&
                 adjustQuantity(it.id, newQty)
               }
-              // === PERBAIKAN DI SINI ===
               extraRight={
-              
                 <div className='flex items-start gap-2 w-full'>
                   <Select
                     value={it.employeeId ? String(it.employeeId) : ''}
@@ -353,7 +352,6 @@ function ServicesSection() {
                         border border-border bg-card text-foreground
                         flex items-start gap-1
                       '
-                   
                     >
                       <div className='flex-1 min-w-0 text-left'>
                         <span className='block w-full whitespace-normal break-words leading-tight'>
@@ -368,14 +366,12 @@ function ServicesSection() {
                       </div>
                     </SelectTrigger>
 
-                    {/* Bagian Content (Dropdown) tetap sama */}
                     <SelectContent align='end' className='w-[220px]'>
                       <SelectGroup>
                         {employees.map((e) => (
                           <SelectItem
                             key={e.id}
                             value={String(e.id)}
-                            // Pastikan dropdown item juga bisa wrap
                             className='text-xs h-auto py-2 whitespace-normal break-words text-left items-start'
                           >
                             <span className='leading-snug block w-full'>
@@ -661,6 +657,7 @@ function BillOptionSection({
 }
 
 export default function AsideMock(): React.ReactElement {
+ 
   const { t } = useTranslation();
   const {
     deleteSelected,
@@ -682,6 +679,7 @@ export default function AsideMock(): React.ReactElement {
     clearCoupon,
     cartId,
     clearCartState,
+    products, 
   } = useCart();
   const { showNotif } = useNotification();
   const { session } = useSession();
@@ -698,6 +696,36 @@ export default function AsideMock(): React.ReactElement {
     'In Process': t('Aside.statusSheet.process'),
     'Waiting Payment': t('Aside.statusSheet.waiting'),
   };
+
+  // --- STATE UNTUK AUTO-PRINT ---
+  const [printingOrder, setPrintingOrder] = useState<{
+    order: DetailedPosOrder;
+    taxAmount: number;
+    discountAmount: number;
+    processingFee: number;
+    paymentMethodName: string;
+    grandTotal: number;
+  } | null>(null);
+
+  // --- EFFECT AUTO-PRINT (Kondisi 1 & 2) ---
+  useEffect(() => {
+    if (printingOrder) {
+      // Trigger print setelah state di-update dan komponen PrintableReceipt di-render
+      const timer = setTimeout(() => {
+        try {
+          window.print();
+        } catch (error) {
+          console.error("Gagal print (mungkin printer tidak tersedia):", error);
+          // Kondisi 1: Printer mati/tidak terdeteksi = Silent Fail (Order tetap lanjut)
+        } finally {
+          // Bersihkan state agar tidak print berulang
+          setPrintingOrder(null);
+        }
+      }, 500); 
+      return () => clearTimeout(timer);
+    }
+  }, [printingOrder]);
+
 
   useEffect(() => {
     if (session?.token) {
@@ -768,7 +796,7 @@ export default function AsideMock(): React.ReactElement {
     [total, processingFee]
   );
 
-  async function handleProcessPayment(): Promise<void> {
+  async function handleProcessPayment(explicitAmount?: number | unknown): Promise<void> {
     if (!cartId || items.length === 0) {
       showNotif({
         type: 'error',
@@ -798,7 +826,13 @@ export default function AsideMock(): React.ReactElement {
     const isCash = selectedPaymentType.payment_name
       .toLowerCase()
       .includes('cash');
-    const tendered = Number(amountTendered) || 0;
+
+    // LOGIC CHANGE: Check for explicit amount first
+    let tendered = Number(amountTendered) || 0;
+    if (typeof explicitAmount === 'number') {
+        tendered = explicitAmount;
+    }
+
     if (isCash && tendered < grandTotal) {
       showNotif({
         type: 'error',
@@ -823,7 +857,7 @@ export default function AsideMock(): React.ReactElement {
         additional_info: `Payment Fee: ${processingFee} (Metode: ${paymentName}, Rate: ${selectedPaymentType.processing_fee_rate})`,
         notes: `Payment type: ${paymentName}`,
       };
-      console.log('Data yang "dilempar" ke createOrderFromCart:', orderPayload);
+      
       const { data: order } = await createOrderFromCart(orderPayload, token);
       const createdOrderId = order.id;
       const paymentPayload = {
@@ -832,7 +866,7 @@ export default function AsideMock(): React.ReactElement {
         payment_type_id: paymentTypeId,
         reference_number: `TRX-${Date.now()}`,
       };
-      console.log('Data yang "dilempar" ke processPaymentApi:', paymentPayload);
+      
       await processPaymentApi(paymentPayload, token);
       addOrder({
         id: String(createdOrderId),
@@ -852,9 +886,37 @@ export default function AsideMock(): React.ReactElement {
         amount: grandTotal,
         method: paymentName,
       });
-      window.dispatchEvent(
-        new CustomEvent('navigate-kasir-view', { detail: { view: 'orders' } })
-      );
+
+      // === KONDISI 2: Auto Print saat Order Sukses ===
+      // Siapkan data untuk PrintableReceipt
+      const orderForPrint: DetailedPosOrder = {
+        id: order.id,
+        document_number: order.document_number,
+        orders_date: { seconds: Date.now() / 1000 },
+        subtotal: subtotal,
+        // Map cart items ke structure order_items yang dibutuhkan
+        order_items: items.map(item => ({
+            id: Number(item.id),
+            product_name: item.name,
+            quantity: item.qty,
+            line_total: (item.price * item.qty).toString(),
+            product_code: item.itemId ?? item.id,
+            price: item.price,
+            total_price: item.price * item.qty
+        })),
+        payment_type: { payment_name: selectedPaymentType.payment_name },
+        notes: `Payment type: ${selectedPaymentType.payment_name}`,
+      } as DetailedPosOrder; 
+
+      setPrintingOrder({
+        order: orderForPrint,
+        taxAmount: tax,
+        discountAmount: discount,
+        processingFee: processingFee,
+        paymentMethodName: selectedPaymentType.payment_name,
+        grandTotal: grandTotal,
+      });
+      
       clearAll();
     } catch (err) {
       console.error('Payment processing failed:', err);
@@ -907,6 +969,10 @@ export default function AsideMock(): React.ReactElement {
         type: 'success',
         message: `Order ${createdOrder.document_number} berhasil di-void.`,
       });
+      
+      // === KONDISI 3: Void = Tidak Print ===
+      // Kita TIDAK memanggil setPrintingOrder() di sini.
+      
       clearCartState({ deleteBackendCart: false });
     } catch (err) {
       console.error(err);
@@ -919,7 +985,6 @@ export default function AsideMock(): React.ReactElement {
     }
   }
 
-  // === FIXED: handleSelectAndApplyDiscount ===
   async function handleSelectAndApplyDiscount(coupon: Coupon): Promise<void> {
     if (items.length === 0) {
       showNotif({
@@ -929,12 +994,10 @@ export default function AsideMock(): React.ReactElement {
       return;
     }
 
-    // ✅ PERBAIKAN: Jika sudah ada diskon aktif, hapus dulu
     if (appliedCoupon) {
       console.log('Mengganti diskon: Menghapus diskon lama terlebih dahulu...');
       await clearCoupon();
     }
-    // ✅ PERBAIKAN SELESAI
 
     const unassignedService = items.find(
       (it) => it.type === 'service' && !it.isApiSynced
@@ -982,7 +1045,7 @@ export default function AsideMock(): React.ReactElement {
       showNotif({ type: 'success', message: 'Diskon diterapkan.' });
     } catch (err) {
       console.error(err);
-      await clearCoupon(); // Pastikan reset lokal & backend jika gagal
+      await clearCoupon(); 
       const errorMessage =
         err instanceof Error
           ? err.message
@@ -992,7 +1055,6 @@ export default function AsideMock(): React.ReactElement {
       setBusy(false);
     }
   }
-  // === AKHIR FIXED: handleSelectAndApplyDiscount ===
 
   const asideBlur =
     paymentSheetOpen || statusSheetOpen
@@ -1031,7 +1093,7 @@ export default function AsideMock(): React.ReactElement {
           onClick={
             !locked
               ? async () => {
-                  await clearCoupon(); // reset memo discount manual via API
+                  await clearCoupon(); 
                   toggleAdjust();
                 }
               : undefined
@@ -1157,12 +1219,25 @@ export default function AsideMock(): React.ReactElement {
             {isCashPayment && (
               <div className='space-y-3'>
                 <div>
-                  <label
-                    htmlFor='amountTendered'
-                    className='font-medium mb-1 text-sm'
-                  >
-                    {t('Aside.paymentSheet.amountTendered')}
-                  </label>
+                  <div className='flex justify-between items-center mb-1'>
+                    <label
+                      htmlFor='amountTendered'
+                      className='font-medium text-sm'
+                    >
+                      {t('Aside.paymentSheet.amountTendered')}
+                    </label>
+                    <button
+                      type='button'
+                      onClick={() => {
+                        const val = grandTotal;
+                        setAmountTendered(String(val));
+                        handleProcessPayment(val);
+                      }}
+                      className='text-xs bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1 rounded-md font-medium transition-colors'
+                    >
+                      {t('Aside.paymentSheet.exactAmount', 'Uang Pas')}
+                    </button>
+                  </div>
                   <input
                     type='number'
                     id='amountTendered'
@@ -1194,7 +1269,7 @@ export default function AsideMock(): React.ReactElement {
               </button>
               <button
                 className='flex-1 px-6 py-2 bg-primary text-primary-foreground rounded-lg font-rubik font-semibold disabled:opacity-50'
-                onClick={handleProcessPayment}
+                onClick={() => handleProcessPayment()}
                 disabled={isProcessDisabled}
               >
                 {busy
@@ -1235,6 +1310,22 @@ export default function AsideMock(): React.ReactElement {
             </button>
           </div>
         </div>
+      )}
+
+      {/* RENDER PRINTABLE RECEIPT JIKA ADA DATA PRINT */}
+      {printingOrder && (
+        <PrintableReceipt
+          order={printingOrder.order}
+          products={products.map((p) => ({
+             product_code: p.itemId,
+             product_name: p.name,
+          } as unknown as PosProduct))} 
+          taxAmount={printingOrder.taxAmount}
+          discountAmount={printingOrder.discountAmount}
+          processingFee={printingOrder.processingFee}
+          paymentMethodName={printingOrder.paymentMethodName}
+          grandTotal={printingOrder.grandTotal}
+        />
       )}
     </div>
   );

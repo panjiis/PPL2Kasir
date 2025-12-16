@@ -58,8 +58,9 @@ const ITEMS_PER_PAGE = 8;
 
 /**
  * PrintableReceipt
+ * Exported for use in AsideMock (Auto-print)
  */
-const PrintableReceipt = ({
+export const PrintableReceipt = ({
   order,
   products,
   taxAmount,

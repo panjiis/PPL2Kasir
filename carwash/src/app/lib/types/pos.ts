@@ -207,3 +207,18 @@ export interface StockItem {
     warehouse_name: string;
   };
 }
+
+export interface CompanySettings {
+  id?: number;
+  // Variasi nama yang mungkin dikembalikan API /store/1 atau /settings/company
+  store_name?: string; 
+  company_name?: string;
+  name?: string;
+  
+  address?: string;
+  phone?: string;
+  
+  // Field gambar
+  image_url?: string;
+  logo?: string;
+}
