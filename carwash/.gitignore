@@ -50,3 +50,6 @@ src/app/Login/tests/
 
 vitest.config.ts
 vitest.setup.ts
+
+**/tests/
+**/*.test.tsx
